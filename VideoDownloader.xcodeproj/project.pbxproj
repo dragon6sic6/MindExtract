@@ -1,0 +1,418 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B1000001 /* VideoDownloaderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000011 /* VideoDownloaderApp.swift */; };
+		B1000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000012 /* ContentView.swift */; };
+		B1000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000013 /* Models.swift */; };
+		B1000004 /* YTDLPWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000014 /* YTDLPWrapper.swift */; };
+		B1000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000015 /* Assets.xcassets */; };
+		B1000006 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000022 /* AboutView.swift */; };
+		B1000007 /* yt-dlp in Resources */ = {isa = PBXBuildFile; fileRef = B1000023 /* yt-dlp */; };
+		B1000031 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000024 /* SettingsView.swift */; };
+		B1000032 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000025 /* HistoryView.swift */; };
+		B1000033 /* TranscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000026 /* TranscriptionManager.swift */; };
+		B1000034 /* TranscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000027 /* TranscriptionSettingsView.swift */; };
+		B1000035 /* TranscriptionResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000028 /* TranscriptionResultView.swift */; };
+		B1000036 /* RecentActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000029 /* RecentActivityView.swift */; };
+		B1000060 /* whisper in Resources */ = {isa = PBXBuildFile; fileRef = B1000050 /* whisper */; };
+		B1000061 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = B1000051 /* ffmpeg */; };
+		B1000062 /* libwhisper.1.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000052 /* libwhisper.1.dylib */; };
+		B1000063 /* libggml.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000053 /* libggml.0.dylib */; };
+		B1000064 /* libggml-cpu.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000054 /* libggml-cpu.0.dylib */; };
+		B1000065 /* libggml-blas.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000055 /* libggml-blas.0.dylib */; };
+		B1000066 /* libggml-metal.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000056 /* libggml-metal.0.dylib */; };
+		B1000067 /* libggml-base.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000057 /* libggml-base.0.dylib */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B1000010 /* VideoDownloader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VideoDownloader.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B1000011 /* VideoDownloaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDownloaderApp.swift; sourceTree = "<group>"; };
+		B1000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B1000013 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B1000014 /* YTDLPWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YTDLPWrapper.swift; sourceTree = "<group>"; };
+		B1000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B1000016 /* VideoDownloader.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VideoDownloader.entitlements; sourceTree = "<group>"; };
+		B1000022 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		B1000023 /* yt-dlp */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = "yt-dlp"; sourceTree = "<group>"; };
+		B1000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B1000025 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		B1000026 /* TranscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionManager.swift; sourceTree = "<group>"; };
+		B1000027 /* TranscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionSettingsView.swift; sourceTree = "<group>"; };
+		B1000028 /* TranscriptionResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionResultView.swift; sourceTree = "<group>"; };
+		B1000029 /* RecentActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentActivityView.swift; sourceTree = "<group>"; };
+		B1000050 /* whisper */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = whisper; sourceTree = "<group>"; };
+		B1000051 /* ffmpeg */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = ffmpeg; sourceTree = "<group>"; };
+		B1000052 /* libwhisper.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libwhisper.1.dylib"; sourceTree = "<group>"; };
+		B1000053 /* libggml.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml.0.dylib"; sourceTree = "<group>"; };
+		B1000054 /* libggml-cpu.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-cpu.0.dylib"; sourceTree = "<group>"; };
+		B1000055 /* libggml-blas.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-blas.0.dylib"; sourceTree = "<group>"; };
+		B1000056 /* libggml-metal.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-metal.0.dylib"; sourceTree = "<group>"; };
+		B1000057 /* libggml-base.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-base.0.dylib"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B100000D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B1000030 = {
+			isa = PBXGroup;
+			children = (
+				B1000020 /* VideoDownloader */,
+				B100000F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B100000F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B1000010 /* VideoDownloader.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B1000020 /* VideoDownloader */ = {
+			isa = PBXGroup;
+			children = (
+				B1000011 /* VideoDownloaderApp.swift */,
+				B1000012 /* ContentView.swift */,
+				B1000022 /* AboutView.swift */,
+				B1000024 /* SettingsView.swift */,
+				B1000025 /* HistoryView.swift */,
+				B1000026 /* TranscriptionManager.swift */,
+				B1000027 /* TranscriptionSettingsView.swift */,
+				B1000028 /* TranscriptionResultView.swift */,
+				B1000029 /* RecentActivityView.swift */,
+				B1000013 /* Models.swift */,
+				B1000014 /* YTDLPWrapper.swift */,
+				B1000015 /* Assets.xcassets */,
+				B1000016 /* VideoDownloader.entitlements */,
+				B1000021 /* Resources */,
+			);
+			path = VideoDownloader;
+			sourceTree = "<group>";
+		};
+		B1000021 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B1000023 /* yt-dlp */,
+				B1000050 /* whisper */,
+				B1000051 /* ffmpeg */,
+				B1000052 /* libwhisper.1.dylib */,
+				B1000053 /* libggml.0.dylib */,
+				B1000054 /* libggml-cpu.0.dylib */,
+				B1000055 /* libggml-blas.0.dylib */,
+				B1000056 /* libggml-metal.0.dylib */,
+				B1000057 /* libggml-base.0.dylib */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B100000A /* VideoDownloader */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B100001A /* Build configuration list for PBXNativeTarget "VideoDownloader" */;
+			buildPhases = (
+				B100000B /* Sources */,
+				B100000D /* Frameworks */,
+				B100000E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VideoDownloader;
+			productName = MindExtract;
+			productReference = B1000010 /* VideoDownloader.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B1000008 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					B100000A = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = B1000009 /* Build configuration list for PBXProject "VideoDownloader" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B1000030;
+			productRefGroup = B100000F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B100000A /* VideoDownloader */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B100000E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1000005 /* Assets.xcassets in Resources */,
+				B1000007 /* yt-dlp in Resources */,
+				B1000060 /* whisper in Resources */,
+				B1000061 /* ffmpeg in Resources */,
+				B1000062 /* libwhisper.1.dylib in Resources */,
+				B1000063 /* libggml.0.dylib in Resources */,
+				B1000064 /* libggml-cpu.0.dylib in Resources */,
+				B1000065 /* libggml-blas.0.dylib in Resources */,
+				B1000066 /* libggml-metal.0.dylib in Resources */,
+				B1000067 /* libggml-base.0.dylib in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B100000B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1000001 /* VideoDownloaderApp.swift in Sources */,
+				B1000002 /* ContentView.swift in Sources */,
+				B1000006 /* AboutView.swift in Sources */,
+				B1000031 /* SettingsView.swift in Sources */,
+				B1000032 /* HistoryView.swift in Sources */,
+				B1000033 /* TranscriptionManager.swift in Sources */,
+				B1000034 /* TranscriptionSettingsView.swift in Sources */,
+				B1000035 /* TranscriptionResultView.swift in Sources */,
+				B1000036 /* RecentActivityView.swift in Sources */,
+				B1000003 /* Models.swift in Sources */,
+				B1000004 /* YTDLPWrapper.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		B1000040 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B1000041 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		B1000042 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = VideoDownloader/VideoDownloader.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MindExtract;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2025 Mindact. All rights reserved.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
+				PRODUCT_NAME = MindExtract;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B1000043 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = VideoDownloader/VideoDownloader.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MindExtract;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2025 Mindact. All rights reserved.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
+				PRODUCT_NAME = MindExtract;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B1000009 /* Build configuration list for PBXProject "VideoDownloader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1000040 /* Debug */,
+				B1000041 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B100001A /* Build configuration list for PBXNativeTarget "VideoDownloader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1000042 /* Debug */,
+				B1000043 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B1000008 /* Project object */;
+}
