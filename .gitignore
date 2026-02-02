@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+VideoDownloader.xcodeproj/project.xcworkspace/xcuserdata/
+VideoDownloader.xcodeproj/xcuserdata/
+
+# Build output
+dist/
+
+# DMG artifacts
+*.dmg
