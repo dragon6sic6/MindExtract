@@ -1,20 +1,20 @@
 #!/bin/bash
 
-# Video Downloader DMG Creator
+# MindExtract DMG Creator
 # © 2025 Mindact
 
 set -e
 
 echo "================================================"
-echo "  Video Downloader DMG Creator"
+echo "  MindExtract DMG Creator"
 echo "  by Mindact"
 echo "================================================"
 echo ""
 
 # Configuration
-APP_NAME="Video Downloader"
-DMG_NAME="VideoDownloader-1.0.0-Universal"
-VOLUME_NAME="Video Downloader"
+APP_NAME="MindExtract"
+DMG_NAME="MindExtract-1.0.0-Universal"
+VOLUME_NAME="MindExtract"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
 DMG_DIR="$PROJECT_DIR/dmg_temp"
@@ -26,23 +26,28 @@ echo "Looking for built app..."
 # Check common build locations
 APP_PATH=""
 POSSIBLE_PATHS=(
-    "$HOME/Library/Developer/Xcode/DerivedData/VideoDownloader-*/Build/Products/Release/VideoDownloader.app"
-    "$BUILD_DIR/Build/Products/Release/VideoDownloader.app"
-    "$PROJECT_DIR/build/Release/VideoDownloader.app"
+    "$BUILD_DIR/Build/Products/Release/MindExtract.app"
+    "$PROJECT_DIR/build/Release/MindExtract.app"
+    "$HOME/Library/Developer/Xcode/DerivedData/VideoDownloader-*/Build/Products/Release/MindExtract.app"
 )
 
 for path_pattern in "${POSSIBLE_PATHS[@]}"; do
-    for path in $path_pattern; do
+    while IFS= read -r -d '' path; do
         if [ -d "$path" ]; then
             APP_PATH="$path"
             break 2
         fi
-    done
+    done < <(compgen -G "$path_pattern" | tr '\n' '\0' 2>/dev/null)
+    # Fallback: try the pattern directly (no glob)
+    if [ -z "$APP_PATH" ] && [ -d "$path_pattern" ]; then
+        APP_PATH="$path_pattern"
+        break
+    fi
 done
 
 if [ -z "$APP_PATH" ]; then
     echo ""
-    echo "ERROR: Could not find VideoDownloader.app"
+    echo "ERROR: Could not find MindExtract.app"
     echo ""
     echo "Please build the app first in Xcode:"
     echo "  1. Open VideoDownloader.xcodeproj in Xcode"
@@ -66,7 +71,7 @@ fi
 # Check architecture
 echo ""
 echo "Checking app architecture..."
-ARCHS=$(lipo -archs "$APP_PATH/Contents/MacOS/VideoDownloader" 2>/dev/null || echo "unknown")
+ARCHS=$(lipo -archs "$APP_PATH/Contents/MacOS/MindExtract" 2>/dev/null || echo "unknown")
 echo "App architectures: $ARCHS"
 
 if [ -f "$APP_PATH/Contents/Resources/yt-dlp" ]; then
@@ -85,6 +90,12 @@ mkdir -p "$OUTPUT_DIR"
 # Copy app to DMG directory
 echo "Copying app..."
 cp -R "$APP_PATH" "$DMG_DIR/"
+
+# Copy README
+if [ -f "$PROJECT_DIR/README.md" ]; then
+    cp "$PROJECT_DIR/README.md" "$DMG_DIR/"
+    echo "Included README.md"
+fi
 
 # Create Applications symlink
 ln -s /Applications "$DMG_DIR/Applications"

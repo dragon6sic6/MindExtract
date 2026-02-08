@@ -3,7 +3,9 @@
 
 # Xcode
 build/
+DerivedData/
 xcuserdata/
+*.xcuserstate
 *.xcscmblueprint
 *.xccheckout
 VideoDownloader.xcodeproj/project.xcworkspace/xcuserdata/
@@ -11,6 +13,22 @@ VideoDownloader.xcodeproj/xcuserdata/
 
 # Build output
 dist/
+dmg_temp/
 
 # DMG artifacts
 *.dmg
+
+# Bundled binaries (too large for git — run ./setup_binaries.sh to download)
+VideoDownloader/Resources/yt-dlp
+VideoDownloader/Resources/ffmpeg
+VideoDownloader/Resources/whisper
+VideoDownloader/Resources/libwhisper.1.dylib
+VideoDownloader/Resources/libggml.0.dylib
+VideoDownloader/Resources/libggml-cpu.0.dylib
+VideoDownloader/Resources/libggml-blas.0.dylib
+VideoDownloader/Resources/libggml-metal.0.dylib
+VideoDownloader/Resources/libggml-base.0.dylib
+
+# Archives
+*.zip
+*.tar.gz

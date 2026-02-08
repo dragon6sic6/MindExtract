@@ -1,41 +1,161 @@
 # MindExtract
 
-A macOS app for downloading videos from 1000+ platforms and transcribing audio locally using Whisper — no cloud processing, fully private.
+A native macOS app for downloading videos from 1000+ platforms and transcribing audio locally using OpenAI Whisper — no cloud processing, fully private.
 
-## Installation
-
-1. Open the `.dmg` file
-2. Drag **MindExtract** to your **Applications** folder
-3. Open Terminal and run:
-   ```
-   xattr -cr /Applications/MindExtract.app
-   ```
-   This removes the macOS Gatekeeper quarantine flag. It's required because the app is not signed with an Apple Developer ID. Without this step, macOS will refuse to open the app.
-4. Open **MindExtract** from Applications
+Built with Swift and SwiftUI. No third-party Swift dependencies.
 
 ## Features
 
-- **Download videos** from YouTube, X/Twitter, Instagram, TikTok, LinkedIn, Facebook, Vimeo, and more
-- **Transcribe audio** locally using Whisper — from a URL or a local file
+- **Video downloading** from YouTube, X/Twitter, Instagram, TikTok, LinkedIn, Facebook, Vimeo, and 1000+ more platforms (powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp))
+- **Local audio transcription** using [whisper.cpp](https://github.com/ggerganov/whisper.cpp) — runs entirely on your Mac, nothing leaves your machine
 - **Multiple formats** — choose video quality (1080p, 720p, 480p) or download audio only as MP3
 - **Subtitle download** with language selection
-- **Transcription output** as plain text (.txt) or SRT subtitles (.srt)
+- **Transcription output** as plain text (`.txt`) or SRT subtitles (`.srt`)
 - **Language selection** — auto-detect or pick from 15+ languages
-- **Batch downloads** — scan playlists, channels, or pages and queue multiple downloads
-- **Fully self-contained** — yt-dlp, Whisper, and FFmpeg are bundled with the app
+- **Batch downloads** — scan playlists, channels, or profile pages and queue multiple downloads
+- **Parallel downloads** — up to 4 concurrent downloads
+- **YouTube authentication** — sign in via OAuth or browser cookies for age-restricted/private content
+- **Drag and drop** — drop URLs or video files directly into the app
+- **Download & transcription history** — track all your past activity
+- **Desktop notifications** with optional sound alerts
+- **Dark mode** support
+- **Fully self-contained** — all tools are bundled, no Homebrew or external installs needed
 
-## First-Time Use
+## Installation (Pre-built DMG)
 
-Transcription requires a Whisper model. Go to **Settings** and download one:
+1. Download the latest `.dmg` from [Releases](../../releases)
+2. Open the `.dmg` and drag **MindExtract** to your **Applications** folder
+3. Open Terminal and run:
+   ```bash
+   xattr -cr /Applications/MindExtract.app
+   ```
+   This removes the macOS Gatekeeper quarantine flag (required because the app is not signed with an Apple Developer ID).
+4. Open **MindExtract** from Applications
 
-| Model  | Size   | Notes                              |
-|--------|--------|------------------------------------|
-| Tiny   | 75 MB  | Fastest, lower accuracy            |
-| Base   | 142 MB | Good balance of speed and accuracy  |
-| Small  | 466 MB | Better accuracy                    |
-| Medium | 1.5 GB | Best accuracy, slowest             |
-
-## Requirements
+### Requirements
 
 - macOS 13.0 (Ventura) or later
-- Apple Silicon or Intel
+- Apple Silicon or Intel Mac
+
+## Building from Source
+
+### Prerequisites
+
+- Xcode 15+ with macOS SDK
+- macOS 13.0+
+
+### Steps
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/dragon6sic6/MindExtract.git
+   cd MindExtract
+   ```
+
+2. Download the required binaries:
+   ```bash
+   ./setup_binaries.sh
+   ```
+   This downloads `yt-dlp`, `ffmpeg`, and `whisper-cpp` (+ its libraries) into the `VideoDownloader/Resources/` folder. These are too large to include in git.
+
+3. Open in Xcode:
+   ```bash
+   open VideoDownloader/VideoDownloader.xcodeproj
+   ```
+
+4. Select **"Any Mac (Apple Silicon, Intel)"** as the build destination
+
+5. Build: **Product > Build** (Cmd+B)
+
+6. (Optional) Create a distributable DMG:
+   ```bash
+   cd VideoDownloader
+   ./create_dmg.sh
+   ```
+
+## How It Works
+
+### Video Downloading
+
+Uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to fetch video metadata and download media. Supports format selection, subtitle embedding, and authentication via YouTube OAuth or browser cookie extraction (Safari, Chrome, Firefox, Brave, Edge).
+
+### Local Transcription
+
+Uses [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (a C/C++ port of OpenAI's Whisper model) for fully offline speech-to-text. The pipeline:
+
+1. **FFmpeg** extracts audio from the video file (16kHz, mono, 16-bit PCM WAV)
+2. **whisper-cpp** runs the selected model on the audio
+3. Output is saved as `.txt` or `.srt` alongside the source file
+
+Whisper models are downloaded on-demand from [Hugging Face](https://huggingface.co/ggerganov/whisper.cpp) and stored locally. Hardware acceleration via Apple Metal GPU is used when available.
+
+#### Available Whisper Models
+
+| Model  | Size   | Speed    | Accuracy |
+|--------|--------|----------|----------|
+| Tiny   | 75 MB  | Fastest  | Basic    |
+| Base   | 142 MB | Fast     | Good     |
+| Small  | 466 MB | Moderate | Better   |
+| Medium | 1.5 GB | Slowest  | Best     |
+
+### Audio Processing
+
+Uses [FFmpeg](https://ffmpeg.org/) for audio extraction and format conversion.
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Language | Swift 5.9+ |
+| UI Framework | SwiftUI |
+| Reactive state | Combine (`@Published`, `ObservableObject`) |
+| Video downloading | [yt-dlp](https://github.com/yt-dlp/yt-dlp) (bundled binary) |
+| Audio extraction | [FFmpeg](https://ffmpeg.org/) (bundled binary) |
+| Transcription | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (bundled binary + GGML libs) |
+| GPU acceleration | Apple Metal via GGML |
+| Persistence | UserDefaults (JSON-encoded history) |
+| Notifications | UserNotifications framework |
+| Audio/Video info | AVFoundation |
+| Platform | macOS 13.0+ (Ventura) |
+
+## Project Structure
+
+```
+VideoDownloader/
+├── VideoDownloaderApp.swift           # App entry point
+├── ContentView.swift                  # Main UI — download & transcription tabs
+├── Models.swift                       # Data models, enums, history managers
+├── YTDLPWrapper.swift                 # yt-dlp integration — downloads, auth, page scanning
+├── TranscriptionManager.swift         # Whisper/FFmpeg — model management, transcription pipeline
+├── SettingsView.swift                 # Settings UI
+├── TranscriptionSettingsView.swift    # Whisper model management UI
+├── TranscriptionResultView.swift      # Transcription output viewer
+├── HistoryView.swift                  # Download history UI
+├── RecentActivityView.swift           # Combined activity sidebar
+├── AboutView.swift                    # About dialog
+├── VideoDownloader.entitlements       # App permissions
+├── Info.plist                         # App metadata
+├── Assets.xcassets/                   # App icons and colors
+└── Resources/                         # Bundled binaries (not in git)
+    ├── yt-dlp                         # Video downloader
+    ├── ffmpeg                         # Audio extraction
+    ├── whisper                        # Transcription engine
+    └── lib*.dylib                     # GGML/Whisper shared libraries
+```
+
+## Data Storage
+
+All data stays on your machine. No cloud, no accounts, no telemetry.
+
+| Data | Location | Limit |
+|------|----------|-------|
+| Download history | UserDefaults | 100 items |
+| Transcription history | UserDefaults | 50 items |
+| App settings | UserDefaults | — |
+| Downloaded media | Your chosen folder (default: ~/Downloads) | — |
+| Transcription output | Same folder as source media | — |
+| Whisper models | ~/Library/Application Support/com.mindact.mindextract/WhisperModels/ | — |
+
+## License
+
+All rights reserved. © 2025 Mindact.
