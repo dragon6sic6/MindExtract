@@ -175,7 +175,7 @@ All data stays on your machine. No cloud, no accounts, no telemetry.
 
 ## Changelog
 
-### v1.1.0
+### v1.2.0
 - **Sidebar navigation** — Download, Transcribe, History, and Settings each get their own section
 - **Onboarding wizard** — first-launch guide walks through downloading a Whisper model
 - **Download queue** — queue multiple videos, then download them all at once; adding a video auto-resets the input for the next one

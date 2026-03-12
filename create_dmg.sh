@@ -13,7 +13,7 @@ echo ""
 
 # Configuration
 APP_NAME="MindExtract"
-DMG_NAME="MindExtract-1.1.0-Universal"
+DMG_NAME="MindExtract-1.2.0-Universal"
 VOLUME_NAME="MindExtract"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
