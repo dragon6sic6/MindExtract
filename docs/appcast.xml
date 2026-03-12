@@ -7,25 +7,23 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.2.2</title>
-      <pubDate>Thu, 12 Mar 2026 20:42:00 +0000</pubDate>
-      <sparkle:version>3</sparkle:version>
-      <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+      <title>Version 1.3.0</title>
+      <pubDate>Thu, 12 Mar 2026 21:09:22 +0000</pubDate>
+      <sparkle:version>4</sparkle:version>
+      <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New</h2>
+<h2>What's New in 1.3.0</h2>
 <ul>
-  <li><strong>QuickTime compatible downloads</strong> — All video downloads now use H.264 (MP4), fully compatible with QuickTime Player and iMovie</li>
-  <li><strong>Auto-updates</strong> — MindExtract now checks for updates automatically and lets you update without leaving the app</li>
-  <li><strong>Improved setup guide</strong> — First-launch wizard now matches the app's style with consistent fonts and colors</li>
-  <li><strong>New app icon</strong> — Clean white background with black waveform symbol</li>
-  <li><strong>Bug fix</strong> — Appearance mode (System/Light/Dark) now switches correctly on first click</li>
+  <li><strong>Redesigned language picker</strong> — Select transcription language from a clean scrollable list with checkmarks, replacing the old radio-group style</li>
+  <li><strong>Fixed stale transcription state</strong> — Starting a new transcription now correctly resets the previous result instead of showing the old "Transcription complete" banner</li>
+  <li><strong>Improved History view</strong> — Search by title or platform, date groups (Today / Yesterday / This Week / Older) with item counts, hover-reveal actions (re-download, copy URL, delete), and confirm-before-clear</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.2.2/MindExtract-1.2.2-Universal.dmg"
-        sparkle:edSignature="gfonF+EoScPcpC/ViCfnET1MVtfCamuKyn4SWxlwKSuxztHCrukM68rWPZ+yaXDw700I7QKddcwn5T/bHl5oCQ=="
-        length="71169346"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.3.0/MindExtract-1.3.0-Universal.dmg"
+        sparkle:edSignature="yH/wOnkPxjMqH71egOkcd0iev0k+bvbCBYLMyMifLYO8Kf+644GTIbh2Njev67InxhDucH+tlHVFA6AUI75OCA=="
+        length="71110910"
         type="application/octet-stream"
       />
     </item>
