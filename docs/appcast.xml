@@ -8,27 +8,18 @@
 
     <item>
       <title>Version 1.2.0</title>
-      <pubDate>Thu, 12 Mar 2026 20:00:00 +0100</pubDate>
+      <pubDate>Thu, 12 Mar 2026 19:53:38 +0000</pubDate>
       <sparkle:version>1</sparkle:version>
       <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
         <h2>What's new in 1.2.0</h2>
-        <ul>
-          <li><strong>Sidebar navigation</strong> — Download / Transcribe / History / Settings in a clean left panel</li>
-          <li><strong>Download queue</strong> — add multiple videos, then Download All at once; Add to Queue button lives right in the video card</li>
-          <li><strong>Configurable resolution preset</strong> — set 720p, 1080p, 1440p or 4K as your default in Settings</li>
-          <li><strong>Simplified Transcribe workflow</strong> — paste URL and click Transcribe directly, no fetch step needed</li>
-          <li><strong>Animated transcription indicator</strong> — waveform animation while waiting for results</li>
-          <li><strong>Auto-updates</strong> — MindExtract now checks for updates automatically</li>
-          <li><strong>Cleaner UI</strong> — neutral grey/white palette, new white icon, Light mode by default</li>
-          <li><strong>First-launch onboarding</strong> — guided setup wizard on first open</li>
-        </ul>
+        <p>See <a href="https://github.com/dragon6sic6/MindExtract/releases/tag/v1.2.0">release notes on GitHub</a> for full details.</p>
       ]]></description>
       <enclosure
         url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.2.0/MindExtract-1.2.0-Universal.dmg"
-        sparkle:edSignature="YD1rV+eHKQzeZ7d7jQPuEW3lYHYedfeUNxJRXcgnJw7XZgduE1xKP8gU91sdPE4wmZMcwzq9eHvx7qjeN1YFBQ=="
-        length="69991130"
+        sparkle:edSignature="iJTr8bqeYDINTMXNZtFBIylN7aX6cXebdw6KElXjSVytCk5H81w+QifmXX/unp1f1tpaTaU6X6MRQ1ZZ3oKVAw=="
+        length="71170553"
         type="application/octet-stream"
       />
     </item>
