@@ -16,7 +16,7 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<3, id: \.self) { step in
                         Circle()
-                            .fill(currentStep == step ? Color.accentColor : Color.secondary.opacity(0.25))
+                            .fill(currentStep == step ? Color.primary : Color.secondary.opacity(0.22))
                             .frame(width: 7, height: 7)
                             .animation(.easeInOut, value: currentStep)
                     }
@@ -69,14 +69,14 @@ struct OnboardingView: View {
 
             Spacer().frame(height: 40)
 
-            VStack(spacing: 16) {
-                featureRow(icon: "arrow.down.circle.fill", color: .blue,
+            VStack(spacing: 12) {
+                featureRow(icon: "arrow.down.circle",
                            title: "Download anything",
                            subtitle: "YouTube, Vimeo, TikTok, Twitter, and 1000+ sites")
-                featureRow(icon: "music.note.list", color: .purple,
+                featureRow(icon: "music.note.list",
                            title: "Extract audio",
                            subtitle: "Save audio-only as MP3 from any video")
-                featureRow(icon: "text.bubble.fill", color: .orange,
+                featureRow(icon: "text.bubble",
                            title: "Transcribe with AI",
                            subtitle: "Local Whisper AI — no internet needed, fully private")
             }
@@ -106,7 +106,7 @@ struct OnboardingView: View {
 
             Image(systemName: "brain.head.profile")
                 .font(.system(size: 52))
-                .foregroundColor(.accentColor)
+                .foregroundColor(.primary)
 
             Spacer().frame(height: 18)
 
@@ -201,19 +201,20 @@ struct OnboardingView: View {
         !transcriptionManager.downloadedModels.isEmpty
     }
 
-    private func featureRow(icon: String, color: Color, title: String, subtitle: String) -> some View {
+    private func featureRow(icon: String, title: String, subtitle: String) -> some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundColor(color)
-                .frame(width: 42, height: 42)
-                .background(color.opacity(0.12))
+                .font(.system(size: 17, weight: .regular))
+                .foregroundColor(.primary)
+                .frame(width: 40, height: 40)
+                .background(Color.primary.opacity(0.06))
                 .cornerRadius(10)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
+                    .foregroundColor(.primary)
                 Text(subtitle)
                     .font(.caption)
                     .foregroundColor(.secondary)

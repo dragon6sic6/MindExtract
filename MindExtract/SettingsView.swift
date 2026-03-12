@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = true
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var downloader: YTDLPWrapper
     @ObservedObject var transcriptionManager = TranscriptionManager.shared
@@ -204,6 +205,26 @@ struct SettingsView: View {
                         ShortcutRow(keys: "⌘D", description: "Start download")
                         ShortcutRow(keys: "⌘M", description: "Download as MP3")
                         ShortcutRow(keys: "⌘,", description: "Open settings")
+                    }
+
+                    // MARK: About
+                    SettingsSection(title: "About", icon: "info.circle") {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Setup Guide")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("Re-run the first-launch walkthrough")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Button("Re-run Guide") {
+                                hasSeenOnboarding = false
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
                     }
                 }
                 .padding()
