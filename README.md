@@ -34,6 +34,22 @@ Built with Swift and SwiftUI. No third-party Swift dependencies.
 - macOS 13.0 (Ventura) or later
 - Apple Silicon or Intel Mac
 
+## Uninstallation
+
+To fully remove MindExtract and all associated data:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dragon6sic6/MindExtract/master/uninstall.sh | bash
+```
+
+Or if you have the repo cloned:
+
+```bash
+./uninstall.sh
+```
+
+This removes the app, Whisper models, download history, preferences, and all caches — leaving your system completely clean.
+
 ## Building from Source
 
 ### Prerequisites
