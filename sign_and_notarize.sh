@@ -184,3 +184,72 @@ echo ""
 echo "  Users can install without any macOS warnings."
 echo ""
 open "$OUTPUT_DIR"
+
+# 12. Update appcast.xml with EdDSA signature and push to GitHub Pages
+SPARKLE_TOOLS="/tmp/sparkle290/bin"
+APPCAST_PATH="$PROJECT_DIR/docs/appcast.xml"
+GITHUB_RELEASES_URL="https://github.com/dragon6sic6/MindExtract/releases/download"
+
+if [ -f "$SPARKLE_TOOLS/sign_update" ] && [ -f "$APPCAST_PATH" ]; then
+    echo "▸ Signing DMG for appcast..."
+    RAW_SIG=$("$SPARKLE_TOOLS/sign_update" "$DMG_PATH" 2>/dev/null)
+    # Extract just the edSignature value
+    ED_SIG=$(echo "$RAW_SIG" | grep -o 'edSignature="[^"]*"' | sed 's/edSignature="//;s/"//')
+    DMG_FILESIZE=$(stat -f%z "$DMG_PATH")
+    VERSION=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.2.0")
+    BUILD=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleVersion 2>/dev/null || echo "1")
+    DOWNLOAD_URL="$GITHUB_RELEASES_URL/v${VERSION}/MindExtract-${VERSION}-Universal.dmg"
+    PUBDATE=$(date -u "+%a, %d %b %Y %H:%M:%S +0000")
+
+    echo "  Version:   $VERSION ($BUILD)"
+    echo "  EdSig:     $ED_SIG"
+    echo "  File size: $DMG_FILESIZE"
+    echo "  URL:       $DOWNLOAD_URL"
+
+    # Read current release notes from appcast if present, else use a default
+    RELEASE_NOTES=$(grep -o '<description>.*</description>' "$APPCAST_PATH" | head -1 || true)
+
+    cat > "$APPCAST_PATH" << APPCASTEOF
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>MindExtract</title>
+    <description>MindExtract — download and transcribe video from anywhere</description>
+    <language>en</language>
+    <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
+
+    <item>
+      <title>Version $VERSION</title>
+      <pubDate>$PUBDATE</pubDate>
+      <sparkle:version>$BUILD</sparkle:version>
+      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>What's new in $VERSION</h2>
+        <p>See <a href="https://github.com/dragon6sic6/MindExtract/releases/tag/v${VERSION}">release notes on GitHub</a> for full details.</p>
+      ]]></description>
+      <enclosure
+        url="$DOWNLOAD_URL"
+        sparkle:edSignature="$ED_SIG"
+        length="$DMG_FILESIZE"
+        type="application/octet-stream"
+      />
+    </item>
+
+  </channel>
+</rss>
+APPCASTEOF
+
+    echo "  appcast.xml updated ✓"
+
+    # Push docs/ to GitHub
+    cd "$PROJECT_DIR"
+    git add docs/appcast.xml
+    git commit -m "chore: update appcast.xml for v${VERSION}" --allow-empty
+    git push origin master
+    echo "  appcast.xml pushed to GitHub Pages ✓"
+    echo "  Live at: https://dragon6sic6.github.io/MindExtract/appcast.xml"
+    cd - > /dev/null
+else
+    echo "▸ Skipping appcast update (Sparkle tools or appcast.xml not found)"
+fi

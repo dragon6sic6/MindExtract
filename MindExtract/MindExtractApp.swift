@@ -1,7 +1,30 @@
 import SwiftUI
+import Sparkle
+
+// MARK: - App Delegate (Sparkle)
+
+final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
+    let updaterController: SPUStandardUpdaterController
+
+    override init() {
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: false,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+        super.init()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        updaterController.startUpdater()
+    }
+}
+
+// MARK: - Main App
 
 @main
 struct MindExtractApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var settings = AppSettings.shared
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
@@ -28,8 +51,13 @@ struct MindExtractApp: App {
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1000, height: 740)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    appDelegate.updaterController.checkForUpdates(nil)
+                }
+            }
             CommandGroup(replacing: .appSettings) {
-                Button("Settings...") {
+                Button("Settings…") {
                     NotificationCenter.default.post(name: .openSettings, object: nil)
                 }
                 .keyboardShortcut(",", modifiers: .command)

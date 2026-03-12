@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CC000001CCCC000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CC000002CCCC000000000001 /* Sparkle */; };
 		B1000001 /* MindExtractApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000011 /* MindExtractApp.swift */; };
 		B1000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000012 /* ContentView.swift */; };
 		B1000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000013 /* Models.swift */; };
@@ -63,6 +64,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC000001CCCC000000000001 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +141,9 @@
 			dependencies = (
 			);
 			name = MindExtract;
+			packageProductDependencies = (
+				CC000002CCCC000000000001 /* Sparkle */,
+			);
 			productName = MindExtract;
 			productReference = B1000010 /* MindExtract.app */;
 			productType = "com.apple.product-type.application";
@@ -170,6 +175,9 @@
 			productRefGroup = B100000F /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (
+				CC000003CCCC000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			targets = (
 				B100000A /* MindExtract */,
 			);
@@ -344,6 +352,7 @@
 				CODE_SIGN_ENTITLEMENTS = MindExtract/MindExtract.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
+				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
@@ -374,6 +383,7 @@
 				CODE_SIGN_ENTITLEMENTS = MindExtract/MindExtract.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
+				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
@@ -417,6 +427,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		CC000003CCCC000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CC000002CCCC000000000001 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CC000003CCCC000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B1000008 /* Project object */;
 }

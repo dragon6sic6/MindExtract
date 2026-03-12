@@ -28,5 +28,11 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2025 Mindact. All rights reserved.</string>
+	<key>SUFeedURL</key>
+	<string>https://dragon6sic6.github.io/MindExtract/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>6wmEMiBzV1seL1OBukeGnYf8XF9rd63vq2gDCUAT3kg=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 </dict>
 </plist>
