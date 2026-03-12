@@ -3,14 +3,27 @@ import SwiftUI
 @main
 struct MindExtractApp: App {
     @StateObject private var settings = AppSettings.shared
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(settings.appearanceMode.colorScheme)
+                .overlay {
+                    if !hasSeenOnboarding {
+                        OnboardingView(onDismiss: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                hasSeenOnboarding = true
+                            }
+                        })
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .transition(.opacity)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.3), value: hasSeenOnboarding)
         }
         .windowResizability(.contentMinSize)
-        .defaultSize(width: 700, height: 700)
+        .defaultSize(width: 820, height: 640)
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings...") {
