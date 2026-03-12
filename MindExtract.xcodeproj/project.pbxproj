@@ -20,7 +20,7 @@
 		B1000034 /* TranscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000027 /* TranscriptionSettingsView.swift */; };
 		B1000035 /* TranscriptionResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000028 /* TranscriptionResultView.swift */; };
 		B1000036 /* RecentActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000029 /* RecentActivityView.swift */; };
-		B1000037 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000030 /* OnboardingView.swift */; };
+		B1000037 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000038 /* OnboardingView.swift */; };
 		B1000060 /* whisper in Resources */ = {isa = PBXBuildFile; fileRef = B1000050 /* whisper */; };
 		B1000061 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = B1000051 /* ffmpeg */; };
 		B1000062 /* libwhisper.1.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000052 /* libwhisper.1.dylib */; };
@@ -47,7 +47,7 @@
 		B1000027 /* TranscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionSettingsView.swift; sourceTree = "<group>"; };
 		B1000028 /* TranscriptionResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionResultView.swift; sourceTree = "<group>"; };
 		B1000029 /* RecentActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentActivityView.swift; sourceTree = "<group>"; };
-		B1000030 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		B1000038 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		B1000050 /* whisper */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = whisper; sourceTree = "<group>"; };
 		B1000051 /* ffmpeg */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = ffmpeg; sourceTree = "<group>"; };
 		B1000052 /* libwhisper.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libwhisper.1.dylib"; sourceTree = "<group>"; };
@@ -97,7 +97,7 @@
 				B1000027 /* TranscriptionSettingsView.swift */,
 				B1000028 /* TranscriptionResultView.swift */,
 				B1000029 /* RecentActivityView.swift */,
-				B1000030 /* OnboardingView.swift */,
+				B1000038 /* OnboardingView.swift */,
 				B1000013 /* Models.swift */,
 				B1000014 /* YTDLPWrapper.swift */,
 				B1000015 /* Assets.xcassets */,
