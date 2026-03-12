@@ -1411,6 +1411,8 @@ struct ContentView: View {
 
     private func startTranscription(filePath: String) {
         let model = settings.defaultWhisperModel
+        // Clear previous result before starting so stale state isn't shown
+        transcriptionManager.clearTranscription()
         if transcriptionManager.isModelDownloaded(model) {
             transcriptionManager.transcribe(
                 videoPath: filePath,
@@ -1928,30 +1930,78 @@ struct TranscriptionLanguagePickerSheet: View {
     ]
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Transcription Language").font(.headline)
-            Text("Select the spoken language of the audio, or use Auto-Detect.")
-                .font(.caption).foregroundColor(.secondary).multilineTextAlignment(.center)
-
-            Picker("Language", selection: $selectedLanguage) {
-                ForEach(languages, id: \.code) { lang in
-                    Text(lang.name).tag(lang.code)
-                }
+        VStack(spacing: 0) {
+            // Header
+            VStack(spacing: 4) {
+                Text("Language")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                Text("Select the spoken language of the audio.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
             }
-            .pickerStyle(.radioGroup)
-            .padding(.vertical, 4)
+            .padding(.top, 24)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
 
-            HStack(spacing: 12) {
+            Divider()
+
+            // Language list
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(languages, id: \.code) { lang in
+                        Button(action: { selectedLanguage = lang.code }) {
+                            HStack {
+                                Text(lang.name)
+                                    .font(.body)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                if selectedLanguage == lang.code {
+                                    Image(systemName: "checkmark")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .background(
+                                selectedLanguage == lang.code
+                                    ? Color.primary.opacity(0.07)
+                                    : Color.clear
+                            )
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+            }
+            .frame(maxHeight: 320)
+
+            Divider()
+
+            // Buttons
+            HStack(spacing: 10) {
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(.bordered).controlSize(.large)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
+
                 Button(action: onStart) {
-                    Text("Start Transcription").frame(maxWidth: .infinity)
+                    Text("Start Transcription")
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent).controlSize(.large)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
             }
+            .padding(16)
         }
-        .padding(24)
-        .frame(width: 280)
+        .frame(width: 320)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
