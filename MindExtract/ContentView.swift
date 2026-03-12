@@ -839,7 +839,7 @@ struct ContentView: View {
                         Button(action: startDownload) {
                             HStack {
                                 Image(systemName: "arrow.down.circle.fill")
-                                Text(isDownloading ? "Downloading..." : "Download")
+                                Text(isDownloading ? "Downloading..." : "Download Video")
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -847,11 +847,11 @@ struct ContentView: View {
                         .controlSize(.large)
                         .disabled(!canDownload || isTranscribing)
 
-                        // MP3 button
+                        // Download Audio button
                         Button(action: downloadAsAudio) {
                             HStack {
                                 Image(systemName: "music.note")
-                                Text("MP3")
+                                Text("Download Audio")
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -862,9 +862,13 @@ struct ContentView: View {
                         // Transcribe button
                         if transcriptionManager.areBinariesAvailable {
                             Button(action: {
-                                pendingTranscriptionFile = nil
-                                pendingTranscriptionFilePath = nil
-                                showTranscriptionLanguagePicker = true
+                                if transcriptionManager.downloadedModels.isEmpty {
+                                    transcriptionManager.transcriptionState = .modelNotDownloaded
+                                } else {
+                                    pendingTranscriptionFile = nil
+                                    pendingTranscriptionFilePath = nil
+                                    showTranscriptionLanguagePicker = true
+                                }
                             }) {
                                 HStack {
                                     Image(systemName: "text.bubble")
@@ -1085,9 +1089,13 @@ struct ContentView: View {
                         if transcriptionManager.areBinariesAvailable,
                            let filePath = downloader.lastDownloadedFilePath {
                             Button(action: {
-                                pendingTranscriptionFile = nil
-                                pendingTranscriptionFilePath = filePath
-                                showTranscriptionLanguagePicker = true
+                                if transcriptionManager.downloadedModels.isEmpty {
+                                    transcriptionManager.transcriptionState = .modelNotDownloaded
+                                } else {
+                                    pendingTranscriptionFile = nil
+                                    pendingTranscriptionFilePath = filePath
+                                    showTranscriptionLanguagePicker = true
+                                }
                             }) {
                                 Label("Transcribe", systemImage: "text.bubble")
                             }
@@ -1215,18 +1223,31 @@ struct ContentView: View {
             }
 
         case .modelNotDownloaded:
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                Text("Whisper model not downloaded")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                Spacer()
-                Button("Download Model") {
-                    showSettings = true
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "brain.head.profile")
+                        .font(.title2)
+                        .foregroundColor(.blue)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("AI Model Required")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text("Transcription uses Whisper AI, which runs locally on your Mac. You need to download a model once before transcribing.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.mini)
+                Button(action: { showSettings = true }) {
+                    Label("Download a Whisper Model", systemImage: "arrow.down.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
             }
+            .padding(14)
+            .background(Color.blue.opacity(0.08))
+            .cornerRadius(10)
         }
     }
 
