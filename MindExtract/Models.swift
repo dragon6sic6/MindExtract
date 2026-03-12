@@ -367,10 +367,11 @@ class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
     @AppStorage("defaultFormatPreset") var defaultFormatPreset: FormatPreset = .bestVideo
-    @AppStorage("appearanceMode") var appearanceMode: AppearanceMode = .system
+    @AppStorage("appearanceMode") var appearanceMode: AppearanceMode = .light
     @AppStorage("downloadSubtitles") var downloadSubtitles: Bool = false
     @AppStorage("subtitleLanguage") var subtitleLanguage: String = "en"
     @AppStorage("parallelDownloads") var parallelDownloads: Int = 2
+    @AppStorage("preferredResolution") var preferredResolution: String = "720p"
     @AppStorage("playSoundOnComplete") var playSoundOnComplete: Bool = true
     @AppStorage("showNotifications") var showNotifications: Bool = true
     @AppStorage("downloadPath") var downloadPath: String = NSHomeDirectory() + "/Downloads"

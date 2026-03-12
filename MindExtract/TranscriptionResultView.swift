@@ -205,13 +205,21 @@ struct TranscriptionResultView: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    Text(transcriptionManager.liveTranscriptionText.isEmpty ? "Waiting for transcription..." : transcriptionManager.liveTranscriptionText)
-                        .font(.system(.body, design: .default))
-                        .foregroundColor(transcriptionManager.liveTranscriptionText.isEmpty ? .secondary : .primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .textSelection(.enabled)
-                        .id("transcriptionText")
+                    Group {
+                        if transcriptionManager.liveTranscriptionText.isEmpty && isTranscribing {
+                            WaitingAnimationView()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .padding(32)
+                        } else {
+                            Text(transcriptionManager.liveTranscriptionText.isEmpty ? "Waiting for transcription..." : transcriptionManager.liveTranscriptionText)
+                                .font(.system(.body, design: .default))
+                                .foregroundColor(transcriptionManager.liveTranscriptionText.isEmpty ? .secondary : .primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding()
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .id("transcriptionText")
                 }
                 .background(Color(NSColor.textBackgroundColor))
                 .cornerRadius(8)
@@ -272,6 +280,44 @@ struct TranscriptionResultView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+    }
+}
+
+// MARK: - Waiting Animation View
+
+struct WaitingAnimationView: View {
+    @State private var animating = false
+
+    private let barCount = 5
+    private let barWidth: CGFloat = 4
+    private let barSpacing: CGFloat = 5
+    private let minHeight: CGFloat = 8
+    private let maxHeight: CGFloat = 36
+
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack(alignment: .center, spacing: barSpacing) {
+                ForEach(0..<barCount, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: barWidth / 2)
+                        .fill(Color.secondary.opacity(0.45))
+                        .frame(width: barWidth, height: animating ? maxHeight : minHeight)
+                        .animation(
+                            Animation
+                                .easeInOut(duration: 0.55)
+                                .repeatForever(autoreverses: true)
+                                .delay(Double(index) * 0.1),
+                            value: animating
+                        )
+                }
+            }
+            .frame(height: maxHeight)
+
+            Text("Transcribing audio…")
+                .font(.caption)
+                .foregroundColor(.secondary.opacity(0.7))
+        }
+        .onAppear { animating = true }
+        .onDisappear { animating = false }
     }
 }
 

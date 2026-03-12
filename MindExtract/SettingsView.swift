@@ -40,6 +40,18 @@ struct SettingsView: View {
                         }
 
                         HStack {
+                            Text("Resolution Preset")
+                            Spacer()
+                            Picker("", selection: $settings.preferredResolution) {
+                                Text("720p").tag("720p")
+                                Text("1080p").tag("1080p")
+                                Text("1440p").tag("1440p")
+                                Text("4K (2160p)").tag("2160p")
+                            }
+                            .frame(width: 180)
+                        }
+
+                        HStack {
                             Text("Parallel Downloads")
                             Spacer()
                             Picker("", selection: $settings.parallelDownloads) {
@@ -163,16 +175,15 @@ struct SettingsView: View {
 
                     // MARK: Appearance
                     SettingsSection(title: "Appearance", icon: "paintbrush") {
-                        HStack {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("Theme")
-                            Spacer()
                             Picker("", selection: $settings.appearanceMode) {
                                 ForEach(AppearanceMode.allCases, id: \.self) { mode in
                                     Text(mode.rawValue).tag(mode)
                                 }
                             }
-                            .frame(width: 180)
                             .pickerStyle(.segmented)
+                            .frame(maxWidth: .infinity)
                         }
                     }
 
@@ -427,7 +438,7 @@ struct SettingsSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             Label(title, systemImage: icon)
                 .font(.headline)
-                .foregroundColor(.accentColor)
+                .foregroundColor(.primary)
 
             VStack(alignment: .leading, spacing: 10) {
                 content

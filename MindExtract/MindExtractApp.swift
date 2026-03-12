@@ -9,6 +9,7 @@ struct MindExtractApp: App {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(settings.appearanceMode.colorScheme)
+                .tint(Color(NSColor.labelColor))
                 .overlay {
                     if !hasSeenOnboarding {
                         OnboardingView(onDismiss: {
@@ -23,7 +24,7 @@ struct MindExtractApp: App {
                 .animation(.easeInOut(duration: 0.3), value: hasSeenOnboarding)
         }
         .windowResizability(.contentMinSize)
-        .defaultSize(width: 820, height: 640)
+        .defaultSize(width: 1000, height: 740)
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings...") {
