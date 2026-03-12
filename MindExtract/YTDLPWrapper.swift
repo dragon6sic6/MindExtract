@@ -646,8 +646,9 @@ class YTDLPWrapper: ObservableObject {
             if let info = self.videoInfo,
                let format = info.formats.first(where: { $0.id == formatId }),
                format.isVideoOnly {
+                // Video-only stream: merge with best audio, output as mp4
                 args = [
-                    "-f", "\(formatId)+bestaudio",
+                    "-f", "\(formatId)+bestaudio[ext=m4a]/\(formatId)+bestaudio",
                     "-o", outputTemplate,
                     "--newline",
                     "--progress",
@@ -771,8 +772,11 @@ class YTDLPWrapper: ObservableObject {
             // Use truncated title (max 80 chars) + video ID to avoid "filename too long" errors
             let outputTemplate = "\(outputPath)/%(title).80s [%(id)s].%(ext)s"
 
+            // Prefer H.264 (avc1) for QuickTime/macOS compatibility.
+            // Falls back to any best video if H.264 is unavailable.
+            let h264Format = "bestvideo[vcodec^=avc1]+bestaudio/bestvideo[vcodec^=avc]+bestaudio/bestvideo+bestaudio/best"
             var args = [
-                "-f", "bestvideo+bestaudio/best",
+                "-f", h264Format,
                 "-o", outputTemplate,
                 "--newline",
                 "--progress",
@@ -1307,8 +1311,10 @@ class YTDLPWrapper: ObservableObject {
                     "--restrict-filenames"
                 ]
             } else {
+                // Prefer H.264 for QuickTime/macOS compatibility
+                let h264Format = "bestvideo[vcodec^=avc1]+bestaudio/bestvideo[vcodec^=avc]+bestaudio/bestvideo+bestaudio/best"
                 args = [
-                    "-f", "bestvideo+bestaudio/best",
+                    "-f", h264Format,
                     "-o", outputTemplate,
                     "--newline",
                     "--progress",
