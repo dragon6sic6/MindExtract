@@ -4,34 +4,29 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var downloader: YTDLPWrapper
-    @Environment(\.dismiss) var dismiss
-    @State private var showingTranscriptionSettings = false
+    @ObservedObject var transcriptionManager = TranscriptionManager.shared
     @State private var showAdvancedAuth = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Header — matches Download / Transcribe header style
             HStack {
                 Text("Settings")
                     .font(.title2)
-                    .fontWeight(.semibold)
+                    .fontWeight(.bold)
                 Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
             }
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
 
             Divider()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    // Download Settings
-                    SettingsSection(title: "Download", icon: "arrow.down.circle") {
-                        // Default Format
+
+                    // MARK: Downloads
+                    SettingsSection(title: "Downloads", icon: "arrow.down.circle") {
                         HStack {
                             Text("Default Format")
                             Spacer()
@@ -44,7 +39,6 @@ struct SettingsView: View {
                             .frame(width: 180)
                         }
 
-                        // Parallel Downloads
                         HStack {
                             Text("Parallel Downloads")
                             Spacer()
@@ -57,7 +51,6 @@ struct SettingsView: View {
                             .frame(width: 180)
                         }
 
-                        // Download Path
                         HStack {
                             Text("Save to")
                             Spacer()
@@ -73,20 +66,12 @@ struct SettingsView: View {
                             .buttonStyle(.bordered)
                             .controlSize(.small)
                         }
-                    }
 
-                    // YouTube Account
-                    SettingsSection(title: "YouTube Account", icon: "person.crop.circle") {
-                        youtubeAuthContent
-                    }
-
-                    // Subtitles
-                    SettingsSection(title: "Subtitles", icon: "captions.bubble") {
                         Toggle("Download subtitles when available", isOn: $settings.downloadSubtitles)
 
                         if settings.downloadSubtitles {
                             HStack {
-                                Text("Preferred Language")
+                                Text("Subtitle Language")
                                 Spacer()
                                 Picker("", selection: $settings.subtitleLanguage) {
                                     Text("English").tag("en")
@@ -101,7 +86,82 @@ struct SettingsView: View {
                         }
                     }
 
-                    // Appearance
+                    // MARK: Transcription
+                    SettingsSection(title: "Transcription", icon: "text.bubble") {
+                        // Binary status
+                        HStack {
+                            Image(systemName: transcriptionManager.isWhisperAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(transcriptionManager.isWhisperAvailable ? .green : .red)
+                            Text("Whisper")
+                            Spacer()
+                            Text(transcriptionManager.isWhisperAvailable ? "Available" : "Not Found")
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack {
+                            Image(systemName: transcriptionManager.isFfmpegAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(transcriptionManager.isFfmpegAvailable ? .green : .red)
+                            Text("FFmpeg")
+                            Spacer()
+                            Text(transcriptionManager.isFfmpegAvailable ? "Available" : "Not Found")
+                                .foregroundColor(.secondary)
+                        }
+
+                        if !transcriptionManager.areBinariesAvailable {
+                            Text("Install whisper and ffmpeg via Homebrew or bundle them in the app's Resources folder.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Divider()
+                            .padding(.vertical, 2)
+
+                        HStack {
+                            Text("Default Model")
+                            Spacer()
+                            Picker("", selection: $settings.defaultWhisperModel) {
+                                ForEach(WhisperModel.allCases) { model in
+                                    Text(model.displayName).tag(model)
+                                }
+                            }
+                            .frame(width: 180)
+                        }
+
+                        HStack {
+                            Text("Output Format")
+                            Spacer()
+                            Picker("", selection: $settings.transcriptionOutputFormat) {
+                                ForEach(TranscriptionOutputFormat.allCases, id: \.self) { format in
+                                    Text(format.displayName).tag(format)
+                                }
+                            }
+                            .frame(width: 180)
+                        }
+
+                        Divider()
+                            .padding(.vertical, 2)
+
+                        // Model downloads
+                        VStack(spacing: 0) {
+                            ForEach(WhisperModel.allCases) { model in
+                                ModelRow(model: model)
+                            }
+                        }
+
+                        Divider()
+                            .padding(.vertical, 4)
+
+                        HStack {
+                            Text("Storage Used")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(transcriptionManager.formatBytes(transcriptionManager.totalStorageUsed()))
+                                .foregroundColor(.secondary)
+                                .fontWeight(.medium)
+                        }
+                    }
+
+                    // MARK: Appearance
                     SettingsSection(title: "Appearance", icon: "paintbrush") {
                         HStack {
                             Text("Theme")
@@ -116,31 +176,18 @@ struct SettingsView: View {
                         }
                     }
 
-                    // Transcription
-                    SettingsSection(title: "Transcription", icon: "text.bubble") {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Whisper Models")
-                                Text("Download models to transcribe video audio")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                            Button("Manage Models...") {
-                                showingTranscriptionSettings = true
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
+                    // MARK: YouTube Account
+                    SettingsSection(title: "YouTube Account", icon: "person.crop.circle") {
+                        youtubeAuthContent
                     }
 
-                    // Behavior
+                    // MARK: Behavior
                     SettingsSection(title: "Behavior", icon: "gearshape") {
                         Toggle("Play sound when download completes", isOn: $settings.playSoundOnComplete)
                         Toggle("Show notifications", isOn: $settings.showNotifications)
                     }
 
-                    // Keyboard Shortcuts Info
+                    // MARK: Keyboard Shortcuts
                     SettingsSection(title: "Keyboard Shortcuts", icon: "keyboard") {
                         ShortcutRow(keys: "⌘V", description: "Paste URL and fetch")
                         ShortcutRow(keys: "⌘D", description: "Start download")
@@ -151,9 +198,8 @@ struct SettingsView: View {
                 .padding()
             }
         }
-        .frame(width: 500, height: 600)
-        .sheet(isPresented: $showingTranscriptionSettings) {
-            TranscriptionSettingsView()
+        .onAppear {
+            transcriptionManager.loadDownloadedModels()
         }
     }
 
@@ -162,11 +208,9 @@ struct SettingsView: View {
     @ViewBuilder
     private var youtubeAuthContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Status and main action
             switch downloader.youtubeSignInState {
             case .idle:
                 if settings.youtubeSignedIn {
-                    // Signed in
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
@@ -180,7 +224,6 @@ struct SettingsView: View {
                         .controlSize(.small)
                     }
                 } else {
-                    // Not signed in
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Some YouTube videos require authentication to download or transcribe.")
                             .font(.caption)
@@ -289,12 +332,10 @@ struct SettingsView: View {
                 }
             }
 
-            // Advanced fallback options
             Divider()
 
             DisclosureGroup("Advanced", isExpanded: $showAdvancedAuth) {
                 VStack(alignment: .leading, spacing: 10) {
-                    // Cookies file
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Cookies File")
@@ -321,7 +362,6 @@ struct SettingsView: View {
                         .controlSize(.mini)
                     }
 
-                    // Browser cookies
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Browser Cookies")
@@ -376,6 +416,8 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - Settings Section
+
 struct SettingsSection<Content: View>: View {
     let title: String
     let icon: String
@@ -396,6 +438,8 @@ struct SettingsSection<Content: View>: View {
         }
     }
 }
+
+// MARK: - Shortcut Row
 
 struct ShortcutRow: View {
     let keys: String

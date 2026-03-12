@@ -7,6 +7,7 @@ enum SidebarItem: String, Hashable {
     case download = "Download"
     case transcribe = "Transcribe"
     case history = "History"
+    case settings = "Settings"
 }
 
 // MARK: - Drop Zone View
@@ -89,7 +90,6 @@ struct ContentView: View {
     @State private var transcribeAppMode: AppMode = .singleVideo  // for transcribe section
 
     // Modals
-    @State private var showSettings = false
     @State private var showHistory = false
 
     private var detectedPlatform: Platform {
@@ -106,10 +106,7 @@ struct ContentView: View {
         .frame(minWidth: 740, minHeight: 560)
         .onAppear { checkPendingURL() }
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
-            showSettings.toggle()
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView(downloader: downloader)
+            selectedSidebarItem = .settings
         }
         .sheet(isPresented: $showHistory) {
             HistoryView { item in
@@ -184,10 +181,7 @@ struct ContentView: View {
             // Secondary navigation
             VStack(spacing: 2) {
                 sidebarNavItem(item: .history, icon: "clock.fill", label: "History")
-                Button(action: { showSettings = true }) {
-                    sidebarNavRow(icon: "gearshape.fill", label: "Settings", isSelected: false)
-                }
-                .buttonStyle(.plain)
+                sidebarNavItem(item: .settings, icon: "gearshape.fill", label: "Settings")
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 8)
@@ -233,6 +227,8 @@ struct ContentView: View {
             transcribeDetailView
         case .history:
             historyDetailView
+        case .settings:
+            SettingsView(downloader: downloader)
         }
     }
 
@@ -1360,7 +1356,7 @@ struct ContentView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Button(action: { showSettings = true }) {
+                Button(action: { selectedSidebarItem = .settings }) {
                     Label("Download a Whisper Model", systemImage: "arrow.down.circle.fill")
                         .frame(maxWidth: .infinity)
                 }
@@ -1382,7 +1378,7 @@ struct ContentView: View {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
                     Text("Whisper or FFmpeg binary not found").font(.caption).foregroundColor(.orange)
                     Spacer()
-                    Button("Settings") { showSettings = true }
+                    Button("Settings") { selectedSidebarItem = .settings }
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
                 }
@@ -1405,7 +1401,7 @@ struct ContentView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    Button(action: { showSettings = true }) {
+                    Button(action: { selectedSidebarItem = .settings }) {
                         Label("Download a Whisper Model", systemImage: "arrow.down.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
