@@ -92,7 +92,10 @@ echo "Copying app..."
 cp -R "$APP_PATH" "$DMG_DIR/"
 
 # Copy README
-if [ -f "$PROJECT_DIR/README.md" ]; then
+if [ -f "$PROJECT_DIR/README.txt" ]; then
+    cp "$PROJECT_DIR/README.txt" "$DMG_DIR/"
+    echo "Included README.txt"
+elif [ -f "$PROJECT_DIR/README.md" ]; then
     cp "$PROJECT_DIR/README.md" "$DMG_DIR/"
     echo "Included README.md"
 fi

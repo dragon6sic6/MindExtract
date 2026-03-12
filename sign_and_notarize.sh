@@ -206,11 +206,21 @@ if [ -f "$SPARKLE_TOOLS/sign_update" ] && [ -f "$APPCAST_PATH" ]; then
     echo "  File size: $DMG_FILESIZE"
     echo "  URL:       $DOWNLOAD_URL"
 
-    # Read current release notes from appcast if present, else use a default
-    RELEASE_NOTES=$(grep -o '<description>.*</description>' "$APPCAST_PATH" | head -1 || true)
+    RELEASE_NOTES_FILE="$PROJECT_DIR/release_notes.html"
 
-    cat > "$APPCAST_PATH" << APPCASTEOF
-<?xml version="1.0" encoding="utf-8"?>
+    # Build appcast.xml using Python so HTML in release notes is handled safely
+    python3 - "$APPCAST_PATH" "$VERSION" "$BUILD" "$ED_SIG" "$DMG_FILESIZE" "$DOWNLOAD_URL" "$PUBDATE" "$RELEASE_NOTES_FILE" << 'PYEOF'
+import sys, os
+
+appcast_path, version, build, ed_sig, filesize, url, pubdate, notes_file = sys.argv[1:]
+
+if os.path.exists(notes_file):
+    with open(notes_file) as f:
+        notes = f.read().strip()
+else:
+    notes = f"<h2>What's new in {version}</h2>\n<p>Bug fixes and improvements.</p>"
+
+xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>MindExtract</title>
@@ -219,26 +229,31 @@ if [ -f "$SPARKLE_TOOLS/sign_update" ] && [ -f "$APPCAST_PATH" ]; then
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version $VERSION</title>
-      <pubDate>$PUBDATE</pubDate>
-      <sparkle:version>$BUILD</sparkle:version>
-      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+      <title>Version {version}</title>
+      <pubDate>{pubdate}</pubDate>
+      <sparkle:version>{build}</sparkle:version>
+      <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-        <h2>What's new in $VERSION</h2>
-        <p>See <a href="https://github.com/dragon6sic6/MindExtract/releases/tag/v${VERSION}">release notes on GitHub</a> for full details.</p>
+{notes}
       ]]></description>
       <enclosure
-        url="$DOWNLOAD_URL"
-        sparkle:edSignature="$ED_SIG"
-        length="$DMG_FILESIZE"
+        url="{url}"
+        sparkle:edSignature="{ed_sig}"
+        length="{filesize}"
         type="application/octet-stream"
       />
     </item>
 
   </channel>
 </rss>
-APPCASTEOF
+"""
+
+with open(appcast_path, "w") as f:
+    f.write(xml)
+
+print(f"  appcast.xml written with inline release notes")
+PYEOF
 
     echo "  appcast.xml updated ✓"
 
