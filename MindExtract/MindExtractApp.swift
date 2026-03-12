@@ -18,6 +18,14 @@ struct MindExtractApp: App {
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
+            CommandGroup(replacing: .help) {
+                Button("MindExtract Help") {
+                    if let url = URL(string: "https://github.com/dragon6sic6/MindExtract#readme") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .keyboardShortcut("?", modifiers: .command)
+            }
         }
     }
 }

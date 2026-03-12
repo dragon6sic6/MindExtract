@@ -5,7 +5,7 @@
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-RESOURCES_DIR="$SCRIPT_DIR/VideoDownloader/Resources"
+RESOURCES_DIR="$SCRIPT_DIR/MindExtract/Resources"
 
 echo "=============================================="
 echo "MindExtract - Binary Bundling Helper"
@@ -97,8 +97,8 @@ echo "=============================================="
 echo ""
 echo "1. Open Xcode project"
 echo "2. Right-click Resources folder in Project Navigator"
-echo "3. Select 'Add Files to VideoDownloader...'"
+echo "3. Select 'Add Files to MindExtract...'"
 echo "4. Select the new binaries (whisper, ffmpeg)"
-echo "5. Ensure 'Add to targets: VideoDownloader' is checked"
+echo "5. Ensure 'Add to targets: MindExtract' is checked"
 echo "6. Build and test"
 echo ""

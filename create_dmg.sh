@@ -28,7 +28,7 @@ APP_PATH=""
 POSSIBLE_PATHS=(
     "$BUILD_DIR/Build/Products/Release/MindExtract.app"
     "$PROJECT_DIR/build/Release/MindExtract.app"
-    "$HOME/Library/Developer/Xcode/DerivedData/VideoDownloader-*/Build/Products/Release/MindExtract.app"
+    "$HOME/Library/Developer/Xcode/DerivedData/MindExtract-*/Build/Products/Release/MindExtract.app"
 )
 
 for path_pattern in "${POSSIBLE_PATHS[@]}"; do
@@ -50,7 +50,7 @@ if [ -z "$APP_PATH" ]; then
     echo "ERROR: Could not find MindExtract.app"
     echo ""
     echo "Please build the app first in Xcode:"
-    echo "  1. Open VideoDownloader.xcodeproj in Xcode"
+    echo "  1. Open MindExtract.xcodeproj in Xcode"
     echo "  2. Select 'Any Mac (Apple Silicon, Intel)' as destination"
     echo "  3. Select Product > Build For > Running"
     echo "  4. Run this script again"

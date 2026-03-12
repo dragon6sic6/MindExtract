@@ -158,18 +158,18 @@ struct DownloadHistoryRow: View {
             // Info
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.caption)
+                    .font(.subheadline)
                     .fontWeight(.medium)
                     .lineLimit(2)
                     .foregroundColor(.primary)
 
                 HStack(spacing: 4) {
                     Text(item.platform)
-                        .font(.caption2)
+                        .font(.caption)
                     Text("•")
-                        .font(.caption2)
+                        .font(.caption)
                     Text(timeAgo)
-                        .font(.caption2)
+                        .font(.caption)
                 }
                 .foregroundColor(.secondary)
             }
@@ -223,21 +223,21 @@ struct TranscriptionHistoryRow: View {
                 // Info
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
-                        .font(.caption)
+                        .font(.subheadline)
                         .fontWeight(.medium)
                         .lineLimit(2)
                         .foregroundColor(item.fileExists ? .primary : .secondary)
 
                     HStack(spacing: 4) {
                         Text(item.modelUsed)
-                            .font(.caption2)
+                            .font(.caption)
                         Text("•")
-                            .font(.caption2)
+                            .font(.caption)
                         Text(timeAgo)
-                            .font(.caption2)
+                            .font(.caption)
                         if !item.fileExists {
                             Text("• Missing")
-                                .font(.caption2)
+                                .font(.caption)
                                 .foregroundColor(.red)
                         }
                     }

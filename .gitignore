@@ -8,8 +8,8 @@ xcuserdata/
 *.xcuserstate
 *.xcscmblueprint
 *.xccheckout
-VideoDownloader.xcodeproj/project.xcworkspace/xcuserdata/
-VideoDownloader.xcodeproj/xcuserdata/
+MindExtract.xcodeproj/project.xcworkspace/xcuserdata/
+MindExtract.xcodeproj/xcuserdata/
 
 # Build output
 dist/
@@ -19,15 +19,15 @@ dmg_temp/
 *.dmg
 
 # Bundled binaries (too large for git — run ./setup_binaries.sh to download)
-VideoDownloader/Resources/yt-dlp
-VideoDownloader/Resources/ffmpeg
-VideoDownloader/Resources/whisper
-VideoDownloader/Resources/libwhisper.1.dylib
-VideoDownloader/Resources/libggml.0.dylib
-VideoDownloader/Resources/libggml-cpu.0.dylib
-VideoDownloader/Resources/libggml-blas.0.dylib
-VideoDownloader/Resources/libggml-metal.0.dylib
-VideoDownloader/Resources/libggml-base.0.dylib
+MindExtract/Resources/yt-dlp
+MindExtract/Resources/ffmpeg
+MindExtract/Resources/whisper
+MindExtract/Resources/libwhisper.1.dylib
+MindExtract/Resources/libggml.0.dylib
+MindExtract/Resources/libggml-cpu.0.dylib
+MindExtract/Resources/libggml-blas.0.dylib
+MindExtract/Resources/libggml-metal.0.dylib
+MindExtract/Resources/libggml-base.0.dylib
 
 # Archives
 *.zip

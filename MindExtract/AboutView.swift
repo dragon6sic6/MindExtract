@@ -6,9 +6,9 @@ struct AboutView: View {
     var body: some View {
         VStack(spacing: 20) {
             // App Icon
-            Image(systemName: "waveform.and.magnifyingglass")
-                .font(.system(size: 64))
-                .foregroundColor(.accentColor)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 80, height: 80)
 
             // App Name
             Text("MindExtract")

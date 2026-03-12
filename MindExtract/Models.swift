@@ -16,11 +16,11 @@ struct VideoFormat: Identifiable, Hashable {
 
     var displayName: String {
         if isAudioOnly {
-            return "🎵 \(ext.uppercased()) - \(note) \(filesize)"
+            return "\(ext.uppercased()) — \(note) \(filesize)"
         } else if isVideoOnly {
-            return "🎬 \(resolution) \(ext.uppercased()) (video only) \(filesize)"
+            return "\(resolution) \(ext.uppercased()) (video only) \(filesize)"
         } else {
-            return "📹 \(resolution) \(ext.uppercased()) \(filesize)"
+            return "\(resolution) \(ext.uppercased()) \(filesize)"
         }
     }
 }

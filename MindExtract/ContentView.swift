@@ -36,6 +36,27 @@ struct ContentView: View {
 
                 Divider()
 
+                // yt-dlp missing warning banner
+                if !downloader.isYTDLPInstalled {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("yt-dlp not found — downloading is unavailable. Run ")
+                            .font(.footnote)
+                        + Text("setup_binaries.sh")
+                            .font(.system(.footnote, design: .monospaced))
+                        + Text(" to install it.")
+                            .font(.footnote)
+                    }
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.12))
+
+                    Divider()
+                }
+
                 // Scrollable main content
                 ScrollView {
                     VStack(spacing: 16) {
@@ -106,7 +127,7 @@ struct ContentView: View {
 
                     RecentActivityView()
                 }
-                .frame(width: 280)
+                .frame(width: 240, alignment: .leading)
                 .background(Color(NSColor.windowBackgroundColor))
             }
         }
@@ -151,9 +172,9 @@ struct ContentView: View {
         .onAppear {
             checkPendingURL()
         }
-        // Open settings from menu
+        // Open settings from menu (toggle if already open)
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
-            showSettings = true
+            showSettings.toggle()
         }
         // Settings sheet
         .sheet(isPresented: $showSettings) {
@@ -546,13 +567,6 @@ struct ContentView: View {
 
             Spacer()
 
-            // Warning if yt-dlp not found
-            if !downloader.isYTDLPInstalled {
-                Label("yt-dlp missing", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
-                    .font(.caption)
-            }
-
             // Settings button
             Button(action: { showSettings = true }) {
                 Image(systemName: "gearshape")
@@ -572,10 +586,6 @@ struct ContentView: View {
         VStack(spacing: 16) {
             // Mode Picker
             VStack(alignment: .leading, spacing: 8) {
-                Text("What would you like to do?")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
                 Picker("Mode", selection: $appMode) {
                     Text("Download Video").tag(AppMode.singleVideo)
                     Text("Scan Page").tag(AppMode.pageScan)

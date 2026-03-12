@@ -7,7 +7,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-RESOURCES_DIR="$SCRIPT_DIR/VideoDownloader/Resources"
+RESOURCES_DIR="$SCRIPT_DIR/MindExtract/Resources"
 
 echo "=============================================="
 echo "  MindExtract - Binary Setup"
@@ -132,5 +132,5 @@ check_binary "libggml-metal.0.dylib"
 check_binary "libggml-base.0.dylib"
 
 echo ""
-echo "You can now open VideoDownloader.xcodeproj in Xcode and build."
+echo "You can now open MindExtract.xcodeproj in Xcode and build."
 echo ""
