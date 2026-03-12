@@ -8,8 +8,8 @@
 
     <item>
       <title>Version 1.2.1</title>
-      <pubDate>Thu, 12 Mar 2026 20:09:22 +0000</pubDate>
-      <sparkle:version>1</sparkle:version>
+      <pubDate>Thu, 12 Mar 2026 20:15:12 +0000</pubDate>
+      <sparkle:version>2</sparkle:version>
       <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
@@ -18,8 +18,8 @@
       ]]></description>
       <enclosure
         url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.2.1/MindExtract-1.2.1-Universal.dmg"
-        sparkle:edSignature="ZW/M1+b8XPZBrgISgNSckrYyZ4yp+Qx7EN3IsnneMio1WvVMA8t3I0ElTBJHevc8hc83/tljQpX+7oEphu/fAA=="
-        length="71170818"
+        sparkle:edSignature="373FAH7EKUyroxd3WnGg7UcW7PMFZyfklQzFw2tRBUtqFXnSfljVa4u3IQ7u5zbiAfesPM1svGW7CyZagxhjCw=="
+        length="71170736"
         type="application/octet-stream"
       />
     </item>
