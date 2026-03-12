@@ -25,12 +25,9 @@ Built with Swift and SwiftUI. No third-party Swift dependencies.
 
 1. Download the latest `.dmg` from [Releases](../../releases)
 2. Open the `.dmg` and drag **MindExtract** to your **Applications** folder
-3. Open Terminal and run:
-   ```bash
-   xattr -cr /Applications/MindExtract.app
-   ```
-   This removes the macOS Gatekeeper quarantine flag (required because the app is not signed with an Apple Developer ID).
-4. Open **MindExtract** from Applications
+3. Launch MindExtract from Applications
+
+> The app is **signed and notarized by Apple** — no security warnings, no Terminal commands needed.
 
 ### Requirements
 
@@ -56,22 +53,22 @@ Built with Swift and SwiftUI. No third-party Swift dependencies.
    ```bash
    ./setup_binaries.sh
    ```
-   This downloads `yt-dlp`, `ffmpeg`, and `whisper-cpp` (+ its libraries) into the `VideoDownloader/Resources/` folder. These are too large to include in git.
+   This downloads `yt-dlp`, `ffmpeg`, and `whisper-cpp` (+ its libraries) into `MindExtract/Resources/`. These are too large to include in git.
 
 3. Open in Xcode:
    ```bash
-   open VideoDownloader/VideoDownloader.xcodeproj
+   open MindExtract.xcodeproj
    ```
 
 4. Select **"Any Mac (Apple Silicon, Intel)"** as the build destination
 
 5. Build: **Product > Build** (Cmd+B)
 
-6. (Optional) Create a distributable DMG:
+6. (Optional) Sign, notarize, and create a distributable DMG:
    ```bash
-   cd VideoDownloader
-   ./create_dmg.sh
+   ./sign_and_notarize.sh
    ```
+   Requires a Developer ID certificate and Apple app-specific password stored in Keychain.
 
 ## How It Works
 
@@ -121,8 +118,8 @@ Uses [FFmpeg](https://ffmpeg.org/) for audio extraction and format conversion.
 ## Project Structure
 
 ```
-VideoDownloader/
-├── VideoDownloaderApp.swift           # App entry point
+MindExtract/
+├── MindExtractApp.swift               # App entry point
 ├── ContentView.swift                  # Main UI — download & transcription tabs
 ├── Models.swift                       # Data models, enums, history managers
 ├── YTDLPWrapper.swift                 # yt-dlp integration — downloads, auth, page scanning
@@ -133,10 +130,10 @@ VideoDownloader/
 ├── HistoryView.swift                  # Download history UI
 ├── RecentActivityView.swift           # Combined activity sidebar
 ├── AboutView.swift                    # About dialog
-├── VideoDownloader.entitlements       # App permissions
+├── MindExtract.entitlements           # App permissions
 ├── Info.plist                         # App metadata
 ├── Assets.xcassets/                   # App icons and colors
-└── Resources/                         # Bundled binaries (not in git)
+└── Resources/                         # Bundled binaries (not in git — run setup_binaries.sh)
     ├── yt-dlp                         # Video downloader
     ├── ffmpeg                         # Audio extraction
     ├── whisper                        # Transcription engine
@@ -158,4 +155,6 @@ All data stays on your machine. No cloud, no accounts, no telemetry.
 
 ## License
 
-All rights reserved. © 2025 Mindact.
+MIT License — see [LICENSE](LICENSE) for details.
+
+© 2025 [Mindact Solutions AB](https://mindact.ai)
