@@ -300,7 +300,7 @@ struct SettingsView: View {
                                 Text(downloader.youtubeDeviceCode)
                                     .font(.system(.body, design: .monospaced))
                                     .fontWeight(.bold)
-                                    .foregroundColor(.accentColor)
+                                    .foregroundColor(.primary)
                                     .textSelection(.enabled)
                                 Button(action: {
                                     NSPasteboard.general.clearContents()
@@ -323,7 +323,7 @@ struct SettingsView: View {
                             }
                         }
                         .padding(10)
-                        .background(Color.accentColor.opacity(0.08))
+                        .background(Color.primary.opacity(0.05))
                         .cornerRadius(8)
                     }
                 }

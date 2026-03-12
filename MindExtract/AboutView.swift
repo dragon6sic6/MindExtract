@@ -32,7 +32,7 @@ struct AboutView: View {
                 Text("Mindact")
                     .font(.title2)
                     .fontWeight(.semibold)
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.primary)
             }
 
             // Description

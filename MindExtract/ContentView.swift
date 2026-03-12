@@ -1645,7 +1645,7 @@ struct QuickFormatButton: View {
             Label(title, systemImage: icon).font(.caption)
         }
         .buttonStyle(.bordered)
-        .tint(isSelected ? .accentColor : .secondary)
+        .tint(isSelected ? .primary : .secondary)
     }
 }
 
@@ -1656,7 +1656,7 @@ struct FormatRow: View {
     var body: some View {
         HStack {
             Image(systemName: format.isAudioOnly ? "music.note" : "film")
-                .foregroundColor(format.isAudioOnly ? .purple : .blue)
+                .foregroundColor(.secondary)
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -1670,7 +1670,7 @@ struct FormatRow: View {
                         .fontWeight(.medium)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.accentColor.opacity(0.15))
+                        .background(Color.primary.opacity(0.08))
                         .cornerRadius(4)
 
                     if format.isVideoOnly {
@@ -1695,12 +1695,12 @@ struct FormatRow: View {
             Spacer()
 
             if isSelected {
-                Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
+                Image(systemName: "checkmark.circle.fill").foregroundColor(.primary)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(isSelected ? Color.accentColor.opacity(0.15) : Color(NSColor.controlBackgroundColor))
+        .background(isSelected ? Color.primary.opacity(0.08) : Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
     }
 }
@@ -1716,7 +1716,7 @@ struct VideoRow: View {
             Button(action: onToggle) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                    .foregroundColor(isSelected ? .primary : .secondary)
             }
             .buttonStyle(.plain)
 
@@ -1752,11 +1752,11 @@ struct VideoRow: View {
                 Image(systemName: "arrow.down.circle").font(.title2)
             }
             .buttonStyle(.plain)
-            .foregroundColor(.accentColor)
+            .foregroundColor(.primary)
             .help("Download this video")
         }
         .padding(10)
-        .background(isSelected ? Color.accentColor.opacity(0.1) : Color(NSColor.controlBackgroundColor))
+        .background(isSelected ? Color.primary.opacity(0.07) : Color(NSColor.controlBackgroundColor))
         .cornerRadius(10)
     }
 }
@@ -1860,9 +1860,9 @@ struct LocalFileRow: View {
         HStack(spacing: 12) {
             Image(systemName: fileIcon)
                 .font(.title2)
-                .foregroundColor(.accentColor)
+                .foregroundColor(.primary)
                 .frame(width: 40, height: 40)
-                .background(Color.accentColor.opacity(0.1))
+                .background(Color.primary.opacity(0.07))
                 .cornerRadius(8)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -1876,7 +1876,7 @@ struct LocalFileRow: View {
                     Text(file.url.pathExtension.uppercased())
                         .font(.caption2).fontWeight(.medium)
                         .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Color.accentColor.opacity(0.15))
+                        .background(Color.primary.opacity(0.08))
                         .cornerRadius(4)
                 }
             }

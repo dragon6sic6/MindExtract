@@ -15,7 +15,7 @@ struct TranscriptionSettingsView: View {
                     Text("Back")
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(.accentColor)
+                .foregroundColor(.primary)
 
                 Spacer()
 
@@ -144,8 +144,8 @@ struct ModelRow: View {
                             .font(.caption)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.2))
-                            .foregroundColor(.accentColor)
+                            .background(Color.primary.opacity(0.08))
+                            .foregroundColor(.primary)
                             .cornerRadius(4)
                     }
                 }

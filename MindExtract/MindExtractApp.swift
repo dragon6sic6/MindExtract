@@ -10,6 +10,8 @@ struct MindExtractApp: App {
             ContentView()
                 .preferredColorScheme(settings.appearanceMode.colorScheme)
                 .tint(Color(NSColor.labelColor))
+                .onAppear { applyAppearance(settings.appearanceMode) }
+                .onChange(of: settings.appearanceMode) { applyAppearance($0) }
                 .overlay {
                     if !hasSeenOnboarding {
                         OnboardingView(onDismiss: {
@@ -41,6 +43,16 @@ struct MindExtractApp: App {
                 .keyboardShortcut("?", modifiers: .command)
             }
         }
+    }
+}
+
+// MARK: - Helpers
+
+private func applyAppearance(_ mode: AppearanceMode) {
+    switch mode {
+    case .system: NSApp.appearance = nil
+    case .light:  NSApp.appearance = NSAppearance(named: .aqua)
+    case .dark:   NSApp.appearance = NSAppearance(named: .darkAqua)
     }
 }
 

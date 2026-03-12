@@ -146,7 +146,7 @@ struct HistoryItemRow: View {
                         .font(.title3)
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(.accentColor)
+                .foregroundColor(.secondary)
                 .help("Download again")
 
                 Button(action: {
