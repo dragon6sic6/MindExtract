@@ -93,7 +93,7 @@ struct TranscriptionResultView: View {
 
     private var isTranscribing: Bool {
         switch transcriptionManager.transcriptionState {
-        case .extractingAudio, .transcribing, .loadingModel:
+        case .downloadingAudio, .extractingAudio, .transcribing, .loadingModel:
             return true
         default:
             return false
@@ -310,6 +310,25 @@ struct TranscriptionResultView: View {
     @ViewBuilder
     private var transcriberStatusPill: some View {
         switch transcriptionManager.transcriptionState {
+        case .downloadingAudio(let progress):
+            HStack(spacing: 6) {
+                ProgressView()
+                    .scaleEffect(0.5)
+                    .frame(width: 12, height: 12)
+                Text("Downloading audio")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                if progress > 0 {
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color.blue.opacity(0.08))
+            .cornerRadius(12)
+
         case .loadingModel:
             statusPill(text: "Loading model", showSpinner: true)
 
@@ -368,6 +387,12 @@ struct TranscriptionResultView: View {
     @ViewBuilder
     private var statusView: some View {
         switch transcriptionManager.transcriptionState {
+        case .downloadingAudio(let progress) where progress > 0:
+            ProgressView(value: progress)
+                .progressViewStyle(.linear)
+                .tint(.orange)
+                .frame(height: 2)
+
         case .transcribing(let progress) where progress > 0:
             ProgressView(value: progress)
                 .progressViewStyle(.linear)
@@ -424,7 +449,7 @@ struct TranscriptionResultView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 if transcriptionManager.liveTranscriptionText.isEmpty && isTranscribing {
-                    WaitingAnimationView()
+                    WaitingAnimationView(state: transcriptionManager.transcriptionState)
                         .frame(maxWidth: .infinity, minHeight: 200)
                         .padding(32)
                 } else if transcriptionManager.segments.isEmpty && !isTranscribing && !isCompleted {
@@ -472,7 +497,7 @@ struct TranscriptionResultView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 if transcriptionManager.segments.isEmpty && isTranscribing {
-                    WaitingAnimationView()
+                    WaitingAnimationView(state: transcriptionManager.transcriptionState)
                         .frame(maxWidth: .infinity, minHeight: 200)
                         .padding(32)
                 } else if filteredSegments.isEmpty && !searchText.isEmpty {
@@ -777,6 +802,8 @@ struct SegmentRow: View {
 // MARK: - Waiting Animation View
 
 struct WaitingAnimationView: View {
+    var state: TranscriptionState = .transcribing(progress: 0)
+
     @State private var animating = false
     @State private var pulseOpacity: Double = 0.3
 
@@ -785,6 +812,36 @@ struct WaitingAnimationView: View {
     private let barSpacing: CGFloat = 4
     private let minHeight: CGFloat = 6
     private let maxHeight: CGFloat = 32
+
+    private var titleText: String {
+        switch state {
+        case .downloadingAudio(let progress):
+            return progress > 0 ? "Downloading audio... \(Int(progress * 100))%" : "Downloading audio..."
+        case .loadingModel:
+            return "Loading AI model..."
+        case .extractingAudio:
+            return "Extracting audio..."
+        case .transcribing:
+            return "Transcribing audio..."
+        default:
+            return "Preparing..."
+        }
+    }
+
+    private var subtitleText: String {
+        switch state {
+        case .downloadingAudio:
+            return "Fetching audio from the video URL"
+        case .loadingModel:
+            return "Loading the whisper model into memory"
+        case .extractingAudio:
+            return "Converting to audio format for transcription"
+        case .transcribing:
+            return "Words will appear here in real time"
+        default:
+            return "Please wait..."
+        }
+    }
 
     var body: some View {
         VStack(spacing: 20) {
@@ -811,11 +868,11 @@ struct WaitingAnimationView: View {
             .frame(height: maxHeight)
 
             VStack(spacing: 6) {
-                Text("Transcribing audio")
+                Text(titleText)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
 
-                Text("Words will appear here in real time")
+                Text(subtitleText)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary.opacity(0.6))
                     .opacity(pulseOpacity)

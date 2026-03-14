@@ -37,6 +37,18 @@ class TranscriptionManager: ObservableObject {
         loadDownloadedModels()
     }
 
+    // MARK: - Token Cleaning
+
+    /// Strip WhisperKit special tokens like <|5.92|>, <|startoftranscript|>, <|en|>, <|transcribe|>, etc.
+    private static let tokenPattern = try! NSRegularExpression(pattern: "<\\|[^|]*\\|>", options: [])
+
+    private func cleanTokens(_ text: String) -> String {
+        let range = NSRange(text.startIndex..., in: text)
+        let cleaned = Self.tokenPattern.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
+        // Collapse multiple spaces and trim
+        return cleaned.replacingOccurrences(of: "  +", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Paths
 
     private var applicationSupportPath: URL {
@@ -364,14 +376,16 @@ class TranscriptionManager: ObservableObject {
                 // Set up segment discovery callback for real-time streaming
                 kit.segmentDiscoveryCallback = { [weak self] discoveredSegments in
                     guard let self = self else { return }
-                    let newSegmentData = discoveredSegments.map { seg in
-                        TranscriptionSegmentData(
+                    let newSegmentData = discoveredSegments.compactMap { seg -> TranscriptionSegmentData? in
+                        let cleaned = self.cleanTokens(seg.text)
+                        guard !cleaned.isEmpty else { return nil }
+                        return TranscriptionSegmentData(
                             start: seg.start,
                             end: seg.end,
-                            text: seg.text.trimmingCharacters(in: .whitespacesAndNewlines),
+                            text: cleaned,
                             speaker: nil,
                             words: (seg.words ?? []).map { w in
-                                WordTimingData(word: w.word, start: w.start, end: w.end, probability: w.probability)
+                                WordTimingData(word: self.cleanTokens(w.word), start: w.start, end: w.end, probability: w.probability)
                             },
                             avgLogprob: seg.avgLogprob
                         )
@@ -414,13 +428,15 @@ class TranscriptionManager: ObservableObject {
                 var allSegments: [TranscriptionSegmentData] = []
                 for result in results {
                     for seg in result.segments {
+                        let cleaned = self.cleanTokens(seg.text)
+                        guard !cleaned.isEmpty else { continue }
                         allSegments.append(TranscriptionSegmentData(
                             start: seg.start,
                             end: seg.end,
-                            text: seg.text.trimmingCharacters(in: .whitespacesAndNewlines),
+                            text: cleaned,
                             speaker: nil,
                             words: (seg.words ?? []).map { w in
-                                WordTimingData(word: w.word, start: w.start, end: w.end, probability: w.probability)
+                                WordTimingData(word: self.cleanTokens(w.word), start: w.start, end: w.end, probability: w.probability)
                             },
                             avgLogprob: seg.avgLogprob
                         ))
@@ -710,13 +726,75 @@ class TranscriptionManager: ObservableObject {
     }
 
     private func saveToHistory(title: String, filePath: String) {
+        // Save segment data alongside the transcription for later reload
+        let segmentDataPath = filePath + ".segments.json"
+        saveSegmentData(to: segmentDataPath)
+
+        let duration = audioDuration > 0 ? formatDurationForHistory(audioDuration) : nil
         let historyItem = TranscriptionHistoryItem(
             title: title,
             filePath: filePath,
-            duration: nil,
+            duration: duration,
             modelUsed: currentModelUsed?.displayName ?? "Unknown"
         )
         transcriptionHistory.addToHistory(historyItem)
+    }
+
+    private func formatDurationForHistory(_ seconds: Float) -> String {
+        let m = Int(seconds) / 60
+        let s = Int(seconds) % 60
+        return String(format: "%d:%02d", m, s)
+    }
+
+    private func saveSegmentData(to path: String) {
+        let segmentDicts: [[String: Any]] = segments.map { seg in
+            var dict: [String: Any] = [
+                "start": seg.start,
+                "end": seg.end,
+                "text": seg.text,
+                "avgLogprob": seg.avgLogprob
+            ]
+            if let speaker = seg.speaker { dict["speaker"] = speaker }
+            if !seg.words.isEmpty {
+                dict["words"] = seg.words.map { w in
+                    ["word": w.word, "start": w.start, "end": w.end, "probability": w.probability] as [String: Any]
+                }
+            }
+            return dict
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: segmentDicts, options: []),
+           let str = String(data: data, encoding: .utf8) {
+            try? str.write(toFile: path, atomically: true, encoding: .utf8)
+        }
+    }
+
+    private func loadSegmentData(from filePath: String) -> [TranscriptionSegmentData]? {
+        let segPath = filePath + ".segments.json"
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: segPath)),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return nil
+        }
+        return arr.compactMap { dict -> TranscriptionSegmentData? in
+            guard let start = dict["start"] as? Double,
+                  let end = dict["end"] as? Double,
+                  let text = dict["text"] as? String,
+                  let avgLogprob = dict["avgLogprob"] as? Double else { return nil }
+            let speaker = dict["speaker"] as? String
+            var words: [WordTimingData] = []
+            if let wordArr = dict["words"] as? [[String: Any]] {
+                words = wordArr.compactMap { w in
+                    guard let word = w["word"] as? String,
+                          let ws = w["start"] as? Double,
+                          let we = w["end"] as? Double,
+                          let wp = w["probability"] as? Double else { return nil }
+                    return WordTimingData(word: word, start: Float(ws), end: Float(we), probability: Float(wp))
+                }
+            }
+            return TranscriptionSegmentData(
+                start: Float(start), end: Float(end), text: text,
+                speaker: speaker, words: words, avgLogprob: Float(avgLogprob)
+            )
+        }
     }
 
     func openTranscriptionFromHistory(_ item: TranscriptionHistoryItem) {
@@ -725,10 +803,17 @@ class TranscriptionManager: ObservableObject {
             return
         }
 
+        // Try to load saved segment data
+        let loadedSegments = loadSegmentData(from: item.filePath)
+
         DispatchQueue.main.async {
             self.currentTranscriptionTitle = item.title
             self.liveTranscriptionText = text
             self.lastSavedPath = item.filePath
+            self.segments = loadedSegments ?? []
+            if let segs = loadedSegments, let last = segs.last {
+                self.audioDuration = last.end
+            }
             self.showTranscriptionView = true
             self.transcriptionState = .completed(outputPath: item.filePath)
         }

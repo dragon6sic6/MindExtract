@@ -122,6 +122,14 @@ struct ContentView: View {
                 TranscriptionWindowController.shared.close()
             }
         }
+        // Bridge downloader progress to transcription window when downloading audio for transcription
+        .onChange(of: downloader.state) { newState in
+            if case .downloadingAudio = transcriptionManager.transcriptionState {
+                if case .downloading(let progress, _) = newState {
+                    transcriptionManager.transcriptionState = .downloadingAudio(progress: progress)
+                }
+            }
+        }
         .sheet(isPresented: $showTranscriptionLanguagePicker) {
             TranscriptionLanguagePickerSheet(
                 selectedLanguage: $selectedTranscriptionLanguage,
@@ -1104,6 +1112,7 @@ struct ContentView: View {
         let modelToUse = transcriptionManager.isModelDownloaded(model) ? model : transcriptionManager.downloadedModels.first!
         let title = downloader.videoInfo?.title ?? "Video Transcription"
         transcriptionManager.startNewTranscription(title: title, model: modelToUse)
+        transcriptionManager.transcriptionState = .downloadingAudio(progress: 0)
 
         downloader.downloadAudioForTranscription(url: urlInput) { [self] audioPath, error in
             if let error = error {
@@ -1266,6 +1275,26 @@ struct ContentView: View {
         case .idle:
             EmptyView()
 
+        case .downloadingAudio(let progress):
+            VStack(spacing: 6) {
+                HStack(spacing: 8) {
+                    ProgressView().scaleEffect(0.7)
+                    Text("Downloading audio…").font(.caption).fontWeight(.medium)
+                    Spacer()
+                    if progress > 0 {
+                        Text("\(Int(progress * 100))%").font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                if progress > 0 {
+                    ProgressView(value: progress)
+                        .progressViewStyle(.linear)
+                        .tint(.orange)
+                }
+            }
+            .padding(10)
+            .background(Color.orange.opacity(0.08))
+            .cornerRadius(8)
+
         case .loadingModel:
             HStack(spacing: 8) {
                 ProgressView().scaleEffect(0.7)
@@ -1422,7 +1451,7 @@ struct ContentView: View {
                 .cornerRadius(8)
             }
 
-        case .loadingModel, .extractingAudio, .transcribing:
+        case .downloadingAudio, .loadingModel, .extractingAudio, .transcribing:
             VStack(spacing: 8) { transcriptionStatusView }
                 .padding()
                 .background(Color.blue.opacity(0.1))
