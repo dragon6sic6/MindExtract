@@ -7,24 +7,23 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.4.0</title>
-      <pubDate>Sat, 14 Mar 2026 12:39:03 +0000</pubDate>
-      <sparkle:version>8</sparkle:version>
-      <sparkle:shortVersionString>1.4.0</sparkle:shortVersionString>
+      <title>Version 1.4.1</title>
+      <pubDate>Sat, 14 Mar 2026 13:14:55 +0000</pubDate>
+      <sparkle:version>9</sparkle:version>
+      <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.4.0</h2>
+<h2>What's New in 1.4.1</h2>
 <ul>
-  <li><strong>WhisperKit transcription engine</strong> — Replaced whisper.cpp with WhisperKit, running natively on Apple's Neural Engine and GPU via Core ML for significantly faster transcription</li>
-  <li><strong>New model options</strong> — Added Large v3 and Large v3 Turbo models for best-in-class accuracy</li>
-  <li><strong>Speaker diarization support</strong> — Experimental option to identify different speakers in transcriptions</li>
-  <li><strong>Smaller app size</strong> — Removed bundled whisper binary and dylibs; models are now downloaded on-demand as Core ML packages</li>
+  <li><strong>Fixed model downloads</strong> — WhisperKit models now download and install correctly via the setup wizard and Settings</li>
+  <li><strong>Fixed transcription</strong> — Transcribe button works properly in both Download and Transcribe tabs</li>
+  <li><strong>Improved model management</strong> — Accurate detection, size reporting, and deletion of downloaded models</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.4.0/MindExtract-1.4.0-Universal.dmg"
-        sparkle:edSignature="HYUzLf+86Qib6up9uwVeVlhDq4QE05TscFtV4RloFHRLr0L6bYII+R6FJg30zDY+u6uJElsR+q4nUE9uRexoCQ=="
-        length="74578719"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.4.1/MindExtract-1.4.1-Universal.dmg"
+        sparkle:edSignature="P6q0ATQlVCuc3HJPFg38WuVOYb3Spv7/bCoMh2tcjBAlYDtNX8sUujOx/qsLr82GshFII0gOs6kFmFsarr5sBQ=="
+        length="74806821"
         type="application/octet-stream"
       />
     </item>
