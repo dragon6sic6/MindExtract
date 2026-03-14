@@ -8,23 +8,24 @@
 
     <item>
       <title>Version 1.5.2</title>
-      <pubDate>Sat, 14 Mar 2026 17:18:25 +0000</pubDate>
+      <pubDate>Sat, 14 Mar 2026 17:54:45 +0000</pubDate>
       <sparkle:version>13</sparkle:version>
       <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.5.2</h2>
+<h2>What's New in 1.5.3</h2>
 <ul>
-  <li><strong>Fixed garbled transcription text</strong> — Removed WhisperKit special tokens (<|5.92|>, <|startoftranscript|>, etc.) from transcription output</li>
-  <li><strong>Download progress in transcription window</strong> — When transcribing from a URL, the transcription window now shows download progress with percentage</li>
-  <li><strong>Context-aware waiting animation</strong> — Shows what's happening: downloading audio, loading model, extracting audio, or transcribing</li>
-  <li><strong>Improved transcription history</strong> — History now stores segment data (timestamps, confidence) so reopened transcriptions have full timeline view</li>
+  <li><strong>Fixed word spacing in transcriptions</strong> — Words are now properly separated with spaces and paragraph breaks between segments</li>
+  <li><strong>Fixed transcription window not reopening</strong> — Closing via the red X button no longer prevents the window from opening on next transcription</li>
+  <li><strong>History transcriptions reopen reliably</strong> — Clicking a transcription in history always opens the transcription window</li>
+  <li><strong>Better exported transcription files</strong> — Plain text exports now include timestamps and paragraph formatting</li>
+  <li><strong>Improved readability</strong> — Increased font sizes across the app for better legibility</li>
 </ul>
       ]]></description>
       <enclosure
         url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.2/MindExtract-1.5.2-Universal.dmg"
-        sparkle:edSignature="GCCJlKRqpnLhUo8rMX/EM3XyqOhXBJ0Hr2PxVGrEV24LkxzkNpEtHdV7lvQitTeZ5bqMCQfvCw6W+jK1OC46AQ=="
-        length="75033947"
+        sparkle:edSignature="NuHQWXbPbfkjQO9SigOj8a1x+NCD308knpe7/7EZBqreSmdT6LLbg7EfyCYSFYrYo4ixufpajY6B1wZ5PWXeBA=="
+        length="75031739"
         type="application/octet-stream"
       />
     </item>
