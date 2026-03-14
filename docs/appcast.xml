@@ -7,25 +7,24 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.5.3</title>
-      <pubDate>Sat, 14 Mar 2026 17:54:45 +0000</pubDate>
-      <sparkle:version>14</sparkle:version>
-      <sparkle:shortVersionString>1.5.3</sparkle:shortVersionString>
+      <title>Version 1.5.2</title>
+      <pubDate>Sat, 14 Mar 2026 18:11:49 +0000</pubDate>
+      <sparkle:version>13</sparkle:version>
+      <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.5.3</h2>
+<h2>What's New in 1.5.4</h2>
 <ul>
-  <li><strong>Fixed word spacing in transcriptions</strong> — Words are now properly separated with spaces and paragraph breaks between segments</li>
-  <li><strong>Fixed transcription window not reopening</strong> — Closing via the red X button no longer prevents the window from opening on next transcription</li>
-  <li><strong>History transcriptions reopen reliably</strong> — Clicking a transcription in history always opens the transcription window</li>
-  <li><strong>Better exported transcription files</strong> — Plain text exports now include timestamps and paragraph formatting</li>
-  <li><strong>Improved readability</strong> — Increased font sizes across the app for better legibility</li>
+  <li><strong>Redesigned transcription history</strong> — Shows actual file names, Whisper model badge, duration, and time</li>
+  <li><strong>Fixed double-click bug</strong> — Clicking a history item opens it reliably without toggling</li>
+  <li><strong>Hover feedback</strong> — History rows highlight on hover to indicate they're clickable</li>
+  <li><strong>Better titles</strong> — Transcriptions are saved with the source filename instead of generic "Video Transcription"</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.3/MindExtract-1.5.3-Universal.dmg"
-        sparkle:edSignature="NuHQWXbPbfkjQO9SigOj8a1x+NCD308knpe7/7EZBqreSmdT6LLbg7EfyCYSFYrYo4ixufpajY6B1wZ5PWXeBA=="
-        length="75031739"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.2/MindExtract-1.5.2-Universal.dmg"
+        sparkle:edSignature="imK1ph4/EjCuVNSwgYyg7QOG5M0CxrQ/xVXMLliHKhIJGaJeP79FMmRa0BeOr5687b5mef5MpMOEakaC5xdCAA=="
+        length="75039130"
         type="application/octet-stream"
       />
     </item>
