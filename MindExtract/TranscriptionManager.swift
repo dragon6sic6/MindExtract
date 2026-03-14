@@ -18,6 +18,10 @@ class TranscriptionManager: ObservableObject {
     @Published var showTranscriptionView: Bool = false
     @Published var lastSavedPath: String?
 
+    // Segment-level data for timeline view
+    @Published var segments: [TranscriptionSegmentData] = []
+    @Published var audioDuration: Float = 0
+
     private var whisperKit: WhisperKit?
     private var currentLoadedModel: WhisperModel?
     private var currentTask: Task<Void, Never>?
@@ -330,6 +334,8 @@ class TranscriptionManager: ObservableObject {
         DispatchQueue.main.async {
             self.transcriptionState = .transcribing(progress: 0)
             self.liveTranscriptionText = ""
+            self.segments = []
+            self.audioDuration = 0
             self.showTranscriptionView = true
         }
 
@@ -348,27 +354,94 @@ class TranscriptionManager: ObservableObject {
                 }
                 options.wordTimestamps = true
 
-                // Run transcription
+                // Set up segment discovery callback for real-time streaming
+                kit.segmentDiscoveryCallback = { [weak self] discoveredSegments in
+                    guard let self = self else { return }
+                    let newSegmentData = discoveredSegments.map { seg in
+                        TranscriptionSegmentData(
+                            start: seg.start,
+                            end: seg.end,
+                            text: seg.text.trimmingCharacters(in: .whitespacesAndNewlines),
+                            speaker: nil,
+                            words: (seg.words ?? []).map { w in
+                                WordTimingData(word: w.word, start: w.start, end: w.end, probability: w.probability)
+                            },
+                            avgLogprob: seg.avgLogprob
+                        )
+                    }
+                    Task { @MainActor in
+                        self.segments.append(contentsOf: newSegmentData)
+                        self.liveTranscriptionText = self.segments.map { $0.text }.joined(separator: " ")
+                        if let lastEnd = self.segments.last?.end {
+                            self.audioDuration = max(self.audioDuration, lastEnd)
+                        }
+                    }
+                }
+
+                // Progress callback for percentage updates
+                let callback: TranscriptionCallback = { [weak self] progress in
+                    guard let self = self else { return nil }
+                    Task { @MainActor in
+                        // Use window progress as a rough percentage estimate
+                        let windowId = progress.windowId
+                        // Each window is ~30s of audio; estimate progress
+                        if self.audioDuration > 0 {
+                            let estimatedProgress = min(Double(windowId * 30) / Double(self.audioDuration), 0.99)
+                            self.transcriptionState = .transcribing(progress: estimatedProgress)
+                        }
+                    }
+                    return Task.isCancelled ? false : nil
+                }
+
+                // Run transcription with callbacks
                 let results = try await kit.transcribe(
                     audioPath: audioPath,
-                    decodeOptions: options
+                    decodeOptions: options,
+                    callback: callback
                 )
 
-                // Build output text from results
-                var fullText = ""
-                let enableDiarization = AppSettings.shared.enableSpeakerDiarization
+                // Clear the callback to avoid retain cycles
+                kit.segmentDiscoveryCallback = nil
 
-                if outputFormat == .srt {
+                // Build final segment data from results (in case callback missed any)
+                var allSegments: [TranscriptionSegmentData] = []
+                for result in results {
+                    for seg in result.segments {
+                        allSegments.append(TranscriptionSegmentData(
+                            start: seg.start,
+                            end: seg.end,
+                            text: seg.text.trimmingCharacters(in: .whitespacesAndNewlines),
+                            speaker: nil,
+                            words: (seg.words ?? []).map { w in
+                                WordTimingData(word: w.word, start: w.start, end: w.end, probability: w.probability)
+                            },
+                            avgLogprob: seg.avgLogprob
+                        ))
+                    }
+                    if let lastSeg = result.segments.last {
+                        self.audioDuration = max(self.audioDuration, lastSeg.end)
+                    }
+                }
+
+                // Build output text based on format
+                let fullText: String
+                switch outputFormat {
+                case .srt:
                     fullText = buildSRT(from: results)
-                } else {
-                    fullText = results.map { $0.text }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+                case .vtt:
+                    fullText = buildVTT(from: allSegments)
+                case .json:
+                    fullText = buildJSON(from: allSegments)
+                case .txt:
+                    fullText = allSegments.map { $0.text }.joined(separator: " ")
                 }
 
                 // Save to file
                 try fullText.write(toFile: outputPath, atomically: true, encoding: .utf8)
 
                 await MainActor.run {
-                    self.liveTranscriptionText = fullText
+                    self.segments = allSegments
+                    self.liveTranscriptionText = allSegments.map { $0.text }.joined(separator: " ")
                     self.lastSavedPath = outputPath
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
@@ -418,6 +491,65 @@ class TranscriptionManager: ObservableObject {
         let secs = totalSeconds % 60
         let milliseconds = Int((seconds - Float(totalSeconds)) * 1000)
         return String(format: "%02d:%02d:%02d,%03d", hours, minutes, secs, milliseconds)
+    }
+
+    // MARK: - VTT Builder
+
+    private func buildVTT(from segments: [TranscriptionSegmentData]) -> String {
+        var vtt = "WEBVTT\n\n"
+        for (i, seg) in segments.enumerated() {
+            let start = formatVTTTime(seg.start)
+            let end = formatVTTTime(seg.end)
+            vtt += "\(i + 1)\n"
+            vtt += "\(start) --> \(end)\n"
+            if let speaker = seg.speaker {
+                vtt += "<v \(speaker)>\(seg.text)\n\n"
+            } else {
+                vtt += "\(seg.text)\n\n"
+            }
+        }
+        return vtt
+    }
+
+    private func formatVTTTime(_ seconds: Float) -> String {
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+        let milliseconds = Int((seconds - Float(totalSeconds)) * 1000)
+        return String(format: "%02d:%02d:%02d.%03d", hours, minutes, secs, milliseconds)
+    }
+
+    // MARK: - JSON Builder
+
+    private func buildJSON(from segments: [TranscriptionSegmentData]) -> String {
+        var jsonSegments: [[String: Any]] = []
+        for seg in segments {
+            var dict: [String: Any] = [
+                "start": seg.start,
+                "end": seg.end,
+                "text": seg.text,
+                "confidence": seg.confidence
+            ]
+            if let speaker = seg.speaker {
+                dict["speaker"] = speaker
+            }
+            if !seg.words.isEmpty {
+                dict["words"] = seg.words.map { w in
+                    ["word": w.word, "start": w.start, "end": w.end, "probability": w.probability] as [String : Any]
+                }
+            }
+            jsonSegments.append(dict)
+        }
+        let wrapper: [String: Any] = [
+            "duration": audioDuration,
+            "segments": jsonSegments
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: wrapper, options: [.prettyPrinted, .sortedKeys]),
+           let str = String(data: data, encoding: .utf8) {
+            return str
+        }
+        return "{}"
     }
 
     // MARK: - Audio Extraction (FFmpeg)
@@ -505,12 +637,53 @@ class TranscriptionManager: ObservableObject {
         }
     }
 
+    func exportAs(format: TranscriptionOutputFormat) {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.plainText]
+        let baseName = currentTranscriptionTitle.isEmpty ? "transcription" : currentTranscriptionTitle
+        savePanel.nameFieldStringValue = "\(baseName).\(format.rawValue)"
+        savePanel.canCreateDirectories = true
+
+        if savePanel.runModal() == .OK, let url = savePanel.url {
+            let content: String
+            switch format {
+            case .txt:
+                content = liveTranscriptionText
+            case .srt:
+                content = buildSRT(fromSegments: segments)
+            case .vtt:
+                content = buildVTT(from: segments)
+            case .json:
+                content = buildJSON(from: segments)
+            }
+            do {
+                try content.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                print("Failed to export transcription: \(error)")
+            }
+        }
+    }
+
+    private func buildSRT(fromSegments segments: [TranscriptionSegmentData]) -> String {
+        var srt = ""
+        for (i, seg) in segments.enumerated() {
+            let start = formatSRTTime(seg.start)
+            let end = formatSRTTime(seg.end)
+            srt += "\(i + 1)\n"
+            srt += "\(start) --> \(end)\n"
+            srt += "\(seg.text)\n\n"
+        }
+        return srt
+    }
+
     func clearTranscription() {
         DispatchQueue.main.async {
             self.liveTranscriptionText = ""
             self.currentTranscriptionTitle = ""
             self.showTranscriptionView = false
             self.lastSavedPath = nil
+            self.segments = []
+            self.audioDuration = 0
         }
     }
 

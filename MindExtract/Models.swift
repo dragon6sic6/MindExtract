@@ -325,13 +325,61 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
 enum TranscriptionOutputFormat: String, CaseIterable, Codable {
     case txt = "txt"
     case srt = "srt"
+    case vtt = "vtt"
+    case json = "json"
 
     var displayName: String {
         switch self {
         case .txt: return "Plain Text (.txt)"
         case .srt: return "Subtitles (.srt)"
+        case .vtt: return "WebVTT (.vtt)"
+        case .json: return "JSON (.json)"
         }
     }
+}
+
+// MARK: - Transcription Segment Data
+
+struct TranscriptionSegmentData: Identifiable {
+    let id = UUID()
+    let start: Float
+    let end: Float
+    let text: String
+    var speaker: String?
+    let words: [WordTimingData]
+    let avgLogprob: Float
+
+    var formattedStart: String { formatTimestamp(start) }
+    var formattedEnd: String { formatTimestamp(end) }
+    var formattedRange: String { "\(formattedStart) → \(formattedEnd)" }
+    var duration: Float { end - start }
+
+    /// Confidence 0–1 derived from avgLogprob (higher = more confident)
+    var confidence: Double {
+        // avgLogprob ranges roughly from -2 (bad) to 0 (perfect)
+        let clamped = max(min(Double(avgLogprob), 0), -2)
+        return (clamped + 2) / 2  // maps [-2,0] → [0,1]
+    }
+
+    private func formatTimestamp(_ seconds: Float) -> String {
+        let totalSeconds = Int(seconds)
+        let h = totalSeconds / 3600
+        let m = (totalSeconds % 3600) / 60
+        let s = totalSeconds % 60
+        let ms = Int((seconds - Float(totalSeconds)) * 10)
+        if h > 0 {
+            return String(format: "%d:%02d:%02d.%d", h, m, s, ms)
+        }
+        return String(format: "%d:%02d.%d", m, s, ms)
+    }
+}
+
+struct WordTimingData: Identifiable {
+    let id = UUID()
+    let word: String
+    let start: Float
+    let end: Float
+    let probability: Float // 0–1 confidence
 }
 
 enum YouTubeSignInState: Equatable {
