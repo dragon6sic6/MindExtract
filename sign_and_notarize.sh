@@ -30,7 +30,7 @@ fi
 BUNDLE_ID="com.mindact.mindextract"
 
 APP_NAME="MindExtract"
-DMG_NAME="MindExtract-1.5.3-Universal"
+DMG_NAME="MindExtract-1.5.4-Universal"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
 OUTPUT_DIR="$PROJECT_DIR/dist"
@@ -204,8 +204,10 @@ if [ -f "$SPARKLE_TOOLS/sign_update" ] && [ -f "$APPCAST_PATH" ]; then
     # Extract just the edSignature value
     ED_SIG=$(echo "$RAW_SIG" | grep -o 'edSignature="[^"]*"' | sed 's/edSignature="//;s/"//')
     DMG_FILESIZE=$(stat -f%z "$DMG_PATH")
-    VERSION=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.2.0")
-    BUILD=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleVersion 2>/dev/null || echo "1")
+    # Read version from source Info.plist (not built app, which may be cached)
+    SOURCE_PLIST="$PROJECT_DIR/MindExtract/Info.plist"
+    VERSION=$(defaults read "$SOURCE_PLIST" CFBundleShortVersionString 2>/dev/null || defaults read "$APP_PATH/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.2.0")
+    BUILD=$(defaults read "$SOURCE_PLIST" CFBundleVersion 2>/dev/null || defaults read "$APP_PATH/Contents/Info.plist" CFBundleVersion 2>/dev/null || echo "1")
     DOWNLOAD_URL="$GITHUB_RELEASES_URL/v${VERSION}/MindExtract-${VERSION}-Universal.dmg"
     PUBDATE=$(date -u "+%a, %d %b %Y %H:%M:%S +0000")
 

@@ -753,9 +753,16 @@ class TranscriptionManager: ObservableObject {
         let segmentDataPath = filePath + ".segments.json"
         saveSegmentData(to: segmentDataPath)
 
+        // Use a meaningful title: prefer the provided title, fall back to filename
+        var resolvedTitle = title
+        if resolvedTitle.isEmpty || resolvedTitle == "Video Transcription" {
+            let url = URL(fileURLWithPath: filePath)
+            resolvedTitle = url.deletingPathExtension().lastPathComponent
+        }
+
         let duration = audioDuration > 0 ? formatDurationForHistory(audioDuration) : nil
         let historyItem = TranscriptionHistoryItem(
-            title: title,
+            title: resolvedTitle,
             filePath: filePath,
             duration: duration,
             modelUsed: currentModelUsed?.displayName ?? "Unknown"

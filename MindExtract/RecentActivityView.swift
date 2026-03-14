@@ -386,63 +386,118 @@ struct TranscriptionHistoryRowImproved: View {
     let onSelect: () -> Void
     let onRemove: () -> Void
 
+    @State private var isHovering = false
+
+    /// Derive a meaningful display title from the file path or stored title
+    private var displayTitle: String {
+        // Try to get a meaningful name from the file path first
+        let url = URL(fileURLWithPath: item.filePath)
+        let fileName = url.deletingPathExtension().lastPathComponent
+        // If the file name is something meaningful (not empty or generic), use it
+        if !fileName.isEmpty && fileName != "transcription" {
+            return fileName
+        }
+        // Fall back to stored title, but skip generic "Video Transcription"
+        if item.title != "Video Transcription" && !item.title.isEmpty {
+            return item.title
+        }
+        return fileName.isEmpty ? "Untitled" : fileName
+    }
+
+    private var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: item.transcriptionDate)
+    }
+
     var body: some View {
-        HStack(spacing: 10) {
-            // Icon
-            Image(systemName: "text.document")
-                .font(.system(size: 13))
-                .foregroundColor(item.fileExists ? .orange : .secondary)
-                .frame(width: 22)
-
-            // Info
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                    .foregroundColor(item.fileExists ? .primary : .secondary)
-
-                HStack(spacing: 4) {
-                    Text(item.modelUsed)
-                        .font(.caption)
-                    if !item.fileExists {
-                        Text("· Missing")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    }
+        Button(action: {
+            if item.fileExists { onSelect() }
+        }) {
+            HStack(spacing: 10) {
+                // Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(item.fileExists ? Color.orange.opacity(0.12) : Color.secondary.opacity(0.08))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: item.fileExists ? "doc.text.fill" : "doc.text")
+                        .font(.system(size: 14))
+                        .foregroundColor(item.fileExists ? .orange : .secondary)
                 }
-                .foregroundColor(.secondary)
-            }
 
-            Spacer(minLength: 4)
+                // Info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(displayTitle)
+                        .font(.system(size: 13))
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        .foregroundColor(item.fileExists ? .primary : .secondary)
 
-            // Actions (always visible)
-            HStack(spacing: 2) {
-                if item.fileExists {
-                    HistoryActionButton(icon: "doc.text.magnifyingglass", help: "View transcription", action: onSelect)
-                    HistoryActionButton(icon: "folder", help: "Show in Finder") {
-                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.filePath)])
-                    }
-                    HistoryActionButton(icon: "doc.on.doc", help: "Copy text") {
-                        if let text = item.transcriptionText {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(text, forType: .string)
+                    HStack(spacing: 6) {
+                        // Model pill
+                        Text("Whisper \(item.modelUsed)")
+                            .font(.system(size: 10))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.1))
+                            .foregroundColor(.orange)
+                            .cornerRadius(3)
+
+                        if let duration = item.duration {
+                            Text(duration)
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Text(formattedDate)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+
+                        if !item.fileExists {
+                            Text("Missing")
+                                .font(.system(size: 10))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Color.red.opacity(0.1))
+                                .foregroundColor(.red)
+                                .cornerRadius(3)
                         }
                     }
                 }
-                HistoryActionButton(icon: "trash", help: "Remove from history", color: .red, action: onRemove)
+
+                Spacer(minLength: 4)
+
+                // Actions
+                HStack(spacing: 2) {
+                    if item.fileExists {
+                        HistoryActionButton(icon: "folder", help: "Show in Finder") {
+                            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.filePath)])
+                        }
+                        HistoryActionButton(icon: "doc.on.doc", help: "Copy text") {
+                            if let text = item.transcriptionText {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(text, forType: .string)
+                            }
+                        }
+                    }
+                    HistoryActionButton(icon: "trash", help: "Remove from history", color: .red, action: onRemove)
+                }
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isHovering && item.fileExists
+                          ? Color(NSColor.controlBackgroundColor)
+                          : Color(NSColor.controlBackgroundColor).opacity(0.5))
+            )
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
-        )
-        .onTapGesture { if item.fileExists { onSelect() } }
+        .buttonStyle(.plain)
+        .onHover { hovering in isHovering = hovering }
         .contextMenu {
             if item.fileExists {
-                Button("View Transcription", action: onSelect)
+                Button("Open Transcription", action: onSelect)
                 Button("Show in Finder") {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.filePath)])
                 }
