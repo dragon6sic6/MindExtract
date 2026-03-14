@@ -7,10 +7,10 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.5.2</title>
+      <title>Version 1.5.4</title>
       <pubDate>Sat, 14 Mar 2026 18:11:49 +0000</pubDate>
-      <sparkle:version>13</sparkle:version>
-      <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
+      <sparkle:version>15</sparkle:version>
+      <sparkle:shortVersionString>1.5.4</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
 <h2>What's New in 1.5.4</h2>
@@ -22,7 +22,7 @@
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.2/MindExtract-1.5.2-Universal.dmg"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.4/MindExtract-1.5.4-Universal.dmg"
         sparkle:edSignature="imK1ph4/EjCuVNSwgYyg7QOG5M0CxrQ/xVXMLliHKhIJGaJeP79FMmRa0BeOr5687b5mef5MpMOEakaC5xdCAA=="
         length="75039130"
         type="application/octet-stream"
