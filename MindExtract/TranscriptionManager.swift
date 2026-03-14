@@ -88,28 +88,20 @@ class TranscriptionManager: ObservableObject {
     }
 
     /// Locate a downloaded model inside the Hub cache structure.
-    /// Hub stores files at: downloadBase/models--argmaxinc--whisperkit-coreml/snapshots/<hash>/<variant>/
+    /// Hub stores files at: downloadBase/models/argmaxinc/whisperkit-coreml/<variant>/
     private func findModelFolder(_ model: WhisperModel) -> URL? {
-        let snapshotsDir = modelsDirectory
-            .appendingPathComponent("models--argmaxinc--whisperkit-coreml")
-            .appendingPathComponent("snapshots")
+        let modelDir = modelsDirectory
+            .appendingPathComponent("models")
+            .appendingPathComponent("argmaxinc")
+            .appendingPathComponent("whisperkit-coreml")
+            .appendingPathComponent(model.whisperKitModelId)
 
-        guard fileManager.fileExists(atPath: snapshotsDir.path),
-              let snapshots = try? fileManager.contentsOfDirectory(atPath: snapshotsDir.path) else {
+        guard fileManager.fileExists(atPath: modelDir.path),
+              let contents = try? fileManager.contentsOfDirectory(atPath: modelDir.path),
+              contents.contains(where: { $0.hasSuffix(".mlmodelc") || $0.hasSuffix(".mlpackage") }) else {
             return nil
         }
-
-        for snapshot in snapshots {
-            let modelDir = snapshotsDir
-                .appendingPathComponent(snapshot)
-                .appendingPathComponent(model.whisperKitModelId)
-            if fileManager.fileExists(atPath: modelDir.path),
-               let contents = try? fileManager.contentsOfDirectory(atPath: modelDir.path),
-               contents.contains(where: { $0.hasSuffix(".mlmodelc") || $0.hasSuffix(".mlpackage") }) {
-                return modelDir
-            }
-        }
-        return nil
+        return modelDir
     }
 
     func modelFileSize(_ model: WhisperModel) -> Int64? {

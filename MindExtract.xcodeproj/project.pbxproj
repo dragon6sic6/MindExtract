@@ -23,6 +23,7 @@
 		B1000035 /* TranscriptionResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000028 /* TranscriptionResultView.swift */; };
 		B1000036 /* RecentActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000029 /* RecentActivityView.swift */; };
 		B1000037 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000038 /* OnboardingView.swift */; };
+		B10000A1 /* TranscriptionWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000A2 /* TranscriptionWindowController.swift */; };
 		B1000061 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = B1000051 /* ffmpeg */; };
 /* End PBXBuildFile section */
 
@@ -43,6 +44,7 @@
 		B1000028 /* TranscriptionResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionResultView.swift; sourceTree = "<group>"; };
 		B1000029 /* RecentActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentActivityView.swift; sourceTree = "<group>"; };
 		B1000038 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		B10000A2 /* TranscriptionWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionWindowController.swift; sourceTree = "<group>"; };
 		B1000051 /* ffmpeg */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = ffmpeg; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -88,6 +90,7 @@
 				B1000028 /* TranscriptionResultView.swift */,
 				B1000029 /* RecentActivityView.swift */,
 				B1000038 /* OnboardingView.swift */,
+				B10000A2 /* TranscriptionWindowController.swift */,
 				B1000013 /* Models.swift */,
 				B1000014 /* YTDLPWrapper.swift */,
 				B1000015 /* Assets.xcassets */,
@@ -195,6 +198,7 @@
 				B1000035 /* TranscriptionResultView.swift in Sources */,
 				B1000036 /* RecentActivityView.swift in Sources */,
 				B1000037 /* OnboardingView.swift in Sources */,
+				B10000A1 /* TranscriptionWindowController.swift in Sources */,
 				B1000003 /* Models.swift in Sources */,
 				B1000004 /* YTDLPWrapper.swift in Sources */,
 			);
@@ -330,7 +334,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -342,7 +346,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.1;
+				MARKETING_VERSION = 1.4.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -361,7 +365,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -373,7 +377,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.1;
+				MARKETING_VERSION = 1.4.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;

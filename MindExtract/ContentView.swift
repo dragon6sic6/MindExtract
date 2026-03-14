@@ -115,11 +115,12 @@ struct ContentView: View {
                 performAction()
             }
         }
-        .sheet(isPresented: $transcriptionManager.showTranscriptionView) {
-            TranscriptionResultView(
-                transcriptionManager: transcriptionManager,
-                isPresented: $transcriptionManager.showTranscriptionView
-            )
+        .onChange(of: transcriptionManager.showTranscriptionView) { show in
+            if show {
+                TranscriptionWindowController.shared.showWindow(manager: transcriptionManager)
+            } else {
+                TranscriptionWindowController.shared.close()
+            }
         }
         .sheet(isPresented: $showTranscriptionLanguagePicker) {
             TranscriptionLanguagePickerSheet(
@@ -1268,28 +1269,49 @@ struct ContentView: View {
         case .loadingModel:
             HStack(spacing: 8) {
                 ProgressView().scaleEffect(0.7)
-                Text("Loading WhisperKit model...").font(.caption).foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Loading AI model…").font(.caption).fontWeight(.medium)
+                    Text("Preparing WhisperKit for transcription").font(.caption2).foregroundColor(.secondary)
+                }
+                Spacer()
             }
+            .padding(10)
+            .background(Color.blue.opacity(0.08))
+            .cornerRadius(8)
 
         case .extractingAudio:
             HStack(spacing: 8) {
                 ProgressView().scaleEffect(0.7)
-                Text("Extracting audio...").font(.caption).foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Extracting audio…").font(.caption).fontWeight(.medium)
+                    Text("Converting media to audio for transcription").font(.caption2).foregroundColor(.secondary)
+                }
+                Spacer()
             }
+            .padding(10)
+            .background(Color.blue.opacity(0.08))
+            .cornerRadius(8)
 
         case .transcribing(let progress):
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 HStack(spacing: 8) {
                     ProgressView().scaleEffect(0.7)
-                    Text("Transcribing...").font(.caption).foregroundColor(.secondary)
+                    Text("Transcribing audio…").font(.caption).fontWeight(.medium)
                     Spacer()
+                    if progress > 0 {
+                        Text("\(Int(progress * 100))%").font(.caption).foregroundColor(.secondary)
+                    }
                     Button(action: { transcriptionManager.cancelTranscription() }) {
                         Image(systemName: "xmark.circle").foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
-                if progress > 0 { ProgressView(value: progress) }
+                ProgressView(value: max(progress, 0.02))
+                    .progressViewStyle(.linear)
             }
+            .padding(10)
+            .background(Color.blue.opacity(0.08))
+            .cornerRadius(8)
 
         case .completed(let outputPath):
             HStack(spacing: 8) {

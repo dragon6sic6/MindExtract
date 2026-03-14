@@ -3,7 +3,7 @@ import AppKit
 
 struct TranscriptionResultView: View {
     @ObservedObject var transcriptionManager: TranscriptionManager
-    @Binding var isPresented: Bool
+    var onClose: (() -> Void)?
 
     @State private var showCopiedAlert = false
 
@@ -83,7 +83,7 @@ struct TranscriptionResultView: View {
             Button(action: {
                 if !isTranscribing {
                     transcriptionManager.clearTranscription()
-                    isPresented = false
+                    onClose?()
                 }
             }) {
                 Image(systemName: "xmark.circle.fill")
@@ -284,7 +284,7 @@ struct TranscriptionResultView: View {
             if isCompleted || hasError {
                 Button(action: {
                     transcriptionManager.clearTranscription()
-                    isPresented = false
+                    onClose?()
                 }) {
                     Text("Done")
                         .frame(width: 80)
@@ -335,7 +335,6 @@ struct WaitingAnimationView: View {
 
 #Preview {
     TranscriptionResultView(
-        transcriptionManager: TranscriptionManager.shared,
-        isPresented: .constant(true)
+        transcriptionManager: TranscriptionManager.shared
     )
 }
