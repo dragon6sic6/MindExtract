@@ -7,24 +7,24 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.5.1</title>
-      <pubDate>Sat, 14 Mar 2026 16:59:02 +0000</pubDate>
-      <sparkle:version>12</sparkle:version>
-      <sparkle:shortVersionString>1.5.1</sparkle:shortVersionString>
+      <title>Version 1.5.2</title>
+      <pubDate>Sat, 14 Mar 2026 17:18:25 +0000</pubDate>
+      <sparkle:version>13</sparkle:version>
+      <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.5.1</h2>
+<h2>What's New in 1.5.2</h2>
 <ul>
-  <li><strong>Redesigned transcription window</strong> — Cleaner UI matching the rest of the app, with consistent fonts and styling</li>
-  <li><strong>MacWhisper-style timeline</strong> — Segments with left accent bar, text-first layout, and click-to-seek</li>
-  <li><strong>Built-in audio player</strong> — Play back transcribed audio with scrubbing, speed control (0.5x–2x), and segment seeking</li>
-  <li><strong>Compact header</strong> — Segmented tab picker, inline status pills, toggleable search</li>
+  <li><strong>Fixed garbled transcription text</strong> — Removed WhisperKit special tokens (<|5.92|>, <|startoftranscript|>, etc.) from transcription output</li>
+  <li><strong>Download progress in transcription window</strong> — When transcribing from a URL, the transcription window now shows download progress with percentage</li>
+  <li><strong>Context-aware waiting animation</strong> — Shows what's happening: downloading audio, loading model, extracting audio, or transcribing</li>
+  <li><strong>Improved transcription history</strong> — History now stores segment data (timestamps, confidence) so reopened transcriptions have full timeline view</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.1/MindExtract-1.5.1-Universal.dmg"
-        sparkle:edSignature="IOSCYohH7o1dDsUFvW/0DjhqKF8UMgDmb3CeWMIi7NEp/XkyAeyo6LcaQVT+LOBGQheQb3uAfvGZISNw+Oh6DQ=="
-        length="74703370"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.2/MindExtract-1.5.2-Universal.dmg"
+        sparkle:edSignature="GCCJlKRqpnLhUo8rMX/EM3XyqOhXBJ0Hr2PxVGrEV24LkxzkNpEtHdV7lvQitTeZ5bqMCQfvCw6W+jK1OC46AQ=="
+        length="75033947"
         type="application/octet-stream"
       />
     </item>
