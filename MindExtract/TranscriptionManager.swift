@@ -21,6 +21,7 @@ class TranscriptionManager: ObservableObject {
     // Segment-level data for timeline view
     @Published var segments: [TranscriptionSegmentData] = []
     @Published var audioDuration: Float = 0
+    @Published var audioFilePath: String?  // Keep audio for playback
 
     private var whisperKit: WhisperKit?
     private var currentLoadedModel: WhisperModel?
@@ -331,11 +332,17 @@ class TranscriptionManager: ObservableObject {
     // MARK: - WhisperKit Transcription
 
     private func runWhisperKit(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
+        // Copy audio file for playback (keep it around)
+        let playbackAudioPath = applicationSupportPath.appendingPathComponent("last_transcription.wav").path
+        try? fileManager.removeItem(atPath: playbackAudioPath)
+        try? fileManager.copyItem(atPath: audioPath, toPath: playbackAudioPath)
+
         DispatchQueue.main.async {
             self.transcriptionState = .transcribing(progress: 0)
             self.liveTranscriptionText = ""
             self.segments = []
             self.audioDuration = 0
+            self.audioFilePath = playbackAudioPath
             self.showTranscriptionView = true
         }
 
@@ -677,6 +684,10 @@ class TranscriptionManager: ObservableObject {
     }
 
     func clearTranscription() {
+        // Clean up playback audio
+        if let path = audioFilePath {
+            try? fileManager.removeItem(atPath: path)
+        }
         DispatchQueue.main.async {
             self.liveTranscriptionText = ""
             self.currentTranscriptionTitle = ""
@@ -684,6 +695,7 @@ class TranscriptionManager: ObservableObject {
             self.lastSavedPath = nil
             self.segments = []
             self.audioDuration = 0
+            self.audioFilePath = nil
         }
     }
 

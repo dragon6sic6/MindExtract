@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVFoundation
 
 // MARK: - Tab Selection
 
@@ -8,14 +9,87 @@ enum TranscriptionTab: String, CaseIterable {
     case timeline = "Timeline"
 }
 
+// MARK: - Audio Player
+
+class AudioPlayerManager: ObservableObject {
+    @Published var isPlaying = false
+    @Published var currentTime: TimeInterval = 0
+    @Published var duration: TimeInterval = 0
+    @Published var playbackRate: Float = 1.0
+
+    private var player: AVAudioPlayer?
+    private var timer: Timer?
+
+    func load(path: String) {
+        stop()
+        let url = URL(fileURLWithPath: path)
+        guard let p = try? AVAudioPlayer(contentsOf: url) else { return }
+        player = p
+        p.prepareToPlay()
+        duration = p.duration
+    }
+
+    func togglePlayPause() {
+        guard let p = player else { return }
+        if p.isPlaying {
+            p.pause()
+            isPlaying = false
+            timer?.invalidate()
+        } else {
+            p.rate = playbackRate
+            p.enableRate = true
+            p.play()
+            isPlaying = true
+            timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                guard let self = self, let p = self.player else { return }
+                DispatchQueue.main.async {
+                    self.currentTime = p.currentTime
+                    if !p.isPlaying && self.isPlaying {
+                        self.isPlaying = false
+                        self.timer?.invalidate()
+                    }
+                }
+            }
+        }
+    }
+
+    func seek(to time: TimeInterval) {
+        player?.currentTime = time
+        currentTime = time
+    }
+
+    func setRate(_ rate: Float) {
+        playbackRate = rate
+        if let p = player, p.isPlaying {
+            p.rate = rate
+        }
+    }
+
+    func stop() {
+        timer?.invalidate()
+        player?.stop()
+        player = nil
+        isPlaying = false
+        currentTime = 0
+        duration = 0
+    }
+
+    deinit {
+        stop()
+    }
+}
+
+// MARK: - Main View
+
 struct TranscriptionResultView: View {
     @ObservedObject var transcriptionManager: TranscriptionManager
     var onClose: (() -> Void)?
 
+    @StateObject private var audioPlayer = AudioPlayerManager()
     @State private var showCopiedAlert = false
     @State private var selectedTab: TranscriptionTab = .text
     @State private var searchText: String = ""
-    @State private var showExportMenu = false
+    @State private var showSearch = false
 
     private var isTranscribing: Bool {
         switch transcriptionManager.transcriptionState {
@@ -63,13 +137,15 @@ struct TranscriptionResultView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Header
             headerView
-            Divider()
-            statusView
-            tabBar
+
             Divider()
 
-            // Main content
+            // Status banner (only when active)
+            statusView
+
+            // Content area
             Group {
                 switch selectedTab {
                 case .text:
@@ -80,207 +156,269 @@ struct TranscriptionResultView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+            // Audio player bar
+            if transcriptionManager.audioFilePath != nil && (isCompleted || !transcriptionManager.segments.isEmpty) {
+                Divider()
+                audioPlayerBar
+            }
+
             Divider()
+
+            // Bottom bar
             bottomBar
         }
         .frame(minWidth: 600, idealWidth: 750, maxWidth: 1000,
                minHeight: 500, idealHeight: 650, maxHeight: 900)
         .background(Color(NSColor.windowBackgroundColor))
+        .onChange(of: transcriptionManager.audioFilePath) { path in
+            if let path = path {
+                audioPlayer.load(path: path)
+            }
+        }
+        .onAppear {
+            if let path = transcriptionManager.audioFilePath {
+                audioPlayer.load(path: path)
+            }
+        }
+        .onDisappear {
+            audioPlayer.stop()
+        }
     }
 
     // MARK: - Header
 
     private var headerView: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "waveform")
-                .font(.title2)
-                .foregroundColor(.accentColor)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Transcription")
-                    .font(.headline)
-
-                if !transcriptionManager.currentTranscriptionTitle.isEmpty {
-                    Text(transcriptionManager.currentTranscriptionTitle)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
+        HStack(spacing: 12) {
+            // Back / title area
+            VStack(alignment: .leading, spacing: 2) {
+                Text(transcriptionManager.currentTranscriptionTitle.isEmpty
+                     ? "Transcription"
+                     : transcriptionManager.currentTranscriptionTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
             }
 
             Spacer()
 
+            // Transcribing indicator
+            if isTranscribing {
+                HStack(spacing: 6) {
+                    transcriberStatusPill
+                }
+            }
+
+            // Tab switcher (pill style)
+            tabPicker
+
+            // Search toggle
+            if isCompleted || !transcriptionManager.segments.isEmpty {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showSearch.toggle()
+                        if !showSearch { searchText = "" }
+                    }
+                }) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13))
+                        .foregroundColor(showSearch ? .accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Close
             Button(action: {
                 if !isTranscribing {
+                    audioPlayer.stop()
                     transcriptionManager.clearTranscription()
                     onClose?()
                 }
             }) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 18))
+                    .foregroundColor(.secondary.opacity(0.6))
             }
             .buttonStyle(.plain)
             .disabled(isTranscribing)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            if showSearch {
+                searchBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
     }
 
-    // MARK: - Status View
+    // MARK: - Search Bar
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            TextField("Search transcription...", text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+            if !searchText.isEmpty {
+                Button(action: { searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .offset(y: 20)
+        .zIndex(1)
+    }
+
+    // MARK: - Tab Picker (Segmented)
+
+    private var tabPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(TranscriptionTab.allCases, id: \.self) { tab in
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tab } }) {
+                    Text(tab.rawValue)
+                        .font(.system(size: 11, weight: selectedTab == tab ? .semibold : .regular))
+                        .foregroundColor(selectedTab == tab ? .primary : .secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 5)
+                        .background(
+                            selectedTab == tab
+                                ? Color(NSColor.controlBackgroundColor)
+                                : Color.clear
+                        )
+                        .cornerRadius(5)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(Color(NSColor.separatorColor).opacity(0.2))
+        .cornerRadius(7)
+    }
+
+    // MARK: - Status Pill
 
     @ViewBuilder
-    private var statusView: some View {
+    private var transcriberStatusPill: some View {
         switch transcriptionManager.transcriptionState {
         case .loadingModel:
-            statusBanner(icon: nil, text: "Loading AI model...", showSpinner: true, color: .blue)
+            statusPill(text: "Loading model", showSpinner: true)
 
         case .extractingAudio:
-            statusBanner(icon: nil, text: "Extracting audio...", showSpinner: true, color: .blue)
+            statusPill(text: "Extracting audio", showSpinner: true)
 
         case .transcribing(let progress):
-            VStack(spacing: 6) {
-                HStack(spacing: 10) {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                    Text("Transcribing...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    if progress > 0 {
-                        Text("\(Int(progress * 100))%")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
-                    }
-                    Button(action: { transcriptionManager.cancelTranscription() }) {
-                        Image(systemName: "xmark.circle")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Cancel transcription")
-                }
+            HStack(spacing: 6) {
+                ProgressView()
+                    .scaleEffect(0.5)
+                    .frame(width: 12, height: 12)
+                Text("Transcribing")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
                 if progress > 0 {
-                    ProgressView(value: progress)
-                        .progressViewStyle(.linear)
-                        .tint(.accentColor)
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondary)
                 }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color.blue.opacity(0.06))
-
-        case .completed:
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                Text("Transcription complete")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Spacer()
-                if let path = transcriptionManager.lastSavedPath {
-                    Button(action: {
-                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
-                    }) {
-                        Label("Show in Finder", systemImage: "folder")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                Button("Cancel") {
+                    transcriptionManager.cancelTranscription()
                 }
+                .font(.system(size: 10))
+                .buttonStyle(.plain)
+                .foregroundColor(.red.opacity(0.8))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color.green.opacity(0.06))
-
-        case .error(let message):
-            HStack(spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.red)
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .lineLimit(2)
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color.red.opacity(0.06))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color.blue.opacity(0.08))
+            .cornerRadius(12)
 
         default:
             EmptyView()
         }
     }
 
-    private func statusBanner(icon: String?, text: String, showSpinner: Bool, color: Color) -> some View {
-        HStack(spacing: 10) {
+    private func statusPill(text: String, showSpinner: Bool) -> some View {
+        HStack(spacing: 6) {
             if showSpinner {
                 ProgressView()
-                    .scaleEffect(0.7)
-            } else if let icon = icon {
-                Image(systemName: icon)
-                    .foregroundColor(color)
+                    .scaleEffect(0.5)
+                    .frame(width: 12, height: 12)
             }
             Text(text)
-                .font(.subheadline)
+                .font(.system(size: 11))
                 .foregroundColor(.secondary)
-            Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(color.opacity(0.06))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Color.blue.opacity(0.08))
+        .cornerRadius(12)
     }
 
-    // MARK: - Tab Bar
+    // MARK: - Status View (banners)
 
-    private var tabBar: some View {
-        HStack(spacing: 0) {
-            ForEach(TranscriptionTab.allCases, id: \.self) { tab in
-                Button(action: { selectedTab = tab }) {
-                    VStack(spacing: 4) {
-                        HStack(spacing: 5) {
-                            Image(systemName: tab == .text ? "doc.text" : "list.bullet.rectangle")
-                                .font(.caption)
-                            Text(tab.rawValue)
-                                .font(.subheadline)
-                                .fontWeight(selectedTab == tab ? .semibold : .regular)
-                        }
-                        .foregroundColor(selectedTab == tab ? .accentColor : .secondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 6)
+    @ViewBuilder
+    private var statusView: some View {
+        switch transcriptionManager.transcriptionState {
+        case .transcribing(let progress) where progress > 0:
+            ProgressView(value: progress)
+                .progressViewStyle(.linear)
+                .tint(.accentColor)
+                .frame(height: 2)
 
-                        Rectangle()
-                            .fill(selectedTab == tab ? Color.accentColor : Color.clear)
-                            .frame(height: 2)
+        case .completed:
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.green)
+                Text("Transcription complete")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                Spacer()
+                if let path = transcriptionManager.lastSavedPath {
+                    Button(action: {
+                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+                    }) {
+                        Label("Show in Finder", systemImage: "folder")
+                            .font(.system(size: 11))
                     }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
                 }
-                .buttonStyle(.plain)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(Color.green.opacity(0.05))
 
-            Spacer()
-
-            // Search field
-            if isCompleted || !transcriptionManager.segments.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    TextField("Search", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .font(.caption)
-                        .frame(width: 120)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(6)
-                .padding(.trailing, 16)
+        case .error(let message):
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.red)
+                Text(message)
+                    .font(.system(size: 11))
+                    .foregroundColor(.red)
+                    .lineLimit(2)
+                Spacer()
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(Color.red.opacity(0.05))
+
+        default:
+            EmptyView()
         }
-        .padding(.top, 6)
     }
 
-    // MARK: - Text View (with confidence highlighting)
+    // MARK: - Text View
 
     private var textView: some View {
         ScrollViewReader { proxy in
@@ -289,19 +427,19 @@ struct TranscriptionResultView: View {
                     WaitingAnimationView()
                         .frame(maxWidth: .infinity, minHeight: 200)
                         .padding(32)
-                } else if transcriptionManager.segments.isEmpty && !isTranscribing {
+                } else if transcriptionManager.segments.isEmpty && !isTranscribing && !isCompleted {
                     Text("Waiting for transcription...")
+                        .font(.system(size: 13))
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, minHeight: 200)
                         .padding(32)
                 } else {
-                    // Rich text with confidence-based highlighting
                     confidenceTextView
-                        .padding(16)
+                        .padding(20)
+                        .padding(.top, showSearch ? 16 : 0)
                         .id("textBottom")
                 }
             }
-            .background(Color(NSColor.textBackgroundColor))
             .onChange(of: transcriptionManager.segments.count) { _ in
                 if isTranscribing {
                     withAnimation(.easeOut(duration: 0.2)) {
@@ -317,18 +455,18 @@ struct TranscriptionResultView: View {
         let segments = searchText.isEmpty ? transcriptionManager.segments : filteredSegments
         if segments.isEmpty && !searchText.isEmpty {
             Text("No results for \"\(searchText)\"")
+                .font(.system(size: 13))
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 40)
         } else {
-            // Build an attributed text view with word-level confidence
             ConfidenceTextBlock(segments: segments, searchText: searchText)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
         }
     }
 
-    // MARK: - Timeline View
+    // MARK: - Timeline View (MacWhisper style)
 
     private var timelineView: some View {
         ScrollViewReader { proxy in
@@ -339,21 +477,32 @@ struct TranscriptionResultView: View {
                         .padding(32)
                 } else if filteredSegments.isEmpty && !searchText.isEmpty {
                     Text("No results for \"\(searchText)\"")
+                        .font(.system(size: 13))
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 40)
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 2) {
-                        ForEach(filteredSegments) { segment in
-                            SegmentRow(segment: segment, searchText: searchText)
-                                .id(segment.id)
+                    LazyVStack(alignment: .leading, spacing: 1) {
+                        ForEach(Array(filteredSegments.enumerated()), id: \.element.id) { index, segment in
+                            SegmentRow(
+                                segment: segment,
+                                searchText: searchText,
+                                isEven: index % 2 == 0,
+                                onTap: {
+                                    audioPlayer.seek(to: TimeInterval(segment.start))
+                                    if !audioPlayer.isPlaying {
+                                        audioPlayer.togglePlayPause()
+                                    }
+                                }
+                            )
+                            .id(segment.id)
                         }
                     }
-                    .padding(.vertical, 8)
+                    .padding(.top, showSearch ? 20 : 4)
+                    .padding(.bottom, 4)
                     .id("timelineBottom")
                 }
             }
-            .background(Color(NSColor.textBackgroundColor))
             .onChange(of: transcriptionManager.segments.count) { _ in
                 if isTranscribing, let lastId = transcriptionManager.segments.last?.id {
                     withAnimation(.easeOut(duration: 0.2)) {
@@ -364,25 +513,95 @@ struct TranscriptionResultView: View {
         }
     }
 
+    // MARK: - Audio Player Bar
+
+    private var audioPlayerBar: some View {
+        HStack(spacing: 12) {
+            // Play/pause
+            Button(action: { audioPlayer.togglePlayPause() }) {
+                Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.primary)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+
+            // Time
+            Text(formatPlayerTime(audioPlayer.currentTime))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 48, alignment: .trailing)
+
+            // Scrubber
+            Slider(
+                value: Binding(
+                    get: { audioPlayer.currentTime },
+                    set: { audioPlayer.seek(to: $0) }
+                ),
+                in: 0...max(audioPlayer.duration, 1)
+            )
+            .controlSize(.small)
+
+            // Duration
+            Text(formatPlayerTime(audioPlayer.duration))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 48, alignment: .leading)
+
+            // Speed picker
+            Menu {
+                ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { rate in
+                    Button(action: { audioPlayer.setRate(Float(rate)) }) {
+                        HStack {
+                            Text("\(rate, specifier: rate == floor(rate) ? "%.0f" : "%.2g")x")
+                            if Float(rate) == audioPlayer.playbackRate {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Text("\(audioPlayer.playbackRate, specifier: audioPlayer.playbackRate == floor(audioPlayer.playbackRate) ? "%.0f" : "%.2g")x")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.accentColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.1))
+                    .cornerRadius(4)
+            }
+            .menuStyle(.borderlessButton)
+            .frame(width: 40)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+    }
+
+    private func formatPlayerTime(_ time: TimeInterval) -> String {
+        let m = Int(time) / 60
+        let s = Int(time) % 60
+        return String(format: "%d:%02d", m, s)
+    }
+
     // MARK: - Bottom Bar
 
     private var bottomBar: some View {
         HStack(spacing: 12) {
             // Stats
-            HStack(spacing: 16) {
+            HStack(spacing: 14) {
                 if wordCount > 0 {
                     Label("\(wordCount) words", systemImage: "textformat.size")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
                 if transcriptionManager.audioDuration > 0 {
                     Label(formattedDuration, systemImage: "clock")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
                 if !transcriptionManager.segments.isEmpty {
                     Label("\(transcriptionManager.segments.count) segments", systemImage: "list.number")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
             }
@@ -399,10 +618,10 @@ struct TranscriptionResultView: View {
                     }
                 }) {
                     Label(showCopiedAlert ? "Copied!" : "Copy", systemImage: showCopiedAlert ? "checkmark" : "doc.on.doc")
-                        .font(.caption)
+                        .font(.system(size: 11))
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.small)
+                .controlSize(.mini)
                 .tint(showCopiedAlert ? .green : nil)
 
                 // Export menu
@@ -414,28 +633,29 @@ struct TranscriptionResultView: View {
                     }
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.up")
-                        .font(.caption)
+                        .font(.system(size: 11))
                 }
                 .menuStyle(.borderedButton)
-                .controlSize(.small)
+                .controlSize(.mini)
             }
 
             // Done
             if isCompleted || hasError {
                 Button(action: {
+                    audioPlayer.stop()
                     transcriptionManager.clearTranscription()
                     onClose?()
                 }) {
                     Text("Done")
-                        .font(.caption)
-                        .frame(width: 60)
+                        .font(.system(size: 11))
+                        .frame(width: 50)
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+                .controlSize(.mini)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
     }
 }
 
@@ -446,14 +666,11 @@ struct ConfidenceTextBlock: View {
     let searchText: String
 
     var body: some View {
-        // Build text with per-word confidence coloring
         let textView = segments.reduce(Text("")) { result, segment in
             if segment.words.isEmpty {
-                // No word-level data — show segment text normally
                 return result + Text(segment.text + " ")
                     .foregroundColor(.primary)
             } else {
-                // Word-level confidence coloring
                 return segment.words.reduce(result) { wordResult, word in
                     let opacity = max(0.4, Double(word.probability))
                     let isHighlighted = !searchText.isEmpty &&
@@ -466,68 +683,71 @@ struct ConfidenceTextBlock: View {
         }
 
         textView
-            .font(.system(.body, design: .default))
-            .lineSpacing(4)
+            .font(.system(size: 13))
+            .lineSpacing(5)
     }
 }
 
-// MARK: - Segment Row (Timeline)
+// MARK: - Segment Row (MacWhisper-style)
 
 struct SegmentRow: View {
     let segment: TranscriptionSegmentData
     let searchText: String
+    let isEven: Bool
+    var onTap: (() -> Void)?
 
     @State private var isHovered = false
 
+    // Accent colors for left border based on confidence
+    private var accentColor: Color {
+        let c = segment.confidence
+        if c > 0.8 { return .blue.opacity(0.6) }
+        if c > 0.6 { return .blue.opacity(0.4) }
+        return .orange.opacity(0.5)
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Timestamp
-            Text(segment.formattedStart)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.accentColor)
-                .frame(width: 65, alignment: .trailing)
+        HStack(alignment: .top, spacing: 0) {
+            // Left accent bar
+            Rectangle()
+                .fill(accentColor)
+                .frame(width: 3)
 
-            // Confidence indicator
-            Circle()
-                .fill(confidenceColor)
-                .frame(width: 8, height: 8)
-                .padding(.top, 4)
-                .help("Confidence: \(Int(segment.confidence * 100))%")
-
-            // Text
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
+                // Speaker label (if available)
                 if let speaker = segment.speaker {
                     Text(speaker)
-                        .font(.caption2)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(.accentColor)
                 }
 
+                // Segment text
                 highlightedText
-                    .font(.system(.callout))
-                    .lineSpacing(2)
+                    .font(.system(size: 13))
+                    .lineSpacing(3)
                     .textSelection(.enabled)
+
+                // Timestamp
+                Text(segment.formattedStart)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.secondary.opacity(0.6))
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
 
             Spacer(minLength: 0)
-
-            // Duration badge
-            Text(String(format: "%.1fs", segment.duration))
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundColor(.secondary.opacity(0.6))
-                .padding(.top, 2)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
-        .background(isHovered ? Color.primary.opacity(0.03) : Color.clear)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            isHovered
+                ? Color.accentColor.opacity(0.06)
+                : (isEven ? Color(NSColor.controlBackgroundColor).opacity(0.3) : Color.clear)
+        )
         .onHover { isHovered = $0 }
-    }
-
-    private var confidenceColor: Color {
-        let c = segment.confidence
-        if c > 0.75 { return .green }
-        if c > 0.5 { return .yellow }
-        return .orange
+        .onTapGesture {
+            onTap?()
+        }
+        .contentShape(Rectangle())
     }
 
     @ViewBuilder
@@ -536,7 +756,6 @@ struct SegmentRow: View {
             Text(segment.text)
                 .foregroundColor(.primary)
         } else {
-            // Highlight matching text
             let text = segment.text
             let range = text.range(of: searchText, options: .caseInsensitive)
             if let range = range {
@@ -569,7 +788,6 @@ struct WaitingAnimationView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // Waveform bars
             HStack(alignment: .center, spacing: barSpacing) {
                 ForEach(0..<barCount, id: \.self) { index in
                     RoundedRectangle(cornerRadius: barWidth / 2)
@@ -592,15 +810,13 @@ struct WaitingAnimationView: View {
             }
             .frame(height: maxHeight)
 
-            // Pulsing text
             VStack(spacing: 6) {
                 Text("Transcribing audio")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
 
                 Text("Words will appear here in real time")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundColor(.secondary.opacity(0.6))
                     .opacity(pulseOpacity)
                     .animation(
@@ -619,7 +835,6 @@ struct WaitingAnimationView: View {
     }
 
     private func randomHeight(_ index: Int) -> CGFloat {
-        // Create varied heights based on index for natural waveform look
         let heights: [CGFloat] = [0.5, 0.8, 1.0, 0.6, 0.9, 0.7, 0.4]
         let factor = heights[index % heights.count]
         return minHeight + (maxHeight - minHeight) * factor
