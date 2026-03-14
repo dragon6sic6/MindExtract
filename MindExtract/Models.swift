@@ -256,13 +256,15 @@ enum AppearanceMode: String, CaseIterable, Codable {
     }
 }
 
-// MARK: - Whisper Transcription Models
+// MARK: - Whisper Transcription Models (WhisperKit Core ML)
 
 enum WhisperModel: String, CaseIterable, Codable, Identifiable {
-    case tiny = "tiny"
-    case base = "base"
-    case small = "small"
-    case medium = "medium"
+    case tiny = "openai_whisper-tiny"
+    case base = "openai_whisper-base"
+    case small = "openai_whisper-small"
+    case medium = "openai_whisper-medium"
+    case largev3 = "openai_whisper-large-v3"
+    case largev3turbo = "openai_whisper-large-v3_turbo"
 
     var id: String { rawValue }
 
@@ -272,46 +274,51 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .base: return "Base"
         case .small: return "Small"
         case .medium: return "Medium"
+        case .largev3: return "Large v3"
+        case .largev3turbo: return "Large v3 Turbo"
         }
-    }
-
-    var fileName: String {
-        return "ggml-\(rawValue).bin"
-    }
-
-    var downloadURL: URL {
-        URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(rawValue).bin")!
     }
 
     var sizeDescription: String {
         switch self {
-        case .tiny: return "75 MB"
-        case .base: return "142 MB"
-        case .small: return "466 MB"
-        case .medium: return "1.5 GB"
+        case .tiny: return "~70 MB"
+        case .base: return "~150 MB"
+        case .small: return "~500 MB"
+        case .medium: return "~1.5 GB"
+        case .largev3: return "~3 GB"
+        case .largev3turbo: return "~1.6 GB"
         }
     }
 
     var sizeInBytes: Int64 {
         switch self {
-        case .tiny: return 75_000_000
-        case .base: return 142_000_000
-        case .small: return 466_000_000
+        case .tiny: return 70_000_000
+        case .base: return 150_000_000
+        case .small: return 500_000_000
         case .medium: return 1_500_000_000
+        case .largev3: return 3_000_000_000
+        case .largev3turbo: return 1_600_000_000
         }
     }
 
     var description: String {
         switch self {
         case .tiny: return "Fastest, basic accuracy"
-        case .base: return "Good balance (recommended)"
-        case .small: return "Better accuracy"
-        case .medium: return "Best accuracy, slower"
+        case .base: return "Good balance of speed and accuracy"
+        case .small: return "Better accuracy, moderate speed"
+        case .medium: return "High accuracy, slower"
+        case .largev3: return "Best accuracy, requires more RAM"
+        case .largev3turbo: return "Near-best accuracy, optimized speed"
         }
     }
 
     var isRecommended: Bool {
-        self == .base
+        self == .small
+    }
+
+    /// The WhisperKit model identifier used for download/init
+    var whisperKitModelId: String {
+        rawValue
     }
 }
 
@@ -356,6 +363,7 @@ enum CookieBrowser: String, CaseIterable, Codable {
 
 enum TranscriptionState: Equatable {
     case idle
+    case loadingModel
     case extractingAudio
     case transcribing(progress: Double)
     case completed(outputPath: String)
@@ -384,8 +392,9 @@ class AppSettings: ObservableObject {
     @AppStorage("cookiesFilePath") var cookiesFilePath: String = ""
 
     // Transcription settings
-    @AppStorage("defaultWhisperModel") var defaultWhisperModel: WhisperModel = .base
+    @AppStorage("defaultWhisperModel") var defaultWhisperModel: WhisperModel = .small
     @AppStorage("transcriptionOutputFormat") var transcriptionOutputFormat: TranscriptionOutputFormat = .txt
+    @AppStorage("enableSpeakerDiarization") var enableSpeakerDiarization: Bool = false
 
     private init() {}
 }

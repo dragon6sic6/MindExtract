@@ -9,7 +9,7 @@ struct TranscriptionResultView: View {
 
     private var isTranscribing: Bool {
         switch transcriptionManager.transcriptionState {
-        case .extractingAudio, .transcribing:
+        case .extractingAudio, .transcribing, .loadingModel:
             return true
         default:
             return false
@@ -101,6 +101,18 @@ struct TranscriptionResultView: View {
     @ViewBuilder
     private var statusView: some View {
         switch transcriptionManager.transcriptionState {
+        case .loadingModel:
+            HStack(spacing: 12) {
+                ProgressView()
+                    .scaleEffect(0.8)
+                Text("Loading WhisperKit model...")
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            .padding()
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(8)
+
         case .extractingAudio:
             HStack(spacing: 12) {
                 ProgressView()

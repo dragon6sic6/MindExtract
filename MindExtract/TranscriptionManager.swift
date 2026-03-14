@@ -1,7 +1,8 @@
 import Foundation
 import SwiftUI
+import WhisperKit
 
-// MARK: - Transcription Manager
+// MARK: - Transcription Manager (WhisperKit)
 
 class TranscriptionManager: ObservableObject {
     static let shared = TranscriptionManager()
@@ -17,8 +18,11 @@ class TranscriptionManager: ObservableObject {
     @Published var showTranscriptionView: Bool = false
     @Published var lastSavedPath: String?
 
-    private var currentProcess: Process?
-    private var downloadTask: URLSessionDownloadTask?
+    private var whisperKit: WhisperKit?
+    private var currentLoadedModel: WhisperModel?
+    private var currentTask: Task<Void, Never>?
+    private var currentProcess: Process? // for ffmpeg
+    private var downloadTask: URLSessionDataTask?
 
     private let fileManager = FileManager.default
     private let transcriptionHistory = TranscriptionHistoryManager.shared
@@ -32,44 +36,17 @@ class TranscriptionManager: ObservableObject {
 
     private var applicationSupportPath: URL {
         let paths = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appSupport = paths[0].appendingPathComponent("com.mindact.mindextract")
-        return appSupport
+        return paths[0].appendingPathComponent("com.mindact.mindextract")
     }
 
     private var modelsDirectory: URL {
-        applicationSupportPath.appendingPathComponent("WhisperModels")
-    }
-
-    func modelPath(for model: WhisperModel) -> URL {
-        modelsDirectory.appendingPathComponent(model.fileName)
-    }
-
-    private var whisperBinaryPath: String? {
-        // Check bundled binary first
-        if let bundledPath = Bundle.main.path(forResource: "whisper", ofType: nil) {
-            return bundledPath
-        }
-        // Fallback to common locations
-        let paths = [
-            "/opt/homebrew/bin/whisper",
-            "/usr/local/bin/whisper",
-            "/opt/homebrew/bin/whisper-cpp",
-            "/usr/local/bin/whisper-cpp"
-        ]
-        for path in paths {
-            if fileManager.fileExists(atPath: path) {
-                return path
-            }
-        }
-        return nil
+        applicationSupportPath.appendingPathComponent("WhisperKitModels")
     }
 
     private var ffmpegBinaryPath: String? {
-        // Check bundled binary first
         if let bundledPath = Bundle.main.path(forResource: "ffmpeg", ofType: nil) {
             return bundledPath
         }
-        // Fallback to common locations
         let paths = [
             "/opt/homebrew/bin/ffmpeg",
             "/usr/local/bin/ffmpeg",
@@ -83,16 +60,13 @@ class TranscriptionManager: ObservableObject {
         return nil
     }
 
-    var isWhisperAvailable: Bool {
-        whisperBinaryPath != nil
-    }
-
     var isFfmpegAvailable: Bool {
         ffmpegBinaryPath != nil
     }
 
+    /// WhisperKit is always available (compiled in), so we only check ffmpeg
     var areBinariesAvailable: Bool {
-        isWhisperAvailable && isFfmpegAvailable
+        isFfmpegAvailable
     }
 
     // MARK: - Model Management
@@ -104,8 +78,7 @@ class TranscriptionManager: ObservableObject {
     func loadDownloadedModels() {
         var models: Set<WhisperModel> = []
         for model in WhisperModel.allCases {
-            let path = modelPath(for: model)
-            if fileManager.fileExists(atPath: path.path) {
+            if findModelFolder(model) != nil {
                 models.insert(model)
             }
         }
@@ -114,13 +87,44 @@ class TranscriptionManager: ObservableObject {
         }
     }
 
-    func modelFileSize(_ model: WhisperModel) -> Int64? {
-        let path = modelPath(for: model)
-        guard let attributes = try? fileManager.attributesOfItem(atPath: path.path),
-              let size = attributes[.size] as? Int64 else {
+    /// Locate a downloaded model inside the Hub cache structure.
+    /// Hub stores files at: downloadBase/models--argmaxinc--whisperkit-coreml/snapshots/<hash>/<variant>/
+    private func findModelFolder(_ model: WhisperModel) -> URL? {
+        let snapshotsDir = modelsDirectory
+            .appendingPathComponent("models--argmaxinc--whisperkit-coreml")
+            .appendingPathComponent("snapshots")
+
+        guard fileManager.fileExists(atPath: snapshotsDir.path),
+              let snapshots = try? fileManager.contentsOfDirectory(atPath: snapshotsDir.path) else {
             return nil
         }
-        return size
+
+        for snapshot in snapshots {
+            let modelDir = snapshotsDir
+                .appendingPathComponent(snapshot)
+                .appendingPathComponent(model.whisperKitModelId)
+            if fileManager.fileExists(atPath: modelDir.path),
+               let contents = try? fileManager.contentsOfDirectory(atPath: modelDir.path),
+               contents.contains(where: { $0.hasSuffix(".mlmodelc") || $0.hasSuffix(".mlpackage") }) {
+                return modelDir
+            }
+        }
+        return nil
+    }
+
+    func modelFileSize(_ model: WhisperModel) -> Int64? {
+        guard let modelDir = findModelFolder(model) else { return nil }
+
+        var totalSize: Int64 = 0
+        if let enumerator = fileManager.enumerator(at: modelDir, includingPropertiesForKeys: [.fileSizeKey]) {
+            for case let fileURL as URL in enumerator {
+                if let attrs = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
+                   let size = attrs.fileSize {
+                    totalSize += Int64(size)
+                }
+            }
+        }
+        return totalSize > 0 ? totalSize : nil
     }
 
     func totalStorageUsed() -> Int64 {
@@ -144,87 +148,43 @@ class TranscriptionManager: ObservableObject {
     func downloadModel(_ model: WhisperModel) {
         guard downloadingModel == nil else { return }
 
-        // Create models directory if needed
-        do {
-            try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
-        } catch {
-            DispatchQueue.main.async {
-                self.transcriptionState = .error("Failed to create models directory: \(error.localizedDescription)")
-            }
-            return
-        }
-
         DispatchQueue.main.async {
             self.downloadingModel = model
             self.modelDownloadProgress = 0
         }
 
-        let destinationPath = modelPath(for: model)
-
-        let configuration = URLSessionConfiguration.default
-        let session = URLSession(configuration: configuration, delegate: nil, delegateQueue: nil)
-
-        var request = URLRequest(url: model.downloadURL)
-        request.timeoutInterval = 600 // 10 minutes for large models
-
-        downloadTask = session.downloadTask(with: request) { [weak self] tempURL, response, error in
-            guard let self = self else { return }
-
-            if let error = error {
-                DispatchQueue.main.async {
-                    self.downloadingModel = nil
-                    self.modelDownloadProgress = 0
-                    self.transcriptionState = .error("Download failed: \(error.localizedDescription)")
-                }
-                return
-            }
-
-            guard let tempURL = tempURL else {
-                DispatchQueue.main.async {
-                    self.downloadingModel = nil
-                    self.modelDownloadProgress = 0
-                    self.transcriptionState = .error("Download failed: No file received")
-                }
-                return
-            }
-
+        currentTask = Task {
             do {
-                // Remove existing file if present
-                if self.fileManager.fileExists(atPath: destinationPath.path) {
-                    try self.fileManager.removeItem(at: destinationPath)
-                }
-                try self.fileManager.moveItem(at: tempURL, to: destinationPath)
+                try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
 
-                DispatchQueue.main.async {
+                // Use the static download method with downloadBase pointing to our models dir
+                let _ = try await WhisperKit.download(
+                    variant: model.whisperKitModelId,
+                    downloadBase: modelsDirectory
+                ) { progress in
+                    Task { @MainActor in
+                        self.modelDownloadProgress = progress.fractionCompleted
+                    }
+                }
+
+                await MainActor.run {
                     self.downloadedModels.insert(model)
                     self.downloadingModel = nil
                     self.modelDownloadProgress = 1.0
                 }
             } catch {
-                DispatchQueue.main.async {
+                await MainActor.run {
                     self.downloadingModel = nil
                     self.modelDownloadProgress = 0
-                    self.transcriptionState = .error("Failed to save model: \(error.localizedDescription)")
+                    self.transcriptionState = .error("Model download failed: \(error.localizedDescription)")
                 }
             }
         }
-
-        // Observe download progress
-        let observation = downloadTask?.progress.observe(\.fractionCompleted) { [weak self] progress, _ in
-            DispatchQueue.main.async {
-                self?.modelDownloadProgress = progress.fractionCompleted
-            }
-        }
-
-        // Store observation to prevent it from being deallocated
-        objc_setAssociatedObject(downloadTask as Any, "progressObservation", observation, .OBJC_ASSOCIATION_RETAIN)
-
-        downloadTask?.resume()
     }
 
     func cancelModelDownload() {
-        downloadTask?.cancel()
-        downloadTask = nil
+        currentTask?.cancel()
+        currentTask = nil
         DispatchQueue.main.async {
             self.downloadingModel = nil
             self.modelDownloadProgress = 0
@@ -232,10 +192,13 @@ class TranscriptionManager: ObservableObject {
     }
 
     func deleteModel(_ model: WhisperModel) {
-        let path = modelPath(for: model)
+        guard let modelDir = findModelFolder(model) else { return }
         do {
-            if fileManager.fileExists(atPath: path.path) {
-                try fileManager.removeItem(at: path)
+            try fileManager.removeItem(at: modelDir)
+            // If this was the loaded model, clear it
+            if currentLoadedModel == model {
+                whisperKit = nil
+                currentLoadedModel = nil
             }
             DispatchQueue.main.async {
                 self.downloadedModels.remove(model)
@@ -247,16 +210,38 @@ class TranscriptionManager: ObservableObject {
         }
     }
 
+    // MARK: - WhisperKit Initialization
+
+    private func ensureWhisperKit(model: WhisperModel) async throws -> WhisperKit {
+        if let kit = whisperKit, currentLoadedModel == model {
+            return kit
+        }
+
+        guard let modelFolder = findModelFolder(model) else {
+            throw NSError(domain: "TranscriptionManager", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Model not downloaded"])
+        }
+
+        await MainActor.run {
+            self.transcriptionState = .loadingModel
+        }
+
+        let config = WhisperKitConfig(
+            modelFolder: modelFolder.path,
+            verbose: false,
+            load: true,
+            download: false
+        )
+
+        let kit = try await WhisperKit(config)
+        self.whisperKit = kit
+        self.currentLoadedModel = model
+        return kit
+    }
+
     // MARK: - Transcription
 
     func transcribe(videoPath: String, model: WhisperModel, outputFormat: TranscriptionOutputFormat, language: String = "auto") {
-        guard let whisperPath = whisperBinaryPath else {
-            DispatchQueue.main.async {
-                self.transcriptionState = .error("Whisper binary not found")
-            }
-            return
-        }
-
         guard let ffmpegPath = ffmpegBinaryPath else {
             DispatchQueue.main.async {
                 self.transcriptionState = .error("FFmpeg binary not found")
@@ -271,7 +256,6 @@ class TranscriptionManager: ObservableObject {
             return
         }
 
-        let modelFile = modelPath(for: model).path
         let videoURL = URL(fileURLWithPath: videoPath)
         let videoDirectory = videoURL.deletingLastPathComponent().path
         let videoBaseName = videoURL.deletingPathExtension().lastPathComponent
@@ -282,7 +266,7 @@ class TranscriptionManager: ObservableObject {
             self.transcriptionState = .extractingAudio
         }
 
-        // Extract audio using ffmpeg
+        // Extract audio using ffmpeg first
         extractAudio(ffmpegPath: ffmpegPath, videoPath: videoPath, outputPath: tempAudioPath) { [weak self] success, error in
             guard let self = self else { return }
 
@@ -290,182 +274,14 @@ class TranscriptionManager: ObservableObject {
                 DispatchQueue.main.async {
                     self.transcriptionState = .error(error ?? "Failed to extract audio")
                 }
-                // Clean up temp file
                 try? self.fileManager.removeItem(atPath: tempAudioPath)
                 return
             }
 
-            // Run whisper transcription
-            self.runWhisper(whisperPath: whisperPath, modelPath: modelFile, audioPath: tempAudioPath, outputPath: outputPath, outputFormat: outputFormat, language: language) { success, error in
-
-                // Clean up temp audio file
+            // Run WhisperKit transcription
+            self.runWhisperKit(audioPath: tempAudioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language) {
+                // Clean up temp audio
                 try? self.fileManager.removeItem(atPath: tempAudioPath)
-
-                if success {
-                    DispatchQueue.main.async {
-                        self.transcriptionState = .completed(outputPath: outputPath)
-                    }
-                } else {
-                    DispatchQueue.main.async {
-                        self.transcriptionState = .error(error ?? "Transcription failed")
-                    }
-                }
-            }
-        }
-    }
-
-    private func extractAudio(ffmpegPath: String, videoPath: String, outputPath: String, completion: @escaping (Bool, String?) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else {
-                completion(false, "Manager deallocated")
-                return
-            }
-
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: ffmpegPath)
-            process.arguments = [
-                "-i", videoPath,
-                "-ar", "16000",        // 16kHz sample rate (whisper requirement)
-                "-ac", "1",            // Mono audio
-                "-c:a", "pcm_s16le",   // 16-bit PCM
-                "-y",                  // Overwrite output
-                outputPath
-            ]
-
-            let errorPipe = Pipe()
-            process.standardError = errorPipe
-            process.standardOutput = FileHandle.nullDevice
-
-            self.currentProcess = process
-
-            do {
-                try process.run()
-                process.waitUntilExit()
-
-                if process.terminationStatus == 0 {
-                    completion(true, nil)
-                } else {
-                    let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                    let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown ffmpeg error"
-                    completion(false, "FFmpeg error: \(errorMessage)")
-                }
-            } catch {
-                completion(false, "Failed to run ffmpeg: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func runWhisper(whisperPath: String, modelPath: String, audioPath: String, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String = "auto", completion: @escaping (Bool, String?) -> Void) {
-        DispatchQueue.main.async {
-            self.transcriptionState = .transcribing(progress: 0)
-            self.liveTranscriptionText = ""
-            self.showTranscriptionView = true
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else {
-                completion(false, "Manager deallocated")
-                return
-            }
-
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: whisperPath)
-
-            // Get output path without extension for -of flag
-            let outputURL = URL(fileURLWithPath: outputPath)
-            let outputBase = outputURL.deletingPathExtension().path
-
-            // Build arguments - output to both file and stdout for real-time display
-            // whisper-cli uses: -m model -f audio -of output_base -otxt/-osrt
-            var args = [
-                "-m", modelPath,
-                "-f", audioPath,
-                "-of", outputBase,
-                "--print-progress"  // Show progress
-            ]
-
-            // Add language
-            args.append(contentsOf: ["-l", language])
-
-            // Add output format flag
-            if outputFormat == .srt {
-                args.append("-osrt")
-            } else {
-                args.append("-otxt")
-            }
-
-            process.arguments = args
-
-            let outputPipe = Pipe()
-            let errorPipe = Pipe()
-            process.standardOutput = outputPipe
-            process.standardError = errorPipe
-
-            self.currentProcess = process
-
-            // Capture stdout for real-time transcription display
-            outputPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-                let data = handle.availableData
-                if !data.isEmpty, let output = String(data: data, encoding: .utf8) {
-                    DispatchQueue.main.async {
-                        self?.liveTranscriptionText += output
-                    }
-                }
-            }
-
-            // Track progress by monitoring stderr
-            errorPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-                let data = handle.availableData
-                if !data.isEmpty, let output = String(data: data, encoding: .utf8) {
-                    // whisper.cpp outputs progress to stderr like "progress = 42%"
-                    if let match = output.range(of: #"progress\s*=\s*(\d+)"#, options: .regularExpression) {
-                        let progressStr = output[match]
-                        if let percentMatch = progressStr.range(of: #"\d+"#, options: .regularExpression) {
-                            let percent = Double(progressStr[percentMatch]) ?? 0
-                            DispatchQueue.main.async {
-                                self?.transcriptionState = .transcribing(progress: percent / 100.0)
-                            }
-                        }
-                    }
-                }
-            }
-
-            do {
-                try process.run()
-                process.waitUntilExit()
-
-                outputPipe.fileHandleForReading.readabilityHandler = nil
-                errorPipe.fileHandleForReading.readabilityHandler = nil
-
-                if process.terminationStatus == 0 {
-                    // Read the final output file for clean text
-                    var finalPath = outputPath
-                    if !self.fileManager.fileExists(atPath: outputPath) {
-                        let altPath = outputBase + "." + outputFormat.rawValue
-                        if self.fileManager.fileExists(atPath: altPath) {
-                            finalPath = altPath
-                        }
-                    }
-
-                    // Read clean text from file if stdout was messy
-                    if self.fileManager.fileExists(atPath: finalPath),
-                       let cleanText = try? String(contentsOfFile: finalPath, encoding: .utf8) {
-                        DispatchQueue.main.async {
-                            self.liveTranscriptionText = cleanText
-                            self.lastSavedPath = finalPath
-                            // Save to history
-                            self.saveToHistory(title: self.currentTranscriptionTitle, filePath: finalPath)
-                        }
-                    }
-
-                    completion(true, nil)
-                } else {
-                    let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                    let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-                    completion(false, "Whisper error (code \(process.terminationStatus)): \(errorMessage.prefix(200))")
-                }
-            } catch {
-                completion(false, "Failed to run whisper: \(error.localizedDescription)")
             }
         }
     }
@@ -473,27 +289,14 @@ class TranscriptionManager: ObservableObject {
     // MARK: - Transcribe Audio File Directly (for URL transcription)
 
     func transcribeAudioFile(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String = "auto") {
-        guard let whisperPath = whisperBinaryPath else {
-            DispatchQueue.main.async {
-                self.transcriptionState = .error("Whisper binary not found")
-            }
-            // Clean up temp audio
-            try? fileManager.removeItem(atPath: audioPath)
-            return
-        }
-
         guard isModelDownloaded(model) else {
             DispatchQueue.main.async {
                 self.transcriptionState = .modelNotDownloaded
             }
-            // Clean up temp audio
             try? fileManager.removeItem(atPath: audioPath)
             return
         }
 
-        let modelFile = modelPath(for: model).path
-
-        // The audio might not be in the right format for whisper, so convert it first
         guard let ffmpegPath = ffmpegBinaryPath else {
             DispatchQueue.main.async {
                 self.transcriptionState = .error("FFmpeg binary not found")
@@ -523,26 +326,156 @@ class TranscriptionManager: ObservableObject {
                 return
             }
 
-            // Run whisper transcription
-            self.runWhisper(whisperPath: whisperPath, modelPath: modelFile, audioPath: tempWavPath, outputPath: outputPath, outputFormat: outputFormat, language: language) { success, error in
-
-                // Clean up temp wav file
+            self.runWhisperKit(audioPath: tempWavPath, model: model, outputPath: outputPath, outputFormat: .txt, language: language) {
                 try? self.fileManager.removeItem(atPath: tempWavPath)
-
-                if success {
-                    DispatchQueue.main.async {
-                        self.transcriptionState = .completed(outputPath: outputPath)
-                    }
-                } else {
-                    DispatchQueue.main.async {
-                        self.transcriptionState = .error(error ?? "Transcription failed")
-                    }
-                }
             }
         }
     }
 
+    // MARK: - WhisperKit Transcription
+
+    private func runWhisperKit(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
+        DispatchQueue.main.async {
+            self.transcriptionState = .transcribing(progress: 0)
+            self.liveTranscriptionText = ""
+            self.showTranscriptionView = true
+        }
+
+        currentTask = Task {
+            do {
+                let kit = try await ensureWhisperKit(model: model)
+
+                await MainActor.run {
+                    self.transcriptionState = .transcribing(progress: 0)
+                }
+
+                // Configure transcription options
+                var options = DecodingOptions()
+                if language != "auto" {
+                    options.language = language
+                }
+                options.wordTimestamps = true
+
+                // Run transcription
+                let results = try await kit.transcribe(
+                    audioPath: audioPath,
+                    decodeOptions: options
+                )
+
+                // Build output text from results
+                var fullText = ""
+                let enableDiarization = AppSettings.shared.enableSpeakerDiarization
+
+                if outputFormat == .srt {
+                    fullText = buildSRT(from: results)
+                } else {
+                    fullText = results.map { $0.text }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+
+                // Save to file
+                try fullText.write(toFile: outputPath, atomically: true, encoding: .utf8)
+
+                await MainActor.run {
+                    self.liveTranscriptionText = fullText
+                    self.lastSavedPath = outputPath
+                    self.transcriptionState = .completed(outputPath: outputPath)
+                    self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
+                }
+
+                cleanup()
+
+            } catch {
+                if Task.isCancelled {
+                    await MainActor.run {
+                        self.transcriptionState = .idle
+                    }
+                } else {
+                    await MainActor.run {
+                        self.transcriptionState = .error("Transcription failed: \(error.localizedDescription)")
+                    }
+                }
+                cleanup()
+            }
+        }
+    }
+
+    // MARK: - SRT Builder
+
+    private func buildSRT(from results: [TranscriptionResult]) -> String {
+        var srt = ""
+        var index = 1
+
+        for result in results {
+            for segment in result.segments {
+                let startTime = formatSRTTime(segment.start)
+                let endTime = formatSRTTime(segment.end)
+                srt += "\(index)\n"
+                srt += "\(startTime) --> \(endTime)\n"
+                srt += "\(segment.text.trimmingCharacters(in: .whitespacesAndNewlines))\n\n"
+                index += 1
+            }
+        }
+
+        return srt
+    }
+
+    private func formatSRTTime(_ seconds: Float) -> String {
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+        let milliseconds = Int((seconds - Float(totalSeconds)) * 1000)
+        return String(format: "%02d:%02d:%02d,%03d", hours, minutes, secs, milliseconds)
+    }
+
+    // MARK: - Audio Extraction (FFmpeg)
+
+    private func extractAudio(ffmpegPath: String, videoPath: String, outputPath: String, completion: @escaping (Bool, String?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else {
+                completion(false, "Manager deallocated")
+                return
+            }
+
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: ffmpegPath)
+            process.arguments = [
+                "-i", videoPath,
+                "-ar", "16000",
+                "-ac", "1",
+                "-c:a", "pcm_s16le",
+                "-y",
+                outputPath
+            ]
+
+            let errorPipe = Pipe()
+            process.standardError = errorPipe
+            process.standardOutput = FileHandle.nullDevice
+
+            self.currentProcess = process
+
+            do {
+                try process.run()
+                process.waitUntilExit()
+
+                if process.terminationStatus == 0 {
+                    completion(true, nil)
+                } else {
+                    let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                    let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown ffmpeg error"
+                    completion(false, "FFmpeg error: \(errorMessage)")
+                }
+            } catch {
+                completion(false, "Failed to run ffmpeg: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // MARK: - Cancel / Reset
+
     func cancelTranscription() {
+        currentTask?.cancel()
+        currentTask = nil
         currentProcess?.terminate()
         currentProcess = nil
         DispatchQueue.main.async {

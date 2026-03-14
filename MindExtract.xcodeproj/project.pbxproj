@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		CC000001CCCC000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CC000002CCCC000000000001 /* Sparkle */; };
+		WK000001WK00000000000001 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = WK000002WK00000000000001 /* WhisperKit */; };
 		B1000001 /* MindExtractApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000011 /* MindExtractApp.swift */; };
 		B1000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000012 /* ContentView.swift */; };
 		B1000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000013 /* Models.swift */; };
@@ -22,14 +23,7 @@
 		B1000035 /* TranscriptionResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000028 /* TranscriptionResultView.swift */; };
 		B1000036 /* RecentActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000029 /* RecentActivityView.swift */; };
 		B1000037 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000038 /* OnboardingView.swift */; };
-		B1000060 /* whisper in Resources */ = {isa = PBXBuildFile; fileRef = B1000050 /* whisper */; };
 		B1000061 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = B1000051 /* ffmpeg */; };
-		B1000062 /* libwhisper.1.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000052 /* libwhisper.1.dylib */; };
-		B1000063 /* libggml.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000053 /* libggml.0.dylib */; };
-		B1000064 /* libggml-cpu.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000054 /* libggml-cpu.0.dylib */; };
-		B1000065 /* libggml-blas.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000055 /* libggml-blas.0.dylib */; };
-		B1000066 /* libggml-metal.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000056 /* libggml-metal.0.dylib */; };
-		B1000067 /* libggml-base.0.dylib in Resources */ = {isa = PBXBuildFile; fileRef = B1000057 /* libggml-base.0.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,14 +43,7 @@
 		B1000028 /* TranscriptionResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionResultView.swift; sourceTree = "<group>"; };
 		B1000029 /* RecentActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentActivityView.swift; sourceTree = "<group>"; };
 		B1000038 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		B1000050 /* whisper */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = whisper; sourceTree = "<group>"; };
 		B1000051 /* ffmpeg */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = ffmpeg; sourceTree = "<group>"; };
-		B1000052 /* libwhisper.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libwhisper.1.dylib"; sourceTree = "<group>"; };
-		B1000053 /* libggml.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml.0.dylib"; sourceTree = "<group>"; };
-		B1000054 /* libggml-cpu.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-cpu.0.dylib"; sourceTree = "<group>"; };
-		B1000055 /* libggml-blas.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-blas.0.dylib"; sourceTree = "<group>"; };
-		B1000056 /* libggml-metal.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-metal.0.dylib"; sourceTree = "<group>"; };
-		B1000057 /* libggml-base.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-base.0.dylib"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +52,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CC000001CCCC000000000001 /* Sparkle in Frameworks */,
+				WK000001WK00000000000001 /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -113,14 +101,7 @@
 			isa = PBXGroup;
 			children = (
 				B1000023 /* yt-dlp */,
-				B1000050 /* whisper */,
 				B1000051 /* ffmpeg */,
-				B1000052 /* libwhisper.1.dylib */,
-				B1000053 /* libggml.0.dylib */,
-				B1000054 /* libggml-cpu.0.dylib */,
-				B1000055 /* libggml-blas.0.dylib */,
-				B1000056 /* libggml-metal.0.dylib */,
-				B1000057 /* libggml-base.0.dylib */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -143,6 +124,7 @@
 			name = MindExtract;
 			packageProductDependencies = (
 				CC000002CCCC000000000001 /* Sparkle */,
+				WK000002WK00000000000001 /* WhisperKit */,
 			);
 			productName = MindExtract;
 			productReference = B1000010 /* MindExtract.app */;
@@ -177,6 +159,7 @@
 			projectRoot = "";
 			packageReferences = (
 				CC000003CCCC000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				WK000003WK00000000000001 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 			);
 			targets = (
 				B100000A /* MindExtract */,
@@ -191,14 +174,7 @@
 			files = (
 				B1000005 /* Assets.xcassets in Resources */,
 				B1000007 /* yt-dlp in Resources */,
-				B1000060 /* whisper in Resources */,
 				B1000061 /* ffmpeg in Resources */,
-				B1000062 /* libwhisper.1.dylib in Resources */,
-				B1000063 /* libggml.0.dylib in Resources */,
-				B1000064 /* libggml-cpu.0.dylib in Resources */,
-				B1000065 /* libggml-blas.0.dylib in Resources */,
-				B1000066 /* libggml-metal.0.dylib in Resources */,
-				B1000067 /* libggml-base.0.dylib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -354,7 +330,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -366,7 +342,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.2;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -385,7 +361,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -397,7 +373,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.2;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -437,6 +413,14 @@
 				minimumVersion = 2.0.0;
 			};
 		};
+		WK000003WK00000000000001 /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/WhisperKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -444,6 +428,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CC000003CCCC000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		WK000002WK00000000000001 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = WK000003WK00000000000001 /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

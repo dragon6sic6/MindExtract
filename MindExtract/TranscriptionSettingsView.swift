@@ -35,8 +35,8 @@ struct TranscriptionSettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    // Binary Status
-                    binaryStatusSection
+                    // Engine info
+                    engineInfoSection
 
                     // Default Settings
                     SettingsSection(title: "Settings", icon: "gearshape") {
@@ -61,6 +61,9 @@ struct TranscriptionSettingsView: View {
                             }
                             .frame(width: 180)
                         }
+
+                        Toggle("Speaker Diarization", isOn: $settings.enableSpeakerDiarization)
+                            .help("Identify different speakers in the transcription (experimental)")
                     }
 
                     // Models Section
@@ -86,21 +89,25 @@ struct TranscriptionSettingsView: View {
                 .padding()
             }
         }
-        .frame(width: 500, height: 600)
+        .frame(width: 500, height: 650)
         .onAppear {
             transcriptionManager.loadDownloadedModels()
         }
     }
 
-    private var binaryStatusSection: some View {
-        SettingsSection(title: "Binary Status", icon: "cpu") {
+    private var engineInfoSection: some View {
+        SettingsSection(title: "Engine", icon: "cpu") {
             HStack {
-                Image(systemName: transcriptionManager.isWhisperAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .foregroundColor(transcriptionManager.isWhisperAvailable ? .green : .red)
-                Text("Whisper")
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("WhisperKit")
+                        .fontWeight(.medium)
+                    Text("Core ML · Neural Engine + GPU accelerated")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
-                Text(transcriptionManager.isWhisperAvailable ? "Available" : "Not Found")
-                    .foregroundColor(.secondary)
             }
 
             HStack {
@@ -109,12 +116,6 @@ struct TranscriptionSettingsView: View {
                 Text("FFmpeg")
                 Spacer()
                 Text(transcriptionManager.isFfmpegAvailable ? "Available" : "Not Found")
-                    .foregroundColor(.secondary)
-            }
-
-            if !transcriptionManager.areBinariesAvailable {
-                Text("Install whisper and ffmpeg via Homebrew or bundle them in the app's Resources folder.")
-                    .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
@@ -159,7 +160,7 @@ struct ModelRow: View {
             Text(model.sizeDescription)
                 .font(.caption)
                 .foregroundColor(.secondary)
-                .frame(width: 60, alignment: .trailing)
+                .frame(width: 70, alignment: .trailing)
 
             if isDownloading {
                 downloadingView
@@ -174,8 +175,8 @@ struct ModelRow: View {
 
     private var downloadingView: some View {
         HStack(spacing: 8) {
-            ProgressView(value: transcriptionManager.modelDownloadProgress)
-                .frame(width: 60)
+            ProgressView()
+                .scaleEffect(0.7)
 
             Button(action: {
                 transcriptionManager.cancelModelDownload()

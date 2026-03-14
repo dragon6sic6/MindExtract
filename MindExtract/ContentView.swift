@@ -621,7 +621,7 @@ struct ContentView: View {
                 }) {
                     HStack {
                         Image(systemName: "text.bubble.fill")
-                        Text(isTranscribing ? "Transcribing..." : "Transcribe with Whisper AI")
+                        Text(isTranscribing ? "Transcribing..." : "Transcribe with WhisperKit")
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -649,7 +649,12 @@ struct ContentView: View {
 
             Divider()
 
-            RecentActivityView()
+            RecentActivityView(onRedownload: { item in
+                urlInput = item.url
+                selectedSidebarItem = .download
+                appMode = .singleVideo
+                performAction()
+            })
         }
     }
 
@@ -1048,7 +1053,7 @@ struct ContentView: View {
 
     private var isTranscribing: Bool {
         switch transcriptionManager.transcriptionState {
-        case .extractingAudio, .transcribing: return true
+        case .extractingAudio, .transcribing, .loadingModel: return true
         default: return false
         }
     }
@@ -1260,6 +1265,12 @@ struct ContentView: View {
         case .idle:
             EmptyView()
 
+        case .loadingModel:
+            HStack(spacing: 8) {
+                ProgressView().scaleEffect(0.7)
+                Text("Loading WhisperKit model...").font(.caption).foregroundColor(.secondary)
+            }
+
         case .extractingAudio:
             HStack(spacing: 8) {
                 ProgressView().scaleEffect(0.7)
@@ -1315,14 +1326,14 @@ struct ContentView: View {
                         Text("AI Model Required")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                        Text("Transcription uses Whisper AI, which runs locally on your Mac. Download a model once to start transcribing.")
+                        Text("Transcription uses WhisperKit, which runs locally on your Mac. Download a model once to start transcribing.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Button(action: { selectedSidebarItem = .settings }) {
-                    Label("Download a Whisper Model", systemImage: "arrow.down.circle.fill")
+                    Label("Download a Model", systemImage: "arrow.down.circle.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -1341,7 +1352,7 @@ struct ContentView: View {
             if !transcriptionManager.areBinariesAvailable {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                    Text("Whisper or FFmpeg binary not found").font(.caption).foregroundColor(.orange)
+                    Text("FFmpeg binary not found").font(.caption).foregroundColor(.orange)
                     Spacer()
                     Button("Settings") { selectedSidebarItem = .settings }
                         .buttonStyle(.bordered)
@@ -1360,14 +1371,14 @@ struct ContentView: View {
                             Text("AI Model Required")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                            Text("Download a Whisper model to start transcribing locally on your Mac.")
+                            Text("Download a WhisperKit model to start transcribing locally on your Mac.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     Button(action: { selectedSidebarItem = .settings }) {
-                        Label("Download a Whisper Model", systemImage: "arrow.down.circle.fill")
+                        Label("Download a Model", systemImage: "arrow.down.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -1381,7 +1392,7 @@ struct ContentView: View {
                     Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
                     Text("Ready to transcribe").font(.caption).foregroundColor(.secondary)
                     Spacer()
-                    Text("Model: \(settings.defaultWhisperModel.displayName)")
+                    Text("WhisperKit · \(settings.defaultWhisperModel.displayName)")
                         .font(.caption).foregroundColor(.secondary)
                 }
                 .padding()
@@ -1389,7 +1400,7 @@ struct ContentView: View {
                 .cornerRadius(8)
             }
 
-        case .extractingAudio, .transcribing:
+        case .loadingModel, .extractingAudio, .transcribing:
             VStack(spacing: 8) { transcriptionStatusView }
                 .padding()
                 .background(Color.blue.opacity(0.1))
@@ -1853,7 +1864,7 @@ struct LocalFileRow: View {
 
     private var isTranscribing: Bool {
         switch transcriptionState {
-        case .extractingAudio, .transcribing: return true
+        case .extractingAudio, .transcribing, .loadingModel: return true
         default: return false
         }
     }

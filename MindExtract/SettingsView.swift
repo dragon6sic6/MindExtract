@@ -101,13 +101,13 @@ struct SettingsView: View {
 
                     // MARK: Transcription
                     SettingsSection(title: "Transcription", icon: "text.bubble") {
-                        // Binary status
+                        // Engine status
                         HStack {
-                            Image(systemName: transcriptionManager.isWhisperAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundColor(transcriptionManager.isWhisperAvailable ? .green : .red)
-                            Text("Whisper")
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("WhisperKit")
                             Spacer()
-                            Text(transcriptionManager.isWhisperAvailable ? "Available" : "Not Found")
+                            Text("Core ML")
                                 .foregroundColor(.secondary)
                         }
 
@@ -121,7 +121,7 @@ struct SettingsView: View {
                         }
 
                         if !transcriptionManager.areBinariesAvailable {
-                            Text("Install whisper and ffmpeg via Homebrew or bundle them in the app's Resources folder.")
+                            Text("FFmpeg is required for audio extraction. Bundle it in the app's Resources folder.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }

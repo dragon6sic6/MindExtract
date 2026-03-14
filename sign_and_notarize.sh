@@ -4,7 +4,7 @@
 # © 2025 Mindact Solutions AB
 #
 # Usage: ./sign_and_notarize.sh
-# Requires: app already built in Xcode as Release (Product > Archive or Build For > Running)
+# Builds a Universal Binary (arm64 + x86_64) automatically via xcodebuild
 
 set -e
 
@@ -30,39 +30,47 @@ fi
 BUNDLE_ID="com.mindact.mindextract"
 
 APP_NAME="MindExtract"
-DMG_NAME="MindExtract-1.2.2-Universal"
+DMG_NAME="MindExtract-1.4.1-Universal"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
 OUTPUT_DIR="$PROJECT_DIR/dist"
 ENTITLEMENTS="$PROJECT_DIR/entitlements.plist"
 # ──────────────────────────────────────────────────────────────────────────────
 
-# 1. Find the built .app
-echo "▸ Looking for built app..."
-APP_PATH=""
-SEARCH_PATHS=(
-    "$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
-    "$PROJECT_DIR/build/Release/$APP_NAME.app"
-    "$HOME/Library/Developer/Xcode/DerivedData/$APP_NAME-*/Build/Products/Release/$APP_NAME.app"
-)
-for pattern in "${SEARCH_PATHS[@]}"; do
-    for path in $pattern; do
-        if [ -d "$path" ]; then
-            APP_PATH="$path"
-            break 2
-        fi
-    done
-done
+# 1. Build Universal Binary (arm64 + x86_64)
+echo "▸ Building Universal Binary (arm64 + x86_64)..."
+xcodebuild \
+    -project "$PROJECT_DIR/MindExtract.xcodeproj" \
+    -scheme "$APP_NAME" \
+    -configuration Release \
+    -derivedDataPath "$BUILD_DIR" \
+    ARCHS="arm64 x86_64" \
+    ONLY_ACTIVE_ARCH=NO \
+    clean build | xcpretty 2>/dev/null || xcodebuild \
+    -project "$PROJECT_DIR/MindExtract.xcodeproj" \
+    -scheme "$APP_NAME" \
+    -configuration Release \
+    -derivedDataPath "$BUILD_DIR" \
+    ARCHS="arm64 x86_64" \
+    ONLY_ACTIVE_ARCH=NO \
+    clean build
+echo ""
 
-if [ -z "$APP_PATH" ]; then
-    echo ""
-    echo "ERROR: Could not find $APP_NAME.app"
-    echo "Build the app in Xcode first:"
-    echo "  Product → Build For → Running  (or Product → Archive)"
-    echo ""
+APP_PATH="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
+
+if [ ! -d "$APP_PATH" ]; then
+    echo "ERROR: Build failed — could not find $APP_PATH"
     exit 1
 fi
-echo "  Found: $APP_PATH"
+
+# Verify Universal Binary
+ARCH_INFO=$(file "$APP_PATH/Contents/MacOS/$APP_NAME")
+echo "  Built: $ARCH_INFO"
+if echo "$ARCH_INFO" | grep -q "universal binary"; then
+    echo "  ✓ Universal Binary confirmed (arm64 + x86_64)"
+else
+    echo "  ⚠ WARNING: Binary may not be Universal — check ARCHS setting"
+fi
 echo ""
 
 # 2. Verify entitlements file exists

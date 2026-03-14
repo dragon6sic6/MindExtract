@@ -90,7 +90,7 @@ struct OnboardingView: View {
                            subtitle: "Save audio-only as MP3 from any video")
                 featureRow(icon: "text.bubble",
                            title: "Transcribe with AI",
-                           subtitle: "Local Whisper AI — no internet needed, fully private")
+                           subtitle: "WhisperKit with Core ML — no internet needed, fully private")
             }
             .frame(maxWidth: 440)
 
