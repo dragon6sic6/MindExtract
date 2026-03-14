@@ -30,7 +30,7 @@ fi
 BUNDLE_ID="com.mindact.mindextract"
 
 APP_NAME="MindExtract"
-DMG_NAME="MindExtract-1.5.2-Universal"
+DMG_NAME="MindExtract-1.5.3-Universal"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
 OUTPUT_DIR="$PROJECT_DIR/dist"

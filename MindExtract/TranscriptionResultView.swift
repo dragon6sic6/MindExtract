@@ -286,7 +286,7 @@ struct TranscriptionResultView: View {
             ForEach(TranscriptionTab.allCases, id: \.self) { tab in
                 Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tab } }) {
                     Text(tab.rawValue)
-                        .font(.system(size: 11, weight: selectedTab == tab ? .semibold : .regular))
+                        .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
                         .foregroundColor(selectedTab == tab ? .primary : .secondary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 5)
@@ -316,11 +316,11 @@ struct TranscriptionResultView: View {
                     .scaleEffect(0.5)
                     .frame(width: 12, height: 12)
                 Text("Downloading audio")
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
                 if progress > 0 {
                     Text("\(Int(progress * 100))%")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundColor(.secondary)
                 }
             }
@@ -341,17 +341,17 @@ struct TranscriptionResultView: View {
                     .scaleEffect(0.5)
                     .frame(width: 12, height: 12)
                 Text("Transcribing")
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
                 if progress > 0 {
                     Text("\(Int(progress * 100))%")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundColor(.secondary)
                 }
                 Button("Cancel") {
                     transcriptionManager.cancelTranscription()
                 }
-                .font(.system(size: 10))
+                .font(.system(size: 11))
                 .buttonStyle(.plain)
                 .foregroundColor(.red.opacity(0.8))
             }
@@ -373,7 +373,7 @@ struct TranscriptionResultView: View {
                     .frame(width: 12, height: 12)
             }
             Text(text)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
         }
         .padding(.horizontal, 10)
@@ -405,7 +405,7 @@ struct TranscriptionResultView: View {
                     .font(.system(size: 12))
                     .foregroundColor(.green)
                 Text("Transcription complete")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
                 Spacer()
                 if let path = transcriptionManager.lastSavedPath {
@@ -413,7 +413,7 @@ struct TranscriptionResultView: View {
                         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
                     }) {
                         Label("Show in Finder", systemImage: "folder")
-                            .font(.system(size: 11))
+                            .font(.system(size: 12))
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.mini)
@@ -429,7 +429,7 @@ struct TranscriptionResultView: View {
                     .font(.system(size: 12))
                     .foregroundColor(.red)
                 Text(message)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundColor(.red)
                     .lineLimit(2)
                 Spacer()
@@ -553,9 +553,9 @@ struct TranscriptionResultView: View {
 
             // Time
             Text(formatPlayerTime(audioPlayer.currentTime))
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.secondary)
-                .frame(width: 48, alignment: .trailing)
+                .frame(width: 50, alignment: .trailing)
 
             // Scrubber
             Slider(
@@ -569,9 +569,9 @@ struct TranscriptionResultView: View {
 
             // Duration
             Text(formatPlayerTime(audioPlayer.duration))
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.secondary)
-                .frame(width: 48, alignment: .leading)
+                .frame(width: 50, alignment: .leading)
 
             // Speed picker
             Menu {
@@ -587,7 +587,7 @@ struct TranscriptionResultView: View {
                 }
             } label: {
                 Text("\(audioPlayer.playbackRate, specifier: audioPlayer.playbackRate == floor(audioPlayer.playbackRate) ? "%.0f" : "%.2g")x")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.accentColor)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -616,17 +616,17 @@ struct TranscriptionResultView: View {
             HStack(spacing: 14) {
                 if wordCount > 0 {
                     Label("\(wordCount) words", systemImage: "textformat.size")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
                 if transcriptionManager.audioDuration > 0 {
                     Label(formattedDuration, systemImage: "clock")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
                 if !transcriptionManager.segments.isEmpty {
                     Label("\(transcriptionManager.segments.count) segments", systemImage: "list.number")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
             }
@@ -643,10 +643,10 @@ struct TranscriptionResultView: View {
                     }
                 }) {
                     Label(showCopiedAlert ? "Copied!" : "Copy", systemImage: showCopiedAlert ? "checkmark" : "doc.on.doc")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.mini)
+                .controlSize(.small)
                 .tint(showCopiedAlert ? .green : nil)
 
                 // Export menu
@@ -658,10 +658,10 @@ struct TranscriptionResultView: View {
                     }
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.up")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                 }
                 .menuStyle(.borderedButton)
-                .controlSize(.mini)
+                .controlSize(.small)
             }
 
             // Done
@@ -672,11 +672,11 @@ struct TranscriptionResultView: View {
                     onClose?()
                 }) {
                     Text("Done")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .frame(width: 50)
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.mini)
+                .controlSize(.small)
             }
         }
         .padding(.horizontal, 16)
@@ -691,25 +691,29 @@ struct ConfidenceTextBlock: View {
     let searchText: String
 
     var body: some View {
-        let textView = segments.reduce(Text("")) { result, segment in
+        let textView = segments.enumerated().reduce(Text("")) { result, pair in
+            let (index, segment) = pair
+            let prefix = index > 0 ? Text("\n\n") : Text("")
+
             if segment.words.isEmpty {
-                return result + Text(segment.text + " ")
+                return result + prefix + Text(segment.text)
                     .foregroundColor(.primary)
             } else {
-                return segment.words.reduce(result) { wordResult, word in
+                let segmentText = segment.words.reduce(Text("")) { wordResult, word in
                     let opacity = max(0.4, Double(word.probability))
                     let isHighlighted = !searchText.isEmpty &&
                         word.word.localizedCaseInsensitiveContains(searchText)
-                    return wordResult + Text(word.word)
+                    return wordResult + Text(word.word + " ")
                         .foregroundColor(isHighlighted ? .accentColor : .primary.opacity(opacity))
                         .fontWeight(isHighlighted ? .bold : .regular)
                 }
+                return result + prefix + segmentText
             }
         }
 
         textView
-            .font(.system(size: 13))
-            .lineSpacing(5)
+            .font(.system(size: 14))
+            .lineSpacing(6)
     }
 }
 
@@ -742,19 +746,19 @@ struct SegmentRow: View {
                 // Speaker label (if available)
                 if let speaker = segment.speaker {
                     Text(speaker)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.accentColor)
                 }
 
                 // Segment text
                 highlightedText
-                    .font(.system(size: 13))
-                    .lineSpacing(3)
+                    .font(.system(size: 14))
+                    .lineSpacing(4)
                     .textSelection(.enabled)
 
                 // Timestamp
                 Text(segment.formattedStart)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary.opacity(0.6))
             }
             .padding(.horizontal, 14)
@@ -869,11 +873,11 @@ struct WaitingAnimationView: View {
 
             VStack(spacing: 6) {
                 Text(titleText)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
 
                 Text(subtitleText)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary.opacity(0.6))
                     .opacity(pulseOpacity)
                     .animation(

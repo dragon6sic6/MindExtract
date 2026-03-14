@@ -1,15 +1,21 @@
 import AppKit
 import SwiftUI
 
-final class TranscriptionWindowController {
+final class TranscriptionWindowController: NSObject, NSWindowDelegate {
     static let shared = TranscriptionWindowController()
 
     private var window: NSWindow?
 
     func showWindow(manager: TranscriptionManager) {
+        // If window exists and is visible, just bring it forward
         if let existing = window, existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
             return
+        }
+
+        // If window exists but is not visible (was closed via red X), nil it out
+        if window != nil {
+            window = nil
         }
 
         let view = TranscriptionResultView(
@@ -35,8 +41,8 @@ final class TranscriptionWindowController {
         panel.center()
         panel.setFrameAutosaveName("TranscriptionWindow")
         panel.minSize = NSSize(width: 500, height: 400)
-
         panel.isMovableByWindowBackground = true
+        panel.delegate = self
 
         self.window = panel
         panel.makeKeyAndOrderFront(nil)
@@ -44,6 +50,15 @@ final class TranscriptionWindowController {
 
     func close() {
         window?.close()
+        window = nil
+        DispatchQueue.main.async {
+            TranscriptionManager.shared.showTranscriptionView = false
+        }
+    }
+
+    // MARK: - NSWindowDelegate
+
+    func windowWillClose(_ notification: Notification) {
         window = nil
         DispatchQueue.main.async {
             TranscriptionManager.shared.showTranscriptionView = false

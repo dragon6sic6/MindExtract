@@ -1233,7 +1233,7 @@ struct ContentView: View {
             case .error(let message):
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red)
-                    Text(message).foregroundColor(.red).lineLimit(2).font(.caption)
+                    Text(message).foregroundColor(.red).lineLimit(2).font(.system(size: 12))
                     Spacer()
                     Button("Dismiss") { downloader.retry() }
                         .buttonStyle(.bordered)
@@ -1279,7 +1279,7 @@ struct ContentView: View {
             VStack(spacing: 6) {
                 HStack(spacing: 8) {
                     ProgressView().scaleEffect(0.7)
-                    Text("Downloading audio…").font(.caption).fontWeight(.medium)
+                    Text("Downloading audio…").font(.system(size: 13)).fontWeight(.medium)
                     Spacer()
                     if progress > 0 {
                         Text("\(Int(progress * 100))%").font(.caption).foregroundColor(.secondary)
@@ -1299,7 +1299,7 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 ProgressView().scaleEffect(0.7)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Loading AI model…").font(.caption).fontWeight(.medium)
+                    Text("Loading AI model…").font(.system(size: 13)).fontWeight(.medium)
                     Text("Preparing WhisperKit for transcription").font(.caption2).foregroundColor(.secondary)
                 }
                 Spacer()
@@ -1312,7 +1312,7 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 ProgressView().scaleEffect(0.7)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Extracting audio…").font(.caption).fontWeight(.medium)
+                    Text("Extracting audio…").font(.system(size: 13)).fontWeight(.medium)
                     Text("Converting media to audio for transcription").font(.caption2).foregroundColor(.secondary)
                 }
                 Spacer()
@@ -1325,7 +1325,7 @@ struct ContentView: View {
             VStack(spacing: 6) {
                 HStack(spacing: 8) {
                     ProgressView().scaleEffect(0.7)
-                    Text("Transcribing audio…").font(.caption).fontWeight(.medium)
+                    Text("Transcribing audio…").font(.system(size: 13)).fontWeight(.medium)
                     Spacer()
                     if progress > 0 {
                         Text("\(Int(progress * 100))%").font(.caption).foregroundColor(.secondary)
@@ -1345,7 +1345,7 @@ struct ContentView: View {
         case .completed(let outputPath):
             HStack(spacing: 8) {
                 Image(systemName: "doc.text.fill").foregroundColor(.orange)
-                Text("Transcription saved!").font(.caption).fontWeight(.medium)
+                Text("Transcription saved!").font(.system(size: 13)).fontWeight(.medium)
                 Spacer()
                 Button("Open") {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: outputPath)])
@@ -1360,7 +1360,7 @@ struct ContentView: View {
         case .error(let message):
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red)
-                Text(message).font(.caption).foregroundColor(.red).lineLimit(2)
+                Text(message).font(.system(size: 12)).foregroundColor(.red).lineLimit(2)
                 Spacer()
                 Button("Dismiss") { transcriptionManager.resetState() }
                     .buttonStyle(.bordered)
@@ -1403,7 +1403,7 @@ struct ContentView: View {
             if !transcriptionManager.areBinariesAvailable {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                    Text("FFmpeg binary not found").font(.caption).foregroundColor(.orange)
+                    Text("FFmpeg binary not found").font(.system(size: 12)).foregroundColor(.orange)
                     Spacer()
                     Button("Settings") { selectedSidebarItem = .settings }
                         .buttonStyle(.bordered)
@@ -1441,10 +1441,10 @@ struct ContentView: View {
             } else {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                    Text("Ready to transcribe").font(.caption).foregroundColor(.secondary)
+                    Text("Ready to transcribe").font(.system(size: 13)).foregroundColor(.secondary)
                     Spacer()
                     Text("WhisperKit · \(settings.defaultWhisperModel.displayName)")
-                        .font(.caption).foregroundColor(.secondary)
+                        .font(.system(size: 13)).foregroundColor(.secondary)
                 }
                 .padding()
                 .background(Color.green.opacity(0.1))

@@ -213,13 +213,13 @@ struct RecentActivityView: View {
     private func groupHeader(label: String, count: Int) -> some View {
         HStack {
             Text(label)
-                .font(.caption)
+                .font(.system(size: 12))
                 .fontWeight(.semibold)
                 .foregroundColor(.secondary)
                 .textCase(.uppercase)
             Spacer()
             Text("\(count)")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
@@ -314,7 +314,7 @@ struct DownloadHistoryRowImproved: View {
 
                     if item.isAudioOnly {
                         Text("MP3")
-                            .font(.caption2)
+                            .font(.caption)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
                             .background(Color.purple.opacity(0.12))
@@ -470,7 +470,7 @@ struct HistoryActionButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.caption)
+                .font(.system(size: 12))
                 .foregroundColor(color)
                 .frame(width: 24, height: 24)
                 .background(Color.primary.opacity(0.06))

@@ -392,7 +392,7 @@ class TranscriptionManager: ObservableObject {
                     }
                     Task { @MainActor in
                         self.segments.append(contentsOf: newSegmentData)
-                        self.liveTranscriptionText = self.segments.map { $0.text }.joined(separator: " ")
+                        self.liveTranscriptionText = self.segments.map { $0.text }.joined(separator: "\n\n")
                         if let lastEnd = self.segments.last?.end {
                             self.audioDuration = max(self.audioDuration, lastEnd)
                         }
@@ -456,7 +456,10 @@ class TranscriptionManager: ObservableObject {
                 case .json:
                     fullText = buildJSON(from: allSegments)
                 case .txt:
-                    fullText = allSegments.map { $0.text }.joined(separator: " ")
+                    fullText = allSegments.map { seg in
+                        let ts = self.formatTimestampBracket(seg.start)
+                        return "\(ts) \(seg.text)"
+                    }.joined(separator: "\n\n")
                 }
 
                 // Save to file
@@ -464,7 +467,7 @@ class TranscriptionManager: ObservableObject {
 
                 await MainActor.run {
                     self.segments = allSegments
-                    self.liveTranscriptionText = allSegments.map { $0.text }.joined(separator: " ")
+                    self.liveTranscriptionText = allSegments.map { $0.text }.joined(separator: "\n\n")
                     self.lastSavedPath = outputPath
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
@@ -499,12 +502,23 @@ class TranscriptionManager: ObservableObject {
                 let endTime = formatSRTTime(segment.end)
                 srt += "\(index)\n"
                 srt += "\(startTime) --> \(endTime)\n"
-                srt += "\(segment.text.trimmingCharacters(in: .whitespacesAndNewlines))\n\n"
+                srt += "\(cleanTokens(segment.text))\n\n"
                 index += 1
             }
         }
 
         return srt
+    }
+
+    private func formatTimestampBracket(_ seconds: Float) -> String {
+        let totalSeconds = Int(seconds)
+        let h = totalSeconds / 3600
+        let m = (totalSeconds % 3600) / 60
+        let s = totalSeconds % 60
+        if h > 0 {
+            return String(format: "[%d:%02d:%02d]", h, m, s)
+        }
+        return String(format: "[%02d:%02d]", m, s)
     }
 
     private func formatSRTTime(_ seconds: Float) -> String {
@@ -671,7 +685,10 @@ class TranscriptionManager: ObservableObject {
             let content: String
             switch format {
             case .txt:
-                content = liveTranscriptionText
+                content = segments.map { seg in
+                    let ts = formatTimestampBracket(seg.start)
+                    return "\(ts) \(seg.text)"
+                }.joined(separator: "\n\n")
             case .srt:
                 content = buildSRT(fromSegments: segments)
             case .vtt:
@@ -720,8 +737,14 @@ class TranscriptionManager: ObservableObject {
             self.currentTranscriptionTitle = title
             self.liveTranscriptionText = ""
             self.lastSavedPath = nil
-            self.showTranscriptionView = true
             self.currentModelUsed = model
+            // Force re-trigger .onChange even if already true
+            if self.showTranscriptionView {
+                self.showTranscriptionView = false
+            }
+            DispatchQueue.main.async {
+                self.showTranscriptionView = true
+            }
         }
     }
 
@@ -814,8 +837,14 @@ class TranscriptionManager: ObservableObject {
             if let segs = loadedSegments, let last = segs.last {
                 self.audioDuration = last.end
             }
-            self.showTranscriptionView = true
             self.transcriptionState = .completed(outputPath: item.filePath)
+            // Force re-trigger .onChange even if already true
+            if self.showTranscriptionView {
+                self.showTranscriptionView = false
+            }
+            DispatchQueue.main.async {
+                self.showTranscriptionView = true
+            }
         }
     }
 }
