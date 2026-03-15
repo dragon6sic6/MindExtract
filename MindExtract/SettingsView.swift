@@ -151,6 +151,15 @@ struct SettingsView: View {
                             .frame(width: 180)
                         }
 
+                        Toggle(isOn: $settings.enableSpeakerDiarization) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Speaker Diarization")
+                                Text("Identify different speakers in transcriptions (uses Pyannote AI model)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
                         Divider()
                             .padding(.vertical, 2)
 

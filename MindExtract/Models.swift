@@ -443,7 +443,7 @@ class AppSettings: ObservableObject {
     // Transcription settings
     @AppStorage("defaultWhisperModel") var defaultWhisperModel: WhisperModel = .small
     @AppStorage("transcriptionOutputFormat") var transcriptionOutputFormat: TranscriptionOutputFormat = .txt
-    @AppStorage("enableSpeakerDiarization") var enableSpeakerDiarization: Bool = false
+    @AppStorage("enableSpeakerDiarization") var enableSpeakerDiarization: Bool = true
 
     private init() {}
 }
