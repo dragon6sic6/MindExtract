@@ -727,22 +727,28 @@ struct ConfidenceTextBlock: View {
     let segments: [TranscriptionSegmentData]
     let searchText: String
 
+    private func formatTimestamp(_ seconds: Float) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
+
     var body: some View {
+        let hasSpeakers = segments.contains { $0.speaker != nil }
+
         let textView = segments.enumerated().reduce(Text("")) { result, pair in
             let (index, segment) = pair
             let prefix = index > 0 ? Text("\n\n") : Text("")
 
-            // Speaker label when speaker changes from previous segment
+            // Speaker label with timestamp when speaker changes
             var speakerLabel = Text("")
             if let speaker = segment.speaker {
                 let prevSpeaker = index > 0 ? segments[index - 1].speaker : nil
                 if speaker != prevSpeaker {
                     let color = SpeakerColors.color(for: speaker)
-                    if index > 0 {
-                        speakerLabel = Text("\n\(speaker)\n").foregroundColor(color).font(.system(size: 13, weight: .bold))
-                    } else {
-                        speakerLabel = Text("\(speaker)\n").foregroundColor(color).font(.system(size: 13, weight: .bold))
-                    }
+                    let timestamp = formatTimestamp(segment.start)
+                    let labelText = index > 0 ? "\n\(speaker)  ·  \(timestamp)\n" : "\(speaker)  ·  \(timestamp)\n"
+                    speakerLabel = Text(labelText).foregroundColor(color).font(.system(size: 13, weight: .bold))
                 }
             }
 
@@ -764,7 +770,7 @@ struct ConfidenceTextBlock: View {
 
         textView
             .font(.system(size: 14))
-            .lineSpacing(6)
+            .lineSpacing(hasSpeakers ? 4 : 6)
     }
 }
 

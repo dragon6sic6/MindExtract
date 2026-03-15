@@ -530,11 +530,18 @@ class TranscriptionManager: ObservableObject {
                         print("[MindExtract] Starting speaker diarization...")
                         let audioArray = try AudioProcessor.loadAudioAsFloatArray(fromPath: audioPath)
                         print("[MindExtract] Audio loaded: \(audioArray.count) samples")
-                        let config = PyannoteConfig()
+                        let config = PyannoteConfig(verbose: true)
                         let speakerKit = try await SpeakerKit(config)
                         print("[MindExtract] SpeakerKit initialized, running diarization...")
-                        let diarizationResult = try await speakerKit.diarize(audioArray: audioArray)
+
+                        // Use tuned diarization options for better speaker separation
+                        let diarizationOptions = PyannoteDiarizationOptions(
+                            clusterDistanceThreshold: 0.7,  // Higher = merge more aggressively (default 0.6), reduces phantom speakers
+                            useExclusiveReconciliation: true
+                        )
+                        let diarizationResult = try await speakerKit.diarize(audioArray: audioArray, options: diarizationOptions)
                         print("[MindExtract] Diarization complete: \(diarizationResult.speakerCount) speakers found")
+                        print("[MindExtract] Diarization timings: \(diarizationResult.timings)")
 
                         // Align speakers with transcription segments
                         let alignedResults = diarizationResult.addSpeakerInfo(to: results, strategy: .subsegment)
@@ -577,8 +584,9 @@ class TranscriptionManager: ObservableObject {
                             }
                         }
 
+                        // Merge consecutive segments from the same speaker into paragraphs
                         if !diarizedSegments.isEmpty {
-                            allSegments = diarizedSegments
+                            allSegments = mergeSameSpeakerSegments(diarizedSegments)
                         }
 
                         await speakerKit.unloadModels()
@@ -636,6 +644,44 @@ class TranscriptionManager: ObservableObject {
                 cleanup()
             }
         }
+    }
+
+    // MARK: - Speaker Segment Merging
+
+    /// Merges consecutive segments that have the same speaker into larger paragraph-like segments.
+    /// This produces output similar to MacWhisper where text is grouped by speaker turn.
+    private func mergeSameSpeakerSegments(_ segments: [TranscriptionSegmentData]) -> [TranscriptionSegmentData] {
+        guard !segments.isEmpty else { return segments }
+
+        var merged: [TranscriptionSegmentData] = []
+        var current = segments[0]
+
+        for i in 1..<segments.count {
+            let next = segments[i]
+
+            // Same speaker (or both nil) — merge
+            if current.speaker == next.speaker {
+                let combinedText = current.text + " " + next.text
+                let combinedWords = current.words + next.words
+                let avgProb = (current.avgLogprob + next.avgLogprob) / 2
+                current = TranscriptionSegmentData(
+                    start: current.start,
+                    end: next.end,
+                    text: combinedText,
+                    speaker: current.speaker,
+                    words: combinedWords,
+                    avgLogprob: avgProb
+                )
+            } else {
+                // Different speaker — save current and start new
+                merged.append(current)
+                current = next
+            }
+        }
+        merged.append(current)
+
+        print("[MindExtract] Merged \(segments.count) segments into \(merged.count) speaker turns")
+        return merged
     }
 
     // MARK: - SRT Builder
