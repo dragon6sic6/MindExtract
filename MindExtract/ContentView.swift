@@ -1319,14 +1319,15 @@ struct ContentView: View {
             .background(Color.orange.opacity(0.08))
             .cornerRadius(8)
 
-        case .loadingModel:
+        case .loadingModel(let modelName):
             HStack(spacing: 8) {
                 ProgressView().scaleEffect(0.7)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Loading AI model…").font(.system(size: 13)).fontWeight(.medium)
-                    Text("Preparing WhisperKit for transcription").font(.caption2).foregroundColor(.secondary)
+                    Text("Loading \(modelName.isEmpty ? "AI model" : modelName) model…").font(.system(size: 13)).fontWeight(.medium)
+                    Text("First load compiles the model — larger models may take a few minutes").font(.caption2).foregroundColor(.secondary)
                 }
                 Spacer()
+                ElapsedTimeText()
             }
             .padding(10)
             .background(Color.blue.opacity(0.08))
@@ -2122,6 +2123,23 @@ struct TranscriptionLanguagePickerSheet: View {
         }
         .frame(width: 320)
         .background(Color(NSColor.windowBackgroundColor))
+    }
+}
+
+// MARK: - Elapsed Time View
+
+struct ElapsedTimeText: View {
+    @State private var elapsed: Int = 0
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        Text(elapsed < 60 ? "\(elapsed)s" : "\(elapsed / 60)m \(elapsed % 60)s")
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .monospacedDigit()
+            .onReceive(timer) { _ in
+                elapsed += 1
+            }
     }
 }
 

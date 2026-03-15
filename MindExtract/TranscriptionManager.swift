@@ -12,6 +12,7 @@ class TranscriptionManager: ObservableObject {
     @Published var downloadingModel: WhisperModel?
     @Published var modelDownloadProgress: Double = 0
     @Published var downloadedModels: Set<WhisperModel> = []
+    @Published var prewarmingModel: WhisperModel?
 
     // Real-time transcription output
     @Published var liveTranscriptionText: String = ""
@@ -204,6 +205,9 @@ class TranscriptionManager: ObservableObject {
                         settings.defaultWhisperModel = model
                     }
                 }
+
+                // Prewarm in background — triggers CoreML compilation so first transcription is fast
+                self.prewarmModel(model)
             } catch {
                 await MainActor.run {
                     self.downloadingModel = nil
@@ -255,12 +259,17 @@ class TranscriptionManager: ObservableObject {
         }
 
         await MainActor.run {
-            self.transcriptionState = .loadingModel
+            self.transcriptionState = .loadingModel(modelName: model.displayName)
         }
+
+        let loadStart = CFAbsoluteTimeGetCurrent()
+        print("[MindExtract] Loading \(model.displayName) model from \(modelFolder.path)...")
 
         let config = WhisperKitConfig(
             modelFolder: modelFolder.path,
+            computeOptions: ModelComputeOptions(),
             verbose: false,
+            prewarm: false,
             load: true,
             download: false
         )
@@ -268,7 +277,49 @@ class TranscriptionManager: ObservableObject {
         let kit = try await WhisperKit(config)
         self.whisperKit = kit
         self.currentLoadedModel = model
+
+        let elapsed = CFAbsoluteTimeGetCurrent() - loadStart
+        print("[MindExtract] \(model.displayName) model loaded in \(String(format: "%.1f", elapsed))s")
+
         return kit
+    }
+
+    /// Prewarm a model in the background after download, triggering CoreML compilation
+    /// so the first transcription is fast.
+    private func prewarmModel(_ model: WhisperModel) {
+        guard let modelFolder = findModelFolder(model) else { return }
+
+        Task.detached(priority: .utility) {
+            await MainActor.run { self.prewarmingModel = model }
+
+            let start = CFAbsoluteTimeGetCurrent()
+            print("[MindExtract] Prewarming \(model.displayName) model (CoreML compilation)...")
+
+            do {
+                let config = WhisperKitConfig(
+                    modelFolder: modelFolder.path,
+                    computeOptions: ModelComputeOptions(),
+                    verbose: false,
+                    prewarm: true,
+                    load: false,
+                    download: false
+                )
+                let kit = try await WhisperKit(config)
+                // After prewarm, keep it loaded if no other model is active
+                await MainActor.run {
+                    if self.whisperKit == nil {
+                        self.whisperKit = kit
+                        self.currentLoadedModel = model
+                    }
+                    self.prewarmingModel = nil
+                }
+                let elapsed = CFAbsoluteTimeGetCurrent() - start
+                print("[MindExtract] \(model.displayName) prewarm complete in \(String(format: "%.1f", elapsed))s")
+            } catch {
+                await MainActor.run { self.prewarmingModel = nil }
+                print("[MindExtract] Prewarm failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - Transcription

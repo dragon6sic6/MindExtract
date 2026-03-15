@@ -412,7 +412,7 @@ enum CookieBrowser: String, CaseIterable, Codable {
 enum TranscriptionState: Equatable {
     case idle
     case downloadingAudio(progress: Double)  // Downloading video/audio from URL
-    case loadingModel
+    case loadingModel(modelName: String = "")
     case extractingAudio
     case transcribing(progress: Double)
     case completed(outputPath: String)

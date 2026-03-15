@@ -366,8 +366,8 @@ struct TranscriptionResultView: View {
             .background(Color.blue.opacity(0.08))
             .cornerRadius(12)
 
-        case .loadingModel:
-            statusPill(text: "Loading model", showSpinner: true)
+        case .loadingModel(let modelName):
+            statusPill(text: "Loading \(modelName.isEmpty ? "model" : modelName)", showSpinner: true)
 
         case .extractingAudio:
             statusPill(text: "Extracting audio", showSpinner: true)
@@ -875,8 +875,8 @@ struct WaitingAnimationView: View {
         switch state {
         case .downloadingAudio(let progress):
             return progress > 0 ? "Downloading audio... \(Int(progress * 100))%" : "Downloading audio..."
-        case .loadingModel:
-            return "Loading AI model..."
+        case .loadingModel(let modelName):
+            return modelName.isEmpty ? "Loading AI model..." : "Loading \(modelName) model..."
         case .extractingAudio:
             return "Extracting audio..."
         case .transcribing:
@@ -891,7 +891,7 @@ struct WaitingAnimationView: View {
         case .downloadingAudio:
             return "Fetching audio from the video URL"
         case .loadingModel:
-            return "Loading the whisper model into memory"
+            return "First load compiles the model — this can take a few minutes for larger models"
         case .extractingAudio:
             return "Converting to audio format for transcription"
         case .transcribing:

@@ -189,10 +189,20 @@ struct ModelRow: View {
         .frame(width: 100)
     }
 
+    private var isPrewarming: Bool {
+        transcriptionManager.prewarmingModel == model
+    }
+
     private var downloadedView: some View {
         HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.green)
+            if isPrewarming {
+                ProgressView()
+                    .scaleEffect(0.5)
+                    .help("Optimizing model for your device…")
+            } else {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+            }
 
             Button(action: {
                 transcriptionManager.deleteModel(model)
