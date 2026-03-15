@@ -175,8 +175,8 @@ struct ModelRow: View {
 
     private var downloadingView: some View {
         HStack(spacing: 8) {
-            ProgressView()
-                .scaleEffect(0.7)
+            ProgressView(value: transcriptionManager.modelDownloadProgress)
+                .frame(width: 60)
 
             Button(action: {
                 transcriptionManager.cancelModelDownload()

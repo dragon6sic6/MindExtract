@@ -134,10 +134,17 @@ struct SettingsView: View {
                             Spacer()
                             Picker("", selection: $settings.defaultWhisperModel) {
                                 ForEach(WhisperModel.allCases) { model in
-                                    Text(model.displayName).tag(model)
+                                    HStack {
+                                        Text(model.displayName)
+                                        if !transcriptionManager.isModelDownloaded(model) {
+                                            Text("(not downloaded)")
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    .tag(model)
                                 }
                             }
-                            .frame(width: 180)
+                            .frame(width: 220)
                         }
 
                         HStack {

@@ -181,6 +181,11 @@ class TranscriptionManager: ObservableObject {
                     self.downloadedModels.insert(model)
                     self.downloadingModel = nil
                     self.modelDownloadProgress = 1.0
+                    // Auto-set as default model if it's the only one or larger than current
+                    let settings = AppSettings.shared
+                    if !self.isModelDownloaded(settings.defaultWhisperModel) {
+                        settings.defaultWhisperModel = model
+                    }
                 }
             } catch {
                 await MainActor.run {

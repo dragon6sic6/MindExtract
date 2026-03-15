@@ -767,7 +767,7 @@ struct ContentView: View {
             return
         }
         let model = settings.defaultWhisperModel
-        let modelToUse = transcriptionManager.isModelDownloaded(model) ? model : transcriptionManager.downloadedModels.first!
+        let modelToUse = transcriptionManager.isModelDownloaded(model) ? model : (transcriptionManager.downloadedModels.first ?? model)
         transcriptionManager.startNewTranscription(title: file.name, model: modelToUse)
         transcriptionManager.transcribe(
             videoPath: file.url.path,
@@ -1128,7 +1128,7 @@ struct ContentView: View {
             return
         }
         let model = settings.defaultWhisperModel
-        let modelToUse = transcriptionManager.isModelDownloaded(model) ? model : transcriptionManager.downloadedModels.first!
+        let modelToUse = transcriptionManager.isModelDownloaded(model) ? model : (transcriptionManager.downloadedModels.first ?? model)
         let title = downloader.videoInfo?.title ?? "Video Transcription"
         transcriptionManager.startNewTranscription(title: title, model: modelToUse)
         transcriptionManager.transcriptionState = .downloadingAudio(progress: 0)
