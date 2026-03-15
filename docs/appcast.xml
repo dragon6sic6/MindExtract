@@ -7,23 +7,24 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.5.8</title>
-      <pubDate>Sun, 15 Mar 2026 10:29:51 +0000</pubDate>
-      <sparkle:version>19</sparkle:version>
-      <sparkle:shortVersionString>1.5.8</sparkle:shortVersionString>
+      <title>Version 1.5.9</title>
+      <pubDate>Sun, 15 Mar 2026 10:56:28 +0000</pubDate>
+      <sparkle:version>20</sparkle:version>
+      <sparkle:shortVersionString>1.5.9</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.5.8</h2>
+<h2>What's New in 1.5.9</h2>
 <ul>
-  <li><strong>Clickable completion banner</strong> — Click the transcription title to open it, just like in History</li>
-  <li><strong>Title fix</strong> — Completion banner now shows the actual video title</li>
-  <li><strong>View button</strong> — Opens the transcription window reliably</li>
+  <li><strong>Model download progress bar</strong> — Settings now shows real progress instead of a spinner</li>
+  <li><strong>Auto-select model</strong> — Newly downloaded model auto-sets as default if previous default was deleted</li>
+  <li><strong>Model picker clarity</strong> — Shows "(not downloaded)" next to unavailable models</li>
+  <li><strong>Crash fix</strong> — Safe fallback when no models are downloaded</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.8/MindExtract-1.5.8-Universal.dmg"
-        sparkle:edSignature="Tccory3yH8IxUt0n9eLWg5xThmg4u99O6BDP5xhxa01AtDs8JgpQimm3MWNlcNkReeqNrTR0V4lTU85eDzkoCg=="
-        length="75347626"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.9/MindExtract-1.5.9-Universal.dmg"
+        sparkle:edSignature="2r+YR7eS/4QtNIgp7GjXaWsjJGQzuQbsQeSvyctCGpjgPu6zJ1o5Wum0qdK2FQgBqOoL6mDsnr3quIN3U2GhBQ=="
+        length="75345863"
         type="application/octet-stream"
       />
     </item>
