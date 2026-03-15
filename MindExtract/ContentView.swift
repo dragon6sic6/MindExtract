@@ -1344,17 +1344,45 @@ struct ContentView: View {
 
         case .completed(let outputPath):
             HStack(spacing: 8) {
-                Image(systemName: "doc.text.fill").foregroundColor(.orange)
-                Text("Transcription saved!").font(.system(size: 13)).fontWeight(.medium)
+                Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(transcriptionManager.currentTranscriptionTitle.isEmpty ? "Transcription saved!" : transcriptionManager.currentTranscriptionTitle)
+                        .font(.system(size: 13))
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                    Text("Transcription complete")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
-                Button("Open") {
+                Button {
+                    transcriptionManager.showTranscriptionView = false
+                    DispatchQueue.main.async {
+                        transcriptionManager.showTranscriptionView = true
+                    }
+                } label: {
+                    Label("View", systemImage: "doc.text.magnifyingglass")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                Button {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: outputPath)])
+                } label: {
+                    Image(systemName: "folder")
+                        .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.mini)
-                Button("Dismiss") { transcriptionManager.resetState() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
+                .controlSize(.small)
+                .help("Show in Finder")
+                Button {
+                    transcriptionManager.resetState()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
             }
 
         case .error(let message):

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		CC000001CCCC000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CC000002CCCC000000000001 /* Sparkle */; };
 		WK000001WK00000000000001 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = WK000002WK00000000000001 /* WhisperKit */; };
+		SK000001SK00000000000001 /* SpeakerKit in Frameworks */ = {isa = PBXBuildFile; productRef = SK000002SK00000000000001 /* SpeakerKit */; };
 		B1000001 /* MindExtractApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000011 /* MindExtractApp.swift */; };
 		B1000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000012 /* ContentView.swift */; };
 		B1000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000013 /* Models.swift */; };
@@ -55,6 +56,7 @@
 			files = (
 				CC000001CCCC000000000001 /* Sparkle in Frameworks */,
 				WK000001WK00000000000001 /* WhisperKit in Frameworks */,
+				SK000001SK00000000000001 /* SpeakerKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -128,6 +130,7 @@
 			packageProductDependencies = (
 				CC000002CCCC000000000001 /* Sparkle */,
 				WK000002WK00000000000001 /* WhisperKit */,
+				SK000002SK00000000000001 /* SpeakerKit */,
 			);
 			productName = MindExtract;
 			productReference = B1000010 /* MindExtract.app */;
@@ -437,6 +440,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = WK000003WK00000000000001 /* XCRemoteSwiftPackageReference "WhisperKit" */;
 			productName = WhisperKit;
+		};
+		SK000002SK00000000000001 /* SpeakerKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = WK000003WK00000000000001 /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = SpeakerKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

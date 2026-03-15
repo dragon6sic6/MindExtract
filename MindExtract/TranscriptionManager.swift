@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import WhisperKit
+import SpeakerKit
 
 // MARK: - Transcription Manager (WhisperKit)
 
@@ -446,11 +447,75 @@ class TranscriptionManager: ObservableObject {
                     }
                 }
 
+                // Speaker diarization (if enabled)
+                if AppSettings.shared.enableSpeakerDiarization {
+                    await MainActor.run {
+                        self.transcriptionState = .transcribing(progress: 0.95)
+                    }
+
+                    do {
+                        let audioArray = try AudioProcessor.loadAudioAsFloatArray(fromPath: audioPath)
+                        let config = PyannoteConfig()
+                        let speakerKit = try await SpeakerKit(config)
+                        let diarizationResult = try await speakerKit.diarize(audioArray: audioArray)
+
+                        // Align speakers with transcription segments
+                        let alignedResults = diarizationResult.addSpeakerInfo(to: results, strategy: .subsegment)
+
+                        // Rebuild allSegments with speaker labels
+                        var diarizedSegments: [TranscriptionSegmentData] = []
+                        for speakerSegments in alignedResults {
+                            for seg in speakerSegments {
+                                let speakerLabel: String?
+                                switch seg.speaker {
+                                case .speakerId(let id):
+                                    speakerLabel = "Speaker \(id + 1)"
+                                case .multiple(let ids):
+                                    speakerLabel = "Speaker \(ids.map { "\($0 + 1)" }.joined(separator: "/"))"
+                                case .noMatch:
+                                    speakerLabel = nil
+                                }
+
+                                let text = seg.text.isEmpty ? (seg.transcription?.text ?? "") : seg.text
+                                let cleaned = self.cleanTokens(text)
+                                guard !cleaned.isEmpty else { continue }
+
+                                let words: [WordTimingData] = seg.speakerWords.map { w in
+                                    WordTimingData(
+                                        word: self.cleanTokens(w.wordTiming.word),
+                                        start: w.wordTiming.start,
+                                        end: w.wordTiming.end,
+                                        probability: w.wordTiming.probability
+                                    )
+                                }
+
+                                diarizedSegments.append(TranscriptionSegmentData(
+                                    start: seg.startTime,
+                                    end: seg.endTime,
+                                    text: cleaned,
+                                    speaker: speakerLabel,
+                                    words: words,
+                                    avgLogprob: seg.transcription?.avgLogprob ?? 0
+                                ))
+                            }
+                        }
+
+                        if !diarizedSegments.isEmpty {
+                            allSegments = diarizedSegments
+                        }
+
+                        await speakerKit.unloadModels()
+                    } catch {
+                        // Diarization failed — continue with non-diarized segments
+                        print("Speaker diarization failed: \(error.localizedDescription)")
+                    }
+                }
+
                 // Build output text based on format
                 let fullText: String
                 switch outputFormat {
                 case .srt:
-                    fullText = buildSRT(from: results)
+                    fullText = buildSRT(from: allSegments)
                 case .vtt:
                     fullText = buildVTT(from: allSegments)
                 case .json:
@@ -458,6 +523,9 @@ class TranscriptionManager: ObservableObject {
                 case .txt:
                     fullText = allSegments.map { seg in
                         let ts = self.formatTimestampBracket(seg.start)
+                        if let speaker = seg.speaker {
+                            return "\(ts) \(speaker): \(seg.text)"
+                        }
                         return "\(ts) \(seg.text)"
                     }.joined(separator: "\n\n")
                 }
@@ -492,21 +560,19 @@ class TranscriptionManager: ObservableObject {
 
     // MARK: - SRT Builder
 
-    private func buildSRT(from results: [TranscriptionResult]) -> String {
+    private func buildSRT(from segments: [TranscriptionSegmentData]) -> String {
         var srt = ""
-        var index = 1
-
-        for result in results {
-            for segment in result.segments {
-                let startTime = formatSRTTime(segment.start)
-                let endTime = formatSRTTime(segment.end)
-                srt += "\(index)\n"
-                srt += "\(startTime) --> \(endTime)\n"
-                srt += "\(cleanTokens(segment.text))\n\n"
-                index += 1
+        for (i, seg) in segments.enumerated() {
+            let startTime = formatSRTTime(seg.start)
+            let endTime = formatSRTTime(seg.end)
+            srt += "\(i + 1)\n"
+            srt += "\(startTime) --> \(endTime)\n"
+            if let speaker = seg.speaker {
+                srt += "\(speaker): \(seg.text)\n\n"
+            } else {
+                srt += "\(seg.text)\n\n"
             }
         }
-
         return srt
     }
 
@@ -687,6 +753,9 @@ class TranscriptionManager: ObservableObject {
             case .txt:
                 content = segments.map { seg in
                     let ts = formatTimestampBracket(seg.start)
+                    if let speaker = seg.speaker {
+                        return "\(ts) \(speaker): \(seg.text)"
+                    }
                     return "\(ts) \(seg.text)"
                 }.joined(separator: "\n\n")
             case .srt:
@@ -711,7 +780,11 @@ class TranscriptionManager: ObservableObject {
             let end = formatSRTTime(seg.end)
             srt += "\(i + 1)\n"
             srt += "\(start) --> \(end)\n"
-            srt += "\(seg.text)\n\n"
+            if let speaker = seg.speaker {
+                srt += "\(speaker): \(seg.text)\n\n"
+            } else {
+                srt += "\(seg.text)\n\n"
+            }
         }
         return srt
     }

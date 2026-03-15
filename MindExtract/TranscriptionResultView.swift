@@ -2,6 +2,20 @@ import SwiftUI
 import AppKit
 import AVFoundation
 
+// MARK: - Speaker Colors
+
+enum SpeakerColors {
+    static let palette: [Color] = [.blue, .purple, .orange, .teal, .pink, .green, .indigo, .mint]
+
+    static func color(for speaker: String) -> Color {
+        if let num = Int(speaker.replacingOccurrences(of: "Speaker ", with: "")),
+           num > 0 {
+            return palette[(num - 1) % palette.count]
+        }
+        return .accentColor
+    }
+}
+
 // MARK: - Tab Selection
 
 enum TranscriptionTab: String, CaseIterable {
@@ -144,6 +158,29 @@ struct TranscriptionResultView: View {
 
             // Status banner (only when active)
             statusView
+
+            // Speaker legend (shown when diarization data is present)
+            let speakersInSegments = Array(Set(transcriptionManager.segments.compactMap { $0.speaker })).sorted()
+            if !speakersInSegments.isEmpty {
+                HStack(spacing: 16) {
+                    ForEach(speakersInSegments, id: \.self) { speaker in
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(SpeakerColors.color(for: speaker))
+                                .frame(width: 8, height: 8)
+                            Text(speaker)
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
+
+                Divider()
+            }
 
             // Content area
             Group {
@@ -695,8 +732,22 @@ struct ConfidenceTextBlock: View {
             let (index, segment) = pair
             let prefix = index > 0 ? Text("\n\n") : Text("")
 
+            // Speaker label when speaker changes from previous segment
+            var speakerLabel = Text("")
+            if let speaker = segment.speaker {
+                let prevSpeaker = index > 0 ? segments[index - 1].speaker : nil
+                if speaker != prevSpeaker {
+                    let color = SpeakerColors.color(for: speaker)
+                    if index > 0 {
+                        speakerLabel = Text("\n\(speaker)\n").foregroundColor(color).font(.system(size: 13, weight: .bold))
+                    } else {
+                        speakerLabel = Text("\(speaker)\n").foregroundColor(color).font(.system(size: 13, weight: .bold))
+                    }
+                }
+            }
+
             if segment.words.isEmpty {
-                return result + prefix + Text(segment.text)
+                return result + prefix + speakerLabel + Text(segment.text)
                     .foregroundColor(.primary)
             } else {
                 let segmentText = segment.words.reduce(Text("")) { wordResult, word in
@@ -707,7 +758,7 @@ struct ConfidenceTextBlock: View {
                         .foregroundColor(isHighlighted ? .accentColor : .primary.opacity(opacity))
                         .fontWeight(isHighlighted ? .bold : .regular)
                 }
-                return result + prefix + segmentText
+                return result + prefix + speakerLabel + segmentText
             }
         }
 
@@ -727,8 +778,11 @@ struct SegmentRow: View {
 
     @State private var isHovered = false
 
-    // Accent colors for left border based on confidence
+    // Accent colors for left border based on speaker or confidence
     private var accentColor: Color {
+        if let speaker = segment.speaker {
+            return SpeakerColors.color(for: speaker)
+        }
         let c = segment.confidence
         if c > 0.8 { return .blue.opacity(0.6) }
         if c > 0.6 { return .blue.opacity(0.4) }
@@ -746,8 +800,8 @@ struct SegmentRow: View {
                 // Speaker label (if available)
                 if let speaker = segment.speaker {
                     Text(speaker)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.accentColor)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(SpeakerColors.color(for: speaker))
                 }
 
                 // Segment text
