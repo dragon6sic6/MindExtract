@@ -1103,6 +1103,25 @@ struct ContentView: View {
         }
     }
 
+    private func openCompletedTranscription(outputPath: String) {
+        // If segments are already loaded (just completed), force-toggle the view
+        if !transcriptionManager.segments.isEmpty {
+            transcriptionManager.showTranscriptionView = false
+            DispatchQueue.main.async {
+                self.transcriptionManager.showTranscriptionView = true
+            }
+        } else {
+            // Segments cleared — reload from history
+            let title = transcriptionManager.currentTranscriptionTitle
+            let historyItem = TranscriptionHistoryItem(
+                title: title.isEmpty ? "Transcription" : title,
+                filePath: outputPath,
+                modelUsed: settings.defaultWhisperModel.displayName
+            )
+            transcriptionManager.openTranscriptionFromHistory(historyItem)
+        }
+    }
+
     private func transcribeFromURL() {
         if transcriptionManager.downloadedModels.isEmpty {
             transcriptionManager.transcriptionState = .modelNotDownloaded
@@ -1123,6 +1142,7 @@ struct ContentView: View {
                 transcriptionManager.transcriptionState = .error("No audio file received")
                 return
             }
+            // Update title now that video info is definitely available
             let outputFileName: String
             if let info = downloader.videoInfo {
                 let sanitizedTitle = info.title
@@ -1130,6 +1150,10 @@ struct ContentView: View {
                     .replacingOccurrences(of: ":", with: "-")
                     .prefix(80)
                 outputFileName = String(sanitizedTitle)
+                // Re-set title in case videoInfo wasn't available when startNewTranscription was called
+                DispatchQueue.main.async {
+                    self.transcriptionManager.currentTranscriptionTitle = info.title
+                }
             } else {
                 outputFileName = "transcription_\(UUID().uuidString.prefix(8))"
             }
@@ -1344,22 +1368,28 @@ struct ContentView: View {
 
         case .completed(let outputPath):
             HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(transcriptionManager.currentTranscriptionTitle.isEmpty ? "Transcription saved!" : transcriptionManager.currentTranscriptionTitle)
-                        .font(.system(size: 13))
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                    Text("Transcription complete")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                // Clickable title area — opens transcription window
+                Button {
+                    openCompletedTranscription(outputPath: outputPath)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(transcriptionManager.currentTranscriptionTitle.isEmpty ? "Transcription saved!" : transcriptionManager.currentTranscriptionTitle)
+                                .font(.system(size: 13))
+                                .fontWeight(.medium)
+                                .lineLimit(1)
+                                .foregroundColor(.primary)
+                            Text("Transcription complete · Click to view")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
+                .buttonStyle(.plain)
                 Spacer()
                 Button {
-                    transcriptionManager.showTranscriptionView = false
-                    DispatchQueue.main.async {
-                        transcriptionManager.showTranscriptionView = true
-                    }
+                    openCompletedTranscription(outputPath: outputPath)
                 } label: {
                     Label("View", systemImage: "doc.text.magnifyingglass")
                         .font(.system(size: 12))
