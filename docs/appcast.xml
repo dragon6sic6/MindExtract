@@ -7,24 +7,24 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.5.4</title>
-      <pubDate>Sat, 14 Mar 2026 18:11:49 +0000</pubDate>
-      <sparkle:version>15</sparkle:version>
-      <sparkle:shortVersionString>1.5.4</sparkle:shortVersionString>
+      <title>Version 1.5.5</title>
+      <pubDate>Sun, 15 Mar 2026 09:38:04 +0000</pubDate>
+      <sparkle:version>16</sparkle:version>
+      <sparkle:shortVersionString>1.5.5</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.5.4</h2>
+<h2>What's New in 1.5.5</h2>
 <ul>
-  <li><strong>Redesigned transcription history</strong> — Shows actual file names, Whisper model badge, duration, and time</li>
-  <li><strong>Fixed double-click bug</strong> — Clicking a history item opens it reliably without toggling</li>
-  <li><strong>Hover feedback</strong> — History rows highlight on hover to indicate they're clickable</li>
-  <li><strong>Better titles</strong> — Transcriptions are saved with the source filename instead of generic "Video Transcription"</li>
+  <li><strong>Speaker Diarization</strong> — Identifies different speakers in transcriptions with colored labels (Speaker 1, Speaker 2, etc.)</li>
+  <li><strong>Speaker legend</strong> — Color-coded speaker bar shows all detected speakers at a glance</li>
+  <li><strong>Better completion banner</strong> — Shows transcription title with "View" button to reopen the transcription window</li>
+  <li><strong>Speaker labels in exports</strong> — TXT, SRT, and VTT exports include speaker identification</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.4/MindExtract-1.5.4-Universal.dmg"
-        sparkle:edSignature="imK1ph4/EjCuVNSwgYyg7QOG5M0CxrQ/xVXMLliHKhIJGaJeP79FMmRa0BeOr5687b5mef5MpMOEakaC5xdCAA=="
-        length="75039130"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.5/MindExtract-1.5.5-Universal.dmg"
+        sparkle:edSignature="IW5v2XFtWP02RVPPi7dbZNhmVO3j9WwvqBqHjyNBrFjlP+PM9n37notY3LqcY5/41oHDeFe7phRGjGjZi8bkCg=="
+        length="75277713"
         type="application/octet-stream"
       />
     </item>
