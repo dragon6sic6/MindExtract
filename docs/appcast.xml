@@ -7,22 +7,22 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.5.6</title>
-      <pubDate>Sun, 15 Mar 2026 09:53:39 +0000</pubDate>
-      <sparkle:version>17</sparkle:version>
-      <sparkle:shortVersionString>1.5.6</sparkle:shortVersionString>
+      <title>Version 1.5.7</title>
+      <pubDate>Sun, 15 Mar 2026 10:11:19 +0000</pubDate>
+      <sparkle:version>18</sparkle:version>
+      <sparkle:shortVersionString>1.5.7</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.5.6</h2>
+<h2>What's New in 1.5.7</h2>
 <ul>
-  <li><strong>Speaker Diarization enabled by default</strong> — Automatically identifies different speakers in transcriptions</li>
-  <li><strong>Settings toggle accessible</strong> — Speaker Diarization toggle now visible in main Settings view</li>
+  <li><strong>Speaker Diarization toggle in Settings</strong> — Now accessible from the main Settings view</li>
+  <li><strong>Debug logging</strong> — Better diagnostics for diarization pipeline</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.6/MindExtract-1.5.6-Universal.dmg"
-        sparkle:edSignature="+/WmcS+E8rmuCASYNIWfj8YVJcTkRpkpK8wHnbf52N429jXSjsHxzVFgCSnrgbQQdpKbKvnp/7XGEt4roPrVCw=="
-        length="75281922"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.7/MindExtract-1.5.7-Universal.dmg"
+        sparkle:edSignature="BHQHqOcGEUlo3gg4F77YBj+k8z+nKEdd6CG+am1v8D9f2HKM+NBk6aoBSkTZG3Hfn+f/njwiM1vPY9FDHI8eAQ=="
+        length="76251266"
         type="application/octet-stream"
       />
     </item>
