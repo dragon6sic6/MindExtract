@@ -454,10 +454,14 @@ class TranscriptionManager: ObservableObject {
                     }
 
                     do {
+                        print("[MindExtract] Starting speaker diarization...")
                         let audioArray = try AudioProcessor.loadAudioAsFloatArray(fromPath: audioPath)
+                        print("[MindExtract] Audio loaded: \(audioArray.count) samples")
                         let config = PyannoteConfig()
                         let speakerKit = try await SpeakerKit(config)
+                        print("[MindExtract] SpeakerKit initialized, running diarization...")
                         let diarizationResult = try await speakerKit.diarize(audioArray: audioArray)
+                        print("[MindExtract] Diarization complete: \(diarizationResult.speakerCount) speakers found")
 
                         // Align speakers with transcription segments
                         let alignedResults = diarizationResult.addSpeakerInfo(to: results, strategy: .subsegment)
@@ -507,8 +511,9 @@ class TranscriptionManager: ObservableObject {
                         await speakerKit.unloadModels()
                     } catch {
                         // Diarization failed — continue with non-diarized segments
-                        print("Speaker diarization failed: \(error.localizedDescription)")
+                        print("[MindExtract] Speaker diarization failed: \(error)")
                     }
+                    print("[MindExtract] Post-diarization segments count: \(allSegments.count)")
                 }
 
                 // Build output text based on format
@@ -533,12 +538,14 @@ class TranscriptionManager: ObservableObject {
                 // Save to file
                 try fullText.write(toFile: outputPath, atomically: true, encoding: .utf8)
 
+                print("[MindExtract] Completing transcription: \(allSegments.count) segments, title: '\(self.currentTranscriptionTitle)', output: \(outputPath)")
                 await MainActor.run {
                     self.segments = allSegments
                     self.liveTranscriptionText = allSegments.map { $0.text }.joined(separator: "\n\n")
                     self.lastSavedPath = outputPath
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
+                    print("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
                 }
 
                 cleanup()
