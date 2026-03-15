@@ -119,6 +119,23 @@ class TranscriptionManager: ObservableObject {
               contents.contains(where: { $0.hasSuffix(".mlmodelc") || $0.hasSuffix(".mlpackage") }) else {
             return nil
         }
+
+        // Validate model is complete (not just directory skeleton from a failed download)
+        // A valid model should be at least 10MB (even tiny is ~70MB)
+        var totalSize: Int64 = 0
+        if let enumerator = fileManager.enumerator(at: modelDir, includingPropertiesForKeys: [.fileSizeKey]) {
+            for case let fileURL as URL in enumerator {
+                if let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                    totalSize += Int64(size)
+                }
+            }
+        }
+        guard totalSize > 10_000_000 else {
+            // Incomplete download — remove the skeleton
+            try? fileManager.removeItem(at: modelDir)
+            return nil
+        }
+
         return modelDir
     }
 
