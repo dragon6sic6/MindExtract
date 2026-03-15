@@ -7,23 +7,23 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.5.11</title>
-      <pubDate>Sun, 15 Mar 2026 11:31:06 +0000</pubDate>
-      <sparkle:version>22</sparkle:version>
-      <sparkle:shortVersionString>1.5.11</sparkle:shortVersionString>
+      <title>Version 1.5.12</title>
+      <pubDate>Sun, 15 Mar 2026 12:22:44 +0000</pubDate>
+      <sparkle:version>23</sparkle:version>
+      <sparkle:shortVersionString>1.5.12</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.5.11</h2>
+<h2>What's New in 1.5.12</h2>
 <ul>
-  <li><strong>Faster model loading</strong> — Models are now prewarmed in the background after download, so first transcription starts in seconds instead of minutes</li>
-  <li><strong>Better loading feedback</strong> — Shows model name, elapsed time counter, and explains CoreML compilation during model loading</li>
-  <li><strong>Prewarm indicator</strong> — Settings shows when a model is being optimized for your device</li>
+  <li><strong>Better speaker diarization</strong> — Tuned clustering threshold to reduce phantom speaker detection (fewer false "Speaker 3" results)</li>
+  <li><strong>Speaker turn grouping</strong> — Consecutive segments from the same speaker are now merged into paragraphs, matching MacWhisper's clean layout</li>
+  <li><strong>Speaker timestamps</strong> — Each speaker turn now shows the timestamp (e.g., "Speaker 1 · 00:41") for easy navigation</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.11/MindExtract-1.5.11-Universal.dmg"
-        sparkle:edSignature="Vo+ApRN6voCVHjzCBvSkKU/Lxa6T0s2a4fXmgjWjyiZAsoe8+P0sM5Ih85CMPpOpHvJWxRHH97bAFS5toPL8Dg=="
-        length="75348919"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.12/MindExtract-1.5.12-Universal.dmg"
+        sparkle:edSignature="gV74SKVq+6mdqaxI41e3Q5YpF81OLa3QoQAAOMvy6gJ3Sj4eOG8N+K1CEBzddCco368yi5GywLCzJD1Ja81BDQ=="
+        length="75354139"
         type="application/octet-stream"
       />
     </item>
