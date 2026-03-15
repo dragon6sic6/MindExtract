@@ -7,24 +7,22 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.5.5</title>
-      <pubDate>Sun, 15 Mar 2026 09:38:04 +0000</pubDate>
-      <sparkle:version>16</sparkle:version>
-      <sparkle:shortVersionString>1.5.5</sparkle:shortVersionString>
+      <title>Version 1.5.6</title>
+      <pubDate>Sun, 15 Mar 2026 09:53:39 +0000</pubDate>
+      <sparkle:version>17</sparkle:version>
+      <sparkle:shortVersionString>1.5.6</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.5.5</h2>
+<h2>What's New in 1.5.6</h2>
 <ul>
-  <li><strong>Speaker Diarization</strong> — Identifies different speakers in transcriptions with colored labels (Speaker 1, Speaker 2, etc.)</li>
-  <li><strong>Speaker legend</strong> — Color-coded speaker bar shows all detected speakers at a glance</li>
-  <li><strong>Better completion banner</strong> — Shows transcription title with "View" button to reopen the transcription window</li>
-  <li><strong>Speaker labels in exports</strong> — TXT, SRT, and VTT exports include speaker identification</li>
+  <li><strong>Speaker Diarization enabled by default</strong> — Automatically identifies different speakers in transcriptions</li>
+  <li><strong>Settings toggle accessible</strong> — Speaker Diarization toggle now visible in main Settings view</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.5/MindExtract-1.5.5-Universal.dmg"
-        sparkle:edSignature="IW5v2XFtWP02RVPPi7dbZNhmVO3j9WwvqBqHjyNBrFjlP+PM9n37notY3LqcY5/41oHDeFe7phRGjGjZi8bkCg=="
-        length="75277713"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.6/MindExtract-1.5.6-Universal.dmg"
+        sparkle:edSignature="+/WmcS+E8rmuCASYNIWfj8YVJcTkRpkpK8wHnbf52N429jXSjsHxzVFgCSnrgbQQdpKbKvnp/7XGEt4roPrVCw=="
+        length="75281922"
         type="application/octet-stream"
       />
     </item>
