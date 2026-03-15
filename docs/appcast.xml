@@ -7,22 +7,23 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 1.5.10</title>
-      <pubDate>Sun, 15 Mar 2026 11:06:18 +0000</pubDate>
-      <sparkle:version>21</sparkle:version>
-      <sparkle:shortVersionString>1.5.10</sparkle:shortVersionString>
+      <title>Version 1.5.11</title>
+      <pubDate>Sun, 15 Mar 2026 11:31:06 +0000</pubDate>
+      <sparkle:version>22</sparkle:version>
+      <sparkle:shortVersionString>1.5.11</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 1.5.10</h2>
+<h2>What's New in 1.5.11</h2>
 <ul>
-  <li><strong>Fix incomplete model detection</strong> — Validates model files are complete before marking as downloaded</li>
-  <li><strong>Auto-cleanup</strong> — Removes skeleton directories from failed/cancelled downloads</li>
+  <li><strong>Faster model loading</strong> — Models are now prewarmed in the background after download, so first transcription starts in seconds instead of minutes</li>
+  <li><strong>Better loading feedback</strong> — Shows model name, elapsed time counter, and explains CoreML compilation during model loading</li>
+  <li><strong>Prewarm indicator</strong> — Settings shows when a model is being optimized for your device</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.10/MindExtract-1.5.10-Universal.dmg"
-        sparkle:edSignature="BpLphRAHJGA/6osVHqvh8c507kzRJX7S7AkPzXCwcx0YIxDQF06huLmU/nxBYThzwdun5cDaxGN47+kkUhobAQ=="
-        length="75347269"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.11/MindExtract-1.5.11-Universal.dmg"
+        sparkle:edSignature="Vo+ApRN6voCVHjzCBvSkKU/Lxa6T0s2a4fXmgjWjyiZAsoe8+P0sM5Ih85CMPpOpHvJWxRHH97bAFS5toPL8Dg=="
+        length="75348919"
         type="application/octet-stream"
       />
     </item>
