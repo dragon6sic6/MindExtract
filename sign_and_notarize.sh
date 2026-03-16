@@ -30,7 +30,7 @@ fi
 BUNDLE_ID="com.mindact.mindextract"
 
 APP_NAME="MindExtract"
-DMG_NAME="MindExtract-1.5.12-Universal"
+DMG_NAME="MindExtract-1.5.13-Universal"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
 OUTPUT_DIR="$PROJECT_DIR/dist"
@@ -70,6 +70,22 @@ if echo "$ARCH_INFO" | grep -q "universal binary"; then
     echo "  ✓ Universal Binary confirmed (arm64 + x86_64)"
 else
     echo "  ⚠ WARNING: Binary may not be Universal — check ARCHS setting"
+fi
+
+# Verify built app version matches source Info.plist
+BUILT_VERSION=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null)
+BUILT_BUILD=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleVersion 2>/dev/null)
+SOURCE_PLIST_CHECK="$PROJECT_DIR/MindExtract/Info.plist"
+EXPECTED_VERSION=$(defaults read "$SOURCE_PLIST_CHECK" CFBundleShortVersionString 2>/dev/null)
+EXPECTED_BUILD=$(defaults read "$SOURCE_PLIST_CHECK" CFBundleVersion 2>/dev/null)
+echo "  Built app version: $BUILT_VERSION ($BUILT_BUILD)"
+echo "  Expected version:  $EXPECTED_VERSION ($EXPECTED_BUILD)"
+if [ "$BUILT_VERSION" != "$EXPECTED_VERSION" ] || [ "$BUILT_BUILD" != "$EXPECTED_BUILD" ]; then
+    echo ""
+    echo "  ⚠ WARNING: Built app version doesn't match Info.plist!"
+    echo "  This likely means MARKETING_VERSION/CURRENT_PROJECT_VERSION in project.pbxproj"
+    echo "  are overriding Info.plist. Check Xcode project build settings."
+    echo "  Continuing with built version: $BUILT_VERSION ($BUILT_BUILD)"
 fi
 echo ""
 
@@ -204,10 +220,9 @@ if [ -f "$SPARKLE_TOOLS/sign_update" ] && [ -f "$APPCAST_PATH" ]; then
     # Extract just the edSignature value
     ED_SIG=$(echo "$RAW_SIG" | grep -o 'edSignature="[^"]*"' | sed 's/edSignature="//;s/"//')
     DMG_FILESIZE=$(stat -f%z "$DMG_PATH")
-    # Read version from source Info.plist (not built app, which may be cached)
-    SOURCE_PLIST="$PROJECT_DIR/MindExtract/Info.plist"
-    VERSION=$(defaults read "$SOURCE_PLIST" CFBundleShortVersionString 2>/dev/null || defaults read "$APP_PATH/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.2.0")
-    BUILD=$(defaults read "$SOURCE_PLIST" CFBundleVersion 2>/dev/null || defaults read "$APP_PATH/Contents/Info.plist" CFBundleVersion 2>/dev/null || echo "1")
+    # Read version from the BUILT app (authoritative — Xcode build settings override Info.plist)
+    VERSION=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "1.2.0")
+    BUILD=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleVersion 2>/dev/null || echo "1")
     DOWNLOAD_URL="$GITHUB_RELEASES_URL/v${VERSION}/MindExtract-${VERSION}-Universal.dmg"
     PUBDATE=$(date -u "+%a, %d %b %Y %H:%M:%S +0000")
 

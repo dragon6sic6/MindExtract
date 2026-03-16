@@ -94,15 +94,22 @@ class TranscriptionManager: ObservableObject {
         downloadedModels.contains(model)
     }
 
-    func loadDownloadedModels() {
+    /// Refresh `downloadedModels` from the file system.
+    /// When `synchronous` is true (default), updates `downloadedModels` immediately on the current thread
+    /// so callers can rely on `isModelDownloaded()` right after calling this.
+    func loadDownloadedModels(synchronous: Bool = true) {
         var models: Set<WhisperModel> = []
         for model in WhisperModel.allCases {
             if findModelFolder(model) != nil {
                 models.insert(model)
             }
         }
-        DispatchQueue.main.async {
+        if synchronous && Thread.isMainThread {
             self.downloadedModels = models
+        } else {
+            DispatchQueue.main.async {
+                self.downloadedModels = models
+            }
         }
     }
 
@@ -196,13 +203,17 @@ class TranscriptionManager: ObservableObject {
                 }
 
                 await MainActor.run {
-                    self.downloadedModels.insert(model)
+                    // Refresh from file system to confirm download actually succeeded
+                    self.loadDownloadedModels(synchronous: true)
                     self.downloadingModel = nil
                     self.modelDownloadProgress = 1.0
-                    // Auto-set as default model if it's the only one or larger than current
-                    let settings = AppSettings.shared
-                    if !self.isModelDownloaded(settings.defaultWhisperModel) {
-                        settings.defaultWhisperModel = model
+
+                    if self.isModelDownloaded(model) {
+                        // Always set newly downloaded model as default — user chose to download it
+                        AppSettings.shared.defaultWhisperModel = model
+                    } else {
+                        // Download completed but model not valid on disk
+                        self.transcriptionState = .error("Model download completed but files are invalid. Please try again.")
                     }
                 }
 
@@ -325,6 +336,9 @@ class TranscriptionManager: ObservableObject {
     // MARK: - Transcription
 
     func transcribe(videoPath: String, model: WhisperModel, outputFormat: TranscriptionOutputFormat, language: String = "auto") {
+        // Sync with file system before checking model availability
+        loadDownloadedModels(synchronous: true)
+
         guard let ffmpegPath = ffmpegBinaryPath else {
             DispatchQueue.main.async {
                 self.transcriptionState = .error("FFmpeg binary not found")
@@ -372,6 +386,9 @@ class TranscriptionManager: ObservableObject {
     // MARK: - Transcribe Audio File Directly (for URL transcription)
 
     func transcribeAudioFile(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String = "auto") {
+        // Sync with file system before checking model availability
+        loadDownloadedModels(synchronous: true)
+
         guard isModelDownloaded(model) else {
             DispatchQueue.main.async {
                 self.transcriptionState = .modelNotDownloaded
@@ -638,7 +655,12 @@ class TranscriptionManager: ObservableObject {
                     }
                 } else {
                     await MainActor.run {
-                        self.transcriptionState = .error("Transcription failed: \(error.localizedDescription)")
+                        // If the error is about a missing model, show the helpful download prompt
+                        if error.localizedDescription.contains("not downloaded") || error.localizedDescription.contains("Model not") {
+                            self.transcriptionState = .modelNotDownloaded
+                        } else {
+                            self.transcriptionState = .error("Transcription failed: \(error.localizedDescription)")
+                        }
                     }
                 }
                 cleanup()
