@@ -8,7 +8,7 @@
 
     <item>
       <title>Version 1.5.13</title>
-      <pubDate>Mon, 16 Mar 2026 10:58:18 +0000</pubDate>
+      <pubDate>Mon, 16 Mar 2026 12:05:52 +0000</pubDate>
       <sparkle:version>24</sparkle:version>
       <sparkle:shortVersionString>1.5.13</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
@@ -22,8 +22,8 @@
       ]]></description>
       <enclosure
         url="https://github.com/dragon6sic6/MindExtract/releases/download/v1.5.13/MindExtract-1.5.13-Universal.dmg"
-        sparkle:edSignature="aBTAGm7LaHx07o5SkLtUw2sOL4N59s0vUGLt5Z+zTEaZIcuGjnh928m2g7fKdSW9R63AJTdKsS6u2T48v3PuCQ=="
-        length="75354531"
+        sparkle:edSignature="RI0goH5j1H7sjFY0drmU+2+prp1TU1YjvfDAopIsXYzEjNsasLM9ri/7/DnEjOz4iRiMiEq+0h8pPU3+bUHbDA=="
+        length="75354550"
         type="application/octet-stream"
       />
     </item>
