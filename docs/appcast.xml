@@ -7,54 +7,22 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.0.0</title>
-      <pubDate>Wed, 10 Jun 2026 00:23:30 +0000</pubDate>
-      <sparkle:version>26</sparkle:version>
-      <sparkle:shortVersionString>2.0.0</sparkle:shortVersionString>
+      <title>Version 2.0.1</title>
+      <pubDate>Wed, 10 Jun 2026 06:09:40 +0000</pubDate>
+      <sparkle:version>27</sparkle:version>
+      <sparkle:shortVersionString>2.0.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in MindExtract 2.0</h2>
-<p><strong>MindExtract has been redesigned from the ground up — new look, new engine, new flow.</strong></p>
-
-<h3>✨ A whole new app</h3>
+<h2>What's New in 2.0.1</h2>
 <ul>
-  <li><strong>All-new dark design</strong> with Liquid Glass — clean, sharp, and native to modern macOS</li>
-  <li><strong>One Media surface</strong> — paste any link or drop a file. The app figures out whether it's a video, a playlist, or a local file. No more choosing modes</li>
-  <li><strong>New Transcripts section</strong> — all your transcripts in one searchable place, organized by date</li>
-  <li><strong>Transcription happens right in the app</strong> — no more separate window</li>
-</ul>
-
-<h3>🎙️ Transcription, supercharged</h3>
-<ul>
-  <li><strong>New Apple speech engine</strong> (macOS 26) — dramatically faster transcription that starts instantly, with nothing to download. WhisperKit remains available for older Macs</li>
-  <li><strong>Rename speakers</strong> — click "Speaker 1" and give them real names; names follow into exports</li>
-  <li><strong>Follow-along playback</strong> — the transcript highlights and scrolls in sync while you listen</li>
-  <li><strong>Clear choices up front</strong> — pick engine, language, and speaker labels right before you start</li>
-</ul>
-
-<h3>⬇️ Better downloads</h3>
-<ul>
-  <li><strong>Clean quality picker</strong> — choose 4K/1080p/720p instead of scrolling 100+ technical formats. Downloads always play in QuickTime</li>
-  <li><strong>Progress on the row</strong> — the quality you picked fills up as it downloads</li>
-  <li><strong>Playlists made easy</strong> — paste a playlist link, select the videos you want, download them all</li>
-</ul>
-
-<h3>💬 Quality of life</h3>
-<ul>
-  <li><strong>Human error messages</strong> — plain language instead of technical dumps, with a one-click "Sign in to YouTube" when that's the fix</li>
-  <li><strong>Faster loading</strong> — links load quicker, and the downloader warms up at launch</li>
-  <li><strong>Simpler Settings</strong> — reorganized with explanations and tooltips; the setup guide is gone because there's nothing to set up anymore</li>
-</ul>
-
-<h3>⚙️ Requirements</h3>
-<ul>
-  <li>MindExtract now requires <strong>macOS 14 or later</strong>. The Apple speech engine requires macOS 26; on older systems WhisperKit is used automatically</li>
+  <li><strong>Sharper buttons everywhere</strong> — button labels can no longer wrap onto two lines, no matter the window size</li>
+  <li><strong>Cleaner model list</strong> — the WhisperKit model downloads in Settings use a compact, neatly aligned download control</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.0.0/MindExtract-2.0.0-Universal.dmg"
-        sparkle:edSignature="zctWgojRU5uTPnzNjxv2KUcecD7Ws32K6YR0vYoseMwnwql8efA2LWhtSCKAAru6B9QP9SxkTvOpmoIe3glgAg=="
-        length="73735878"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.0.1/MindExtract-2.0.1-Universal.dmg"
+        sparkle:edSignature="104uOEzh5gfwP9ULLR5ShcbSLaTA2I/w84tpCH32esxMPaNgQH/UXphenfWTE+hHQCsfO6SrbLOgJgGWIUsvDQ=="
+        length="73741641"
         type="application/octet-stream"
       />
     </item>
