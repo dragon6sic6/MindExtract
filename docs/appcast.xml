@@ -7,39 +7,22 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.1.0</title>
-      <pubDate>Wed, 10 Jun 2026 09:00:35 +0000</pubDate>
-      <sparkle:version>28</sparkle:version>
-      <sparkle:shortVersionString>2.1.0</sparkle:shortVersionString>
+      <title>Version 2.1.1</title>
+      <pubDate>Wed, 10 Jun 2026 09:24:41 +0000</pubDate>
+      <sparkle:version>29</sparkle:version>
+      <sparkle:shortVersionString>2.1.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in MindExtract 2.1</h2>
-<p><strong>Your transcripts just got a brain — AI summaries and chat, private by default.</strong></p>
-
-<h3>🤖 AI built in</h3>
+<h2>What's New in 2.1.1</h2>
 <ul>
-  <li><strong>Summarize any transcript</strong> — overview, key points and action items, generated entirely on your Mac with Apple Intelligence (macOS 26). Nothing leaves your computer</li>
-  <li><strong>Ask the transcript</strong> — chat about the content: "what did they say about pricing?" Answers come only from the transcript, in your language</li>
-  <li><strong>Choose your AI</strong> — Apple Intelligence by default, local models via Ollama (Gemma, Mistral, Llama…), or connect OpenAI / Anthropic if you prefer — clearly labeled so you always know where text is processed</li>
-</ul>
-
-<h3>⬇️ Clearer downloads</h3>
-<ul>
-  <li><strong>Download now asks for quality</strong> — click Download, pick the resolution (with file sizes), and it starts. No more accidental downloads at the wrong quality</li>
-  <li><strong>Transcribe and Download side by side</strong> — the two things MindExtract does, equally easy to reach</li>
-</ul>
-
-<h3>💎 Polish</h3>
-<ul>
-  <li>Faster first link load — the downloader warms up when the app starts</li>
-  <li>Centered, clearer progress while preparing a transcription</li>
-  <li>Tooltips on every icon button</li>
+  <li><strong>About, clarified</strong> — Settings now includes a responsible-use note and open-source acknowledgements with licenses for the components MindExtract builds on (yt-dlp, FFmpeg, WhisperKit, Sparkle)</li>
+  <li><strong>Clearer privacy wording</strong> — nothing leaves your Mac unless you explicitly choose a cloud AI provider</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.0/MindExtract-2.1.0-Universal.dmg"
-        sparkle:edSignature="DQhnkeY30u541FyJdAIPkbFYeX1jGhc7KhK7E4ICtZXtNlzNmSkFJ5j0SEfTdasbLdvz5ZoVJBCyHHc4z6AxCA=="
-        length="74070767"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.1/MindExtract-2.1.1-Universal.dmg"
+        sparkle:edSignature="GEndqEBiA/2WURCSX2Ak6zz+xVpNSCtWRPfNPt9Me3jAKDbpy7n9KViBJe3I0pmMOIXmoNK0+6CZw8WJ66ykBw=="
+        length="74083829"
         type="application/octet-stream"
       />
     </item>
