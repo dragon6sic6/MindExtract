@@ -12,6 +12,19 @@ struct SettingsView: View {
     @State private var ollamaModels: [String] = []
     @State private var ollamaDetectFailed = false
 
+    private func acknowledgementRow(_ name: String, _ license: String, _ url: String) -> some View {
+        HStack {
+            Text(name).font(.caption).fontWeight(.medium)
+            Text("· \(license)").font(.caption2).foregroundColor(.secondary)
+            Spacer()
+            Button("License") {
+                if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+            }
+            .buttonStyle(.link)
+            .font(.caption2)
+        }
+    }
+
     private func detectOllamaModels() {
         Task {
             let models = await OllamaBackend.installedModels()
@@ -312,12 +325,30 @@ struct SettingsView: View {
                             Text("\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"))")
                                 .foregroundColor(.secondary)
                         }
-                        HStack {
-                            Text("Everything runs on your Mac — no audio or video ever leaves your computer.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Spacer()
+                        Text("Everything runs on your Mac — no audio or video ever leaves your computer unless you choose a cloud AI provider.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Divider()
+
+                        Text("Please use MindExtract responsibly: download and transcribe only content you have the right to use, and respect the terms of the platforms and the rights of creators. You are responsible for how you use downloaded material.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        DisclosureGroup("Open-source acknowledgements") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                acknowledgementRow("yt-dlp", "Public domain (Unlicense)", "https://github.com/yt-dlp/yt-dlp")
+                                acknowledgementRow("FFmpeg", "LGPL v2.1+", "https://ffmpeg.org/legal.html")
+                                acknowledgementRow("WhisperKit & SpeakerKit (Argmax)", "MIT License", "https://github.com/argmaxinc/argmax-oss-swift")
+                                acknowledgementRow("Sparkle", "MIT License", "https://github.com/sparkle-project/Sparkle")
+                            }
+                            .padding(.top, 6)
                         }
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     }
                 }
                 .padding()
