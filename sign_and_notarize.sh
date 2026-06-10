@@ -110,11 +110,20 @@ find "$RESOURCES" \( -name "*.dylib" -o -name "*.so" \) -type f | sort | while r
         "$lib"
 done
 
-# Sign remaining Mach-O files inside ytdlp/_internal — including the Python
-# binaries inside the bundled Python.framework, signed as plain files since
-# PyInstaller ships the framework without the symlink structure codesign
-# expects from a real framework bundle.
-find "$RESOURCES/ytdlp/_internal" -type f ! -name "*.dylib" ! -name "*.so" 2>/dev/null | sort | while read -r bin; do
+# Sign the embedded Python framework as a bundle (its symlink structure is
+# restored in the source tree, so codesign can identify it as a framework)
+if [ -d "$RESOURCES/ytdlp/_internal/Python.framework" ]; then
+    echo "  Signing Python.framework..."
+    codesign --force --verify \
+        --sign "$DEVELOPER_ID" \
+        --options runtime \
+        --entitlements "$ENTITLEMENTS" \
+        --timestamp \
+        "$RESOURCES/ytdlp/_internal/Python.framework"
+fi
+
+# Sign remaining Mach-O files inside ytdlp/_internal (e.g. the bare Python dylib copy)
+find "$RESOURCES/ytdlp/_internal" -type f ! -name "*.dylib" ! -name "*.so" ! -path "*/Python.framework/*" 2>/dev/null | sort | while read -r bin; do
     if file "$bin" | grep -q "Mach-O"; then
         echo "  Signing $(basename "$bin")..."
         codesign --force --verify \
