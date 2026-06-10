@@ -424,6 +424,12 @@ class AppSettings: ObservableObject {
     @AppStorage("enableSpeakerDiarization") var enableSpeakerDiarization: Bool = true
     @AppStorage("transcriptionEngine") var transcriptionEngine: TranscriptionEngineChoice = .automatic
 
+    // AI summaries & chat
+    @AppStorage("aiBackend") var aiBackend: AIBackendChoice = .apple
+    @AppStorage("ollamaModel") var ollamaModel: String = ""
+    @AppStorage("openAIModel") var openAIModel: String = "gpt-4o-mini"
+    @AppStorage("anthropicModel") var anthropicModel: String = "claude-haiku-4-5-20251001"
+
     private init() {}
 }
 

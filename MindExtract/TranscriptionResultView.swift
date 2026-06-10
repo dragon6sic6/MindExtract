@@ -21,6 +21,7 @@ enum SpeakerColors {
 enum TranscriptionTab: String, CaseIterable {
     case text = "Text"
     case timeline = "Timeline"
+    case summary = "Summary"
 }
 
 // MARK: - Audio Player
@@ -107,6 +108,12 @@ struct TranscriptionResultView: View {
     @State private var showSearch = false
     @State private var editingSpeaker: String?
     @State private var editingName: String = ""
+    @ObservedObject private var summarizer = TranscriptSummarizer.shared
+    @ObservedObject private var chat = TranscriptChat.shared
+    @State private var summaryCopied = false
+    @State private var chatInput = ""
+
+    private var availableTabs: [TranscriptionTab] { TranscriptionTab.allCases }
 
     private func commitRename(for speaker: String) {
         let trimmed = editingName.trimmingCharacters(in: .whitespaces)
@@ -243,6 +250,8 @@ struct TranscriptionResultView: View {
                     textView
                 case .timeline:
                     timelineView
+                case .summary:
+                    summaryView
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -350,7 +359,7 @@ struct TranscriptionResultView: View {
 
     private var tabPicker: some View {
         HStack(spacing: 0) {
-            ForEach(TranscriptionTab.allCases, id: \.self) { tab in
+            ForEach(availableTabs, id: \.self) { tab in
                 Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tab } }) {
                     Text(tab.rawValue)
                         .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
@@ -512,20 +521,26 @@ struct TranscriptionResultView: View {
 
     // MARK: - Text View
 
+    @ViewBuilder
     private var textView: some View {
+        if transcriptionManager.liveTranscriptionText.isEmpty && isTranscribing {
+            // Centered in the full content area while we wait for the first words.
+            WaitingAnimationView(state: transcriptionManager.transcriptionState)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if transcriptionManager.segments.isEmpty && !isTranscribing && !isCompleted {
+            Text("Waiting for transcription…")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            textScrollView
+        }
+    }
+
+    private var textScrollView: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                if transcriptionManager.liveTranscriptionText.isEmpty && isTranscribing {
-                    WaitingAnimationView(state: transcriptionManager.transcriptionState)
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                        .padding(32)
-                } else if transcriptionManager.segments.isEmpty && !isTranscribing && !isCompleted {
-                    Text("Waiting for transcription…")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                        .padding(32)
-                } else {
+                Group {
                     confidenceTextView
                         .padding(20)
                         .padding(.top, showSearch ? 16 : 0)
@@ -541,6 +556,7 @@ struct TranscriptionResultView: View {
             }
         }
     }
+
 
     @ViewBuilder
     private var confidenceTextView: some View {
@@ -560,14 +576,21 @@ struct TranscriptionResultView: View {
 
     // MARK: - Timeline View (MacWhisper style)
 
+    @ViewBuilder
     private var timelineView: some View {
+        if transcriptionManager.segments.isEmpty && isTranscribing {
+            // Centered in the full content area while we wait for the first segments.
+            WaitingAnimationView(state: transcriptionManager.transcriptionState)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            timelineScrollView
+        }
+    }
+
+    private var timelineScrollView: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                if transcriptionManager.segments.isEmpty && isTranscribing {
-                    WaitingAnimationView(state: transcriptionManager.transcriptionState)
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                        .padding(32)
-                } else if filteredSegments.isEmpty && !searchText.isEmpty {
+                if filteredSegments.isEmpty && !searchText.isEmpty {
                     Text("No results for \"\(searchText)\"")
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
@@ -612,6 +635,187 @@ struct TranscriptionResultView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Summary & Ask (on-device AI, macOS 26+)
+
+    private var summaryView: some View {
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        summarySection
+
+                        if !chat.messages.isEmpty {
+                            Divider()
+                            ForEach(chat.messages) { msg in
+                                chatBubble(msg)
+                            }
+                            if chat.isAnswering {
+                                HStack(spacing: 8) {
+                                    ProgressView().controlSize(.small)
+                                    Text("Thinking…").font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                            Color.clear.frame(height: 1).id("chatBottom")
+                        }
+                    }
+                    .padding(20)
+                }
+                .onChange(of: chat.messages.count) { _, _ in
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        proxy.scrollTo("chatBottom", anchor: .bottom)
+                    }
+                }
+            }
+
+            Divider()
+
+            // Ask bar — question in, on-device answer out.
+            HStack(spacing: 8) {
+                TextField("Ask about this transcript…", text: $chatInput)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .onSubmit { sendQuestion() }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(DS.Colors.inputFill, in: Capsule())
+                    .overlay(Capsule().strokeBorder(DS.Colors.inputStroke, lineWidth: 1))
+
+                Button(action: sendQuestion) {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            chatInput.trimmingCharacters(in: .whitespaces).isEmpty || chat.isAnswering
+                                ? Color.secondary.opacity(0.25) : DS.Colors.accent,
+                            in: Circle()
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(chatInput.trimmingCharacters(in: .whitespaces).isEmpty || chat.isAnswering)
+                .help("Ask")
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
+        .onAppear { chat.prepare(transcript: transcriptionManager.liveTranscriptionText) }
+    }
+
+    private func sendQuestion() {
+        let q = chatInput
+        chatInput = ""
+        chat.prepare(transcript: transcriptionManager.liveTranscriptionText)
+        chat.ask(q)
+    }
+
+    @ViewBuilder
+    private func chatBubble(_ msg: ChatMessage) -> some View {
+        HStack {
+            if msg.isUser { Spacer(minLength: 60) }
+            Text(msg.text)
+                .font(.system(size: 13))
+                .lineSpacing(4)
+                .textSelection(.enabled)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    msg.isUser ? DS.Colors.accent : Color.white.opacity(0.07),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
+                .foregroundColor(msg.isUser ? .white : .primary)
+            if !msg.isUser { Spacer(minLength: 60) }
+        }
+    }
+
+    @ViewBuilder
+    private var summarySection: some View {
+        switch summarizer.state {
+        case .idle:
+            VStack(spacing: 14) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 32))
+                    .foregroundStyle(DS.Colors.accent)
+                Text("Summarize this transcript")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text("Overview, key points and action items — generated entirely on your Mac. Nothing leaves your computer. You can also just ask a question below.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 380)
+                Button {
+                    summarizer.summarize(transcriptionManager.liveTranscriptionText)
+                } label: {
+                    Label("Generate Summary", systemImage: "sparkles")
+                }
+                .primaryGlassButton()
+                .disabled(transcriptionManager.liveTranscriptionText.isEmpty || isTranscribing)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+
+        case .working(let message):
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small)
+                Text(message)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+
+        case .done(let summary):
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Label(AIBackends.current().badge, systemImage: "sparkles")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(summary, forType: .string)
+                        summaryCopied = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { summaryCopied = false }
+                    } label: {
+                        Label(summaryCopied ? "Copied" : "Copy", systemImage: summaryCopied ? "checkmark" : "doc.on.doc")
+                    }
+                    .secondaryGlassButton()
+                    Button {
+                        summarizer.reset()
+                        summarizer.summarize(transcriptionManager.liveTranscriptionText)
+                    } label: {
+                        Label("Regenerate", systemImage: "arrow.clockwise")
+                    }
+                    .secondaryGlassButton()
+                }
+                Text(summary)
+                    .font(DS.Typography.readingBody)
+                    .lineSpacing(5)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+        case .failed(let message):
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 28))
+                    .foregroundColor(.orange)
+                Text(message)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 380)
+                Button("Try Again") {
+                    summarizer.reset()
+                    summarizer.summarize(transcriptionManager.liveTranscriptionText)
+                }
+                .secondaryGlassButton()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
         }
     }
 
@@ -914,11 +1118,11 @@ struct WaitingAnimationView: View {
     @State private var animating = false
     @State private var pulseOpacity: Double = 0.3
 
-    private let barCount = 7
-    private let barWidth: CGFloat = 3.5
-    private let barSpacing: CGFloat = 4
-    private let minHeight: CGFloat = 6
-    private let maxHeight: CGFloat = 32
+    private let barCount = 9
+    private let barWidth: CGFloat = 5
+    private let barSpacing: CGFloat = 6
+    private let minHeight: CGFloat = 10
+    private let maxHeight: CGFloat = 52
 
     private var titleText: String {
         switch state {
@@ -976,11 +1180,11 @@ struct WaitingAnimationView: View {
 
             VStack(spacing: 6) {
                 Text(titleText)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(.secondary)
 
                 Text(subtitleText)
-                    .font(.system(size: 12))
+                    .font(.system(size: 13))
                     .foregroundColor(.secondary.opacity(0.6))
                     .opacity(pulseOpacity)
                     .animation(

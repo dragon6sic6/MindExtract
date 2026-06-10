@@ -7,6 +7,21 @@ struct SettingsView: View {
     @ObservedObject var transcriptionManager = TranscriptionManager.shared
     @State private var showAdvancedAuth = false
     @State private var showWhisperKitModels = false
+    @State private var openAIKey = KeychainHelper.get("openai-api-key") ?? ""
+    @State private var anthropicKey = KeychainHelper.get("anthropic-api-key") ?? ""
+    @State private var ollamaModels: [String] = []
+    @State private var ollamaDetectFailed = false
+
+    private func detectOllamaModels() {
+        Task {
+            let models = await OllamaBackend.installedModels()
+            ollamaModels = models
+            ollamaDetectFailed = models.isEmpty
+            if settings.ollamaModel.isEmpty, let first = models.first {
+                settings.ollamaModel = first
+            }
+        }
+    }
 
     private var appleSpeechAvailable: Bool {
         if #available(macOS 26.0, *) { return true }
@@ -127,6 +142,99 @@ struct SettingsView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
+                        }
+                    }
+
+                    // MARK: AI summaries & chat
+                    SettingsSection(title: "AI Summaries & Chat", icon: "sparkles") {
+                        HStack {
+                            Text("Provider")
+                            Spacer()
+                            Picker("", selection: $settings.aiBackend) {
+                                ForEach(AIBackendChoice.allCases) { choice in
+                                    Text(choice.rawValue).tag(choice)
+                                }
+                            }
+                            .frame(width: 200)
+                            .help("Who generates summaries and answers about your transcripts.")
+                        }
+                        Text(settings.aiBackend.detail)
+                            .font(.caption)
+                            .foregroundColor(settings.aiBackend == .openAI || settings.aiBackend == .anthropic ? .orange : .secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        switch settings.aiBackend {
+                        case .apple:
+                            EmptyView()
+
+                        case .ollama:
+                            HStack {
+                                Text("Model")
+                                Spacer()
+                                if ollamaModels.isEmpty {
+                                    TextField("e.g. llama3.2, gemma2, mistral", text: $settings.ollamaModel)
+                                        .textFieldStyle(.roundedBorder)
+                                        .frame(width: 200)
+                                } else {
+                                    Picker("", selection: $settings.ollamaModel) {
+                                        ForEach(ollamaModels, id: \.self) { Text($0).tag($0) }
+                                    }
+                                    .frame(width: 200)
+                                }
+                                Button("Detect") { detectOllamaModels() }
+                                    .secondaryGlassButton()
+                                    .controlSize(.small)
+                                    .help("List the models you've pulled in Ollama")
+                            }
+                            if ollamaDetectFailed {
+                                Text("Couldn't reach Ollama — make sure the Ollama app is running.")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+
+                        case .openAI:
+                            HStack {
+                                Text("API key")
+                                Spacer()
+                                SecureField("sk-…", text: $openAIKey)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 240)
+                                    .onChange(of: openAIKey) { _, new in
+                                        KeychainHelper.set(new, key: "openai-api-key")
+                                    }
+                            }
+                            HStack {
+                                Text("Model")
+                                Spacer()
+                                TextField("gpt-4o-mini", text: $settings.openAIModel)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 200)
+                            }
+                            Text("Stored securely in your Keychain.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                        case .anthropic:
+                            HStack {
+                                Text("API key")
+                                Spacer()
+                                SecureField("sk-ant-…", text: $anthropicKey)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 240)
+                                    .onChange(of: anthropicKey) { _, new in
+                                        KeychainHelper.set(new, key: "anthropic-api-key")
+                                    }
+                            }
+                            HStack {
+                                Text("Model")
+                                Spacer()
+                                TextField("claude-haiku-4-5-20251001", text: $settings.anthropicModel)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 200)
+                            }
+                            Text("Stored securely in your Keychain.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     }
 

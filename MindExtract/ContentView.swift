@@ -25,7 +25,6 @@ struct ContentView: View {
     // Download state
     @State private var urlInput: String = ""
     @State private var selectedFormat: VideoFormat?
-    @State private var showAllFormats = false
 
     /// One clean "best" format per resolution (MP4 preferred for compatibility),
     /// sorted high→low — instead of dumping all ~30 raw yt-dlp formats.
@@ -565,25 +564,6 @@ struct ContentView: View {
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    // Media-level actions live with the media itself.
-                    HStack(spacing: 8) {
-                        mediaActionPill("Audio", icon: "music.note", action: downloadAsAudio)
-                            .disabled(isDownloading || isTranscribing)
-                        if transcriptionManager.areBinariesAvailable {
-                            mediaActionPill("Transcribe", icon: "text.bubble") {
-                                if transcriptionManager.needsModelDownload {
-                                    transcriptionManager.transcriptionState = .modelNotDownloaded
-                                } else {
-                                    pendingTranscriptionFile = nil
-                                    pendingTranscriptionFilePath = nil
-                                    showTranscriptionLanguagePicker = true
-                                }
-                            }
-                            .disabled(isDownloading || isTranscribing)
-                        }
-                        mediaActionPill("Queue", icon: "plus", action: addVideoToQueue)
-                    }
-                    .padding(.top, 6)
                 }
 
                 Spacer()
@@ -592,54 +572,117 @@ struct ContentView: View {
             .glassSurface(cornerRadius: 12)
             .padding(.horizontal, 20)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Select Quality")
-                    .font(.headline)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
+            // The two things MindExtract does — equal twins, impossible to confuse.
+            mediaActionRow(info: info)
+        }
+    }
 
-                ScrollView {
-                    LazyVStack(spacing: 6) {
-                        let shown = showAllFormats ? info.formats : tieredVideoFormats(info.formats)
-                        ForEach(shown) { format in
-                            FormatRow(
-                                format: format,
-                                isSelected: selectedFormat == format,
-                                downloadProgress: (selectedFormat == format) ? currentDownloadProgress : nil,
-                                canDownload: canDownload && !isTranscribing,
-                                onDownload: startDownload
-                            )
-                            .onTapGesture {
-                                if currentDownloadProgress == nil {
-                                    withAnimation(.easeInOut(duration: 0.18)) { selectedFormat = format }
-                                }
-                            }
-                            .opacity(isDownloading && selectedFormat != format ? 0.4 : 1)
-                            .allowsHitTesting(!(isDownloading && selectedFormat != format))
-                        }
-
-                        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showAllFormats.toggle() } }) {
-                            Text(showAllFormats
-                                 ? "Show fewer"
-                                 : "Show all \(info.formats.count) formats")
-                                .font(.caption)
-                                .foregroundColor(DS.Colors.accent)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.vertical, 6)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 20)
+    private func mediaActionRow(info: VideoInfo) -> some View {
+        HStack(spacing: 10) {
+            // Transcribe — the app's namesake, first.
+            Button {
+                if transcriptionManager.needsModelDownload {
+                    transcriptionManager.transcriptionState = .modelNotDownloaded
+                } else {
+                    pendingTranscriptionFile = nil
+                    pendingTranscriptionFilePath = nil
+                    showTranscriptionLanguagePicker = true
                 }
-                .frame(maxHeight: 300)
+            } label: {
+                Label("Transcribe", systemImage: "text.bubble.fill")
+                    .frame(maxWidth: .infinity)
             }
-            .onAppear {
-                // Auto-select the best available quality so Download is ready.
-                if selectedFormat == nil {
-                    selectedFormat = tieredVideoFormats(info.formats).first ?? info.formats.first
+            .primaryGlassButton()
+            .disabled(isDownloading || isTranscribing || !transcriptionManager.areBinariesAvailable)
+
+            // Download — click opens the quality menu; picking a quality starts
+            // the download immediately. Impossible to miss the quality choice.
+            if isDownloading {
+                HStack(spacing: 6) {
+                    Label("\(Int((currentDownloadProgress ?? 0) * 100))%", systemImage: "arrow.down.circle")
+                        .monospacedDigit()
                 }
+                .frame(maxWidth: .infinity)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.vertical, 7)
+                .background(
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.secondary.opacity(0.3))
+                        if let p = currentDownloadProgress {
+                            GeometryReader { geo in
+                                DS.Colors.accent
+                                    .frame(width: max(0, geo.size.width * p))
+                                    .animation(.easeOut(duration: 0.25), value: p)
+                            }
+                        }
+                    }
+                    .clipShape(Capsule())
+                )
+
+                Button { downloader.cancelDownload() } label: {
+                    Image(systemName: "xmark")
+                }
+                .secondaryGlassButton()
+                .help("Cancel download")
+            } else {
+                Menu {
+                    ForEach(tieredVideoFormats(info.formats)) { f in
+                        Button(qualityMenuLabel(f)) {
+                            selectedFormat = f
+                            startDownload()
+                        }
+                    }
+                    Menu("All formats…") {
+                        ForEach(info.formats) { f in
+                            Button(qualityMenuLabel(f)) {
+                                selectedFormat = f
+                                startDownload()
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Label("Download", systemImage: "arrow.down.circle.fill")
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .bold))
+                            .opacity(0.8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 7)
+                    .background(
+                        Capsule().fill(isTranscribing ? Color.secondary.opacity(0.3) : DS.Colors.accent)
+                    )
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .disabled(isTranscribing)
+                .help("Choose quality and download")
+            }
+
+            Spacer(minLength: 4)
+
+            mediaActionPill("Audio", icon: "music.note", action: downloadAsAudio)
+                .disabled(isDownloading || isTranscribing)
+                .help("Download audio only (MP3)")
+            mediaActionPill("Queue", icon: "plus", action: addVideoToQueue)
+                .help("Add to queue and load another video")
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .onAppear {
+            // Auto-select the best available quality so Download is ready.
+            if selectedFormat == nil {
+                selectedFormat = tieredVideoFormats(info.formats).first ?? info.formats.first
             }
         }
+    }
+
+    private func qualityMenuLabel(_ f: VideoFormat) -> String {
+        let res = f.isAudioOnly ? "Audio" : f.resolution
+        return "\(res) — \(f.ext.uppercased())\(f.filesize.isEmpty ? "" : " · \(f.filesize)")"
     }
 
     /// Quiet glass pill for a media-level action in the video card header.
@@ -707,70 +750,7 @@ struct ContentView: View {
 
     private var actionButtonsSection: some View {
         VStack(spacing: 16) {
-            if downloader.videoInfo != nil {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Actions")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.secondary)
-
-                    HStack(spacing: 10) {
-                        Button(action: startDownload) {
-                            HStack {
-                                Image(systemName: "arrow.down.circle.fill")
-                                Text(isDownloading ? "Downloading…" : "Download Video")
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        .primaryGlassButton()
-                        .controlSize(.large)
-                        .disabled(!canDownload || isTranscribing)
-
-                        Button(action: downloadAsAudio) {
-                            HStack {
-                                Image(systemName: "music.note")
-                                Text("Download Audio")
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        .secondaryGlassButton()
-                        .controlSize(.large)
-                        .disabled(isDownloading || isTranscribing)
-
-                        if transcriptionManager.areBinariesAvailable {
-                            Button(action: {
-                                if transcriptionManager.needsModelDownload {
-                                    transcriptionManager.transcriptionState = .modelNotDownloaded
-                                } else {
-                                    pendingTranscriptionFile = nil
-                                    pendingTranscriptionFilePath = nil
-                                    showTranscriptionLanguagePicker = true
-                                }
-                            }) {
-                                HStack {
-                                    Image(systemName: "text.bubble")
-                                    Text("Transcribe")
-                                }
-                                .frame(maxWidth: .infinity)
-                            }
-                            .secondaryGlassButton()
-                            .tint(DS.Colors.accent)
-                            .controlSize(.large)
-                            .disabled(isDownloading || isTranscribing)
-                        }
-
-                        if isDownloading {
-                            Button(action: { downloader.cancelDownload() }) {
-                                Image(systemName: "xmark")
-                            }
-                            .secondaryGlassButton()
-                            .help("Cancel download")
-                            .tint(.red)
-                            .controlSize(.large)
-                        }
-                    }
-                }
-            } else if !selectedVideos.isEmpty {
+            if !selectedVideos.isEmpty {
                 HStack(spacing: 10) {
                     Button(action: startDownload) {
                         HStack {
@@ -1457,100 +1437,6 @@ struct ContentView: View {
 }
 
 // MARK: - Supporting Views
-
-struct FormatRow: View {
-    let format: VideoFormat
-    let isSelected: Bool
-    var downloadProgress: Double? = nil
-    var canDownload: Bool = true
-    var onDownload: () -> Void = {}
-
-    private var isDownloading: Bool { downloadProgress != nil }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: format.isAudioOnly ? "music.note" : "film")
-                .font(.system(size: 16))
-                .foregroundStyle((isSelected || isDownloading) ? DS.Colors.accent : Color.secondary)
-                .frame(width: 22)
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
-                    Text(format.isAudioOnly ? "Audio" : format.resolution)
-                        .font(.system(size: 15, weight: .semibold))
-                    Text(format.ext.uppercased())
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.08), in: Capsule())
-                }
-                if isDownloading {
-                    Text("Downloading…")
-                        .font(.caption2).foregroundColor(DS.Colors.accent)
-                } else if !format.note.isEmpty && format.note != format.resolution {
-                    Text(format.note).font(.caption2).foregroundColor(.secondary)
-                }
-            }
-
-            Spacer()
-
-            if let p = downloadProgress {
-                Text("\(Int(p * 100))%")
-                    .font(.callout.weight(.semibold))
-                    .foregroundColor(DS.Colors.accent)
-                    .monospacedDigit()
-            } else if isSelected {
-                if !format.filesize.isEmpty {
-                    Text(format.filesize)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                // The action lives right on the chosen quality.
-                Button(action: onDownload) {
-                    Label("Download", systemImage: "arrow.down.circle.fill")
-                }
-                .primaryGlassButton()
-                .disabled(!canDownload)
-            } else {
-                if !format.filesize.isEmpty {
-                    Text(format.filesize)
-                        .font(.callout)
-                        .foregroundColor(.secondary)
-                }
-                Image(systemName: "circle")
-                    .font(.system(size: 17))
-                    .foregroundStyle(Color.secondary.opacity(0.35))
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(isSelected ? DS.Colors.accent.opacity(0.14) : Color.white.opacity(0.04))
-                // Inline download progress — the row "fills" as it downloads.
-                if let p = downloadProgress {
-                    GeometryReader { geo in
-                        DS.Colors.accent.opacity(0.30)
-                            .frame(width: max(0, geo.size.width * p))
-                            .animation(.easeOut(duration: 0.25), value: p)
-                    }
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .strokeBorder(
-                    (isSelected || isDownloading) ? DS.Colors.accent.opacity(0.55) : Color.white.opacity(0.07),
-                    lineWidth: 1
-                )
-        )
-        .contentShape(Rectangle())
-    }
-}
 
 struct VideoRow: View {
     let video: VideoInfo
