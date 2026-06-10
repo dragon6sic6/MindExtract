@@ -156,9 +156,9 @@ class YTDLPWrapper: ObservableObject {
         warmUpYTDLP()
     }
 
-    /// The bundled yt-dlp is a self-extracting binary with a noticeable cold-start
-    /// cost. Running it once in the background at launch pre-caches everything, so
-    /// the user's first paste responds much faster.
+    /// First launch of the bundled yt-dlp triggers a one-time macOS security scan
+    /// (~10 s). Running it once in the background at launch absorbs that cost, so
+    /// every paste afterwards starts in ~0.3 s.
     private func warmUpYTDLP() {
         guard let ytdlp = ytdlpPath else { return }
         DispatchQueue.global(qos: .utility).async {
@@ -181,11 +181,16 @@ class YTDLPWrapper: ObservableObject {
     }
 
     private func findYTDLP() {
-        // First, check for bundled yt-dlp in app Resources
-        if let bundledPath = Bundle.main.path(forResource: "yt-dlp", ofType: nil) {
-            ytdlpPath = bundledPath
-            print("Found bundled yt-dlp at: \(bundledPath)")
-            return
+        // First, check for the bundled yt-dlp (onedir build — starts ~30× faster
+        // than the old self-extracting single binary, which re-triggered a macOS
+        // security scan on every launch).
+        if let resourcePath = Bundle.main.resourcePath {
+            let bundledPath = resourcePath + "/ytdlp/yt-dlp_macos"
+            if FileManager.default.isExecutableFile(atPath: bundledPath) {
+                ytdlpPath = bundledPath
+                print("Found bundled yt-dlp at: \(bundledPath)")
+                return
+            }
         }
 
         // Fallback: check common installation paths
@@ -343,6 +348,43 @@ class YTDLPWrapper: ObservableObject {
 
     // MARK: - Scan Page for Videos
 
+    /// Instant preview via oEmbed (~300 ms) so the media card appears immediately
+    /// while yt-dlp fetches the full format list in the background. YouTube and
+    /// Vimeo support it; other sites simply skip the preview.
+    private func fetchQuickPreview(for url: String) {
+        let lower = url.lowercased()
+        let oembedURL: String?
+        if lower.contains("youtube.com/watch") || lower.contains("youtu.be/") || lower.contains("youtube.com/shorts") {
+            oembedURL = "https://www.youtube.com/oembed?format=json&url=" +
+                (url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? url)
+        } else if lower.contains("vimeo.com/") {
+            oembedURL = "https://vimeo.com/api/oembed.json?url=" +
+                (url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? url)
+        } else {
+            oembedURL = nil
+        }
+        guard let oembedURL, let requestURL = URL(string: oembedURL) else { return }
+
+        Task {
+            var request = URLRequest(url: requestURL)
+            request.timeoutInterval = 4
+            guard let (data, _) = try? await URLSession.shared.data(for: request),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let title = json["title"] as? String else { return }
+            // Only show the preview if the full info hasn't already arrived.
+            guard self.videoInfo == nil, case .fetchingFormats = self.state else { return }
+            self.videoInfo = VideoInfo(
+                id: url,
+                title: title,
+                thumbnail: json["thumbnail_url"] as? String,
+                duration: "",
+                uploader: json["author_name"] as? String ?? "",
+                url: url,
+                formats: []     // formats arrive when yt-dlp finishes
+            )
+        }
+    }
+
     /// Unified entry point: figures out whether the URL is a single video or a
     /// playlist/channel/page and routes accordingly — so the user never has to
     /// pre-choose "Video" vs "Scan Page". Uses a fast `--flat-playlist` probe.
@@ -357,6 +399,7 @@ class YTDLPWrapper: ObservableObject {
         videoInfo = nil
         lastErrorNeedsAuth = false
         outputLog = "Loading: \(url)\n"
+        fetchQuickPreview(for: url)
         startFetchTimeout()
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in

@@ -207,6 +207,9 @@ struct ContentView: View {
                         VStack(spacing: 8) { localFileTranscriptionStatus }
                             .padding(.horizontal, 20)
                             .padding(.bottom, 16)
+                    } else if let info = downloader.videoInfo {
+                        // Shows instantly via oEmbed preview while formats still load.
+                        videoAndFormatsSection(info: info)
                     } else if downloader.videoInfo == nil &&
                        downloader.scannedVideos.isEmpty &&
                        !(downloader.state == .fetchingFormats) &&
@@ -224,8 +227,6 @@ struct ContentView: View {
                             ProgressView("Loading…")
                                 .padding(.top, 8)
                         }
-                    } else if let info = downloader.videoInfo {
-                        videoAndFormatsSection(info: info)
                     } else if !downloader.scannedVideos.isEmpty {
                         scannedVideosSection
                     }
@@ -558,9 +559,13 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(info.title).font(.headline).lineLimit(2)
                     HStack {
-                        Label(info.uploader, systemImage: "person.fill")
+                        if !info.uploader.isEmpty {
+                            Label(info.uploader, systemImage: "person.fill")
+                        }
                         Spacer()
-                        Label(info.duration, systemImage: "clock.fill")
+                        if !info.duration.isEmpty {
+                            Label(info.duration, systemImage: "clock.fill")
+                        }
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -625,6 +630,17 @@ struct ContentView: View {
                 }
                 .secondaryGlassButton()
                 .help("Cancel download")
+            } else if info.formats.isEmpty {
+                // oEmbed preview is up; yt-dlp is still fetching qualities.
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Loading qualities…")
+                }
+                .frame(maxWidth: .infinity)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(Color.secondary.opacity(0.15)))
             } else {
                 Menu {
                     ForEach(tieredVideoFormats(info.formats)) { f in

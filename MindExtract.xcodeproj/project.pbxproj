@@ -18,7 +18,7 @@
 		B1000D01 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D02 /* DesignSystem.swift */; };
 		B1000D03 /* Summarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D04 /* Summarizer.swift */; };
 		B1000D05 /* AIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D06 /* AIBackend.swift */; };
-		B1000007 /* yt-dlp in Resources */ = {isa = PBXBuildFile; fileRef = B1000023 /* yt-dlp */; };
+		B1000007 /* ytdlp in Resources */ = {isa = PBXBuildFile; fileRef = B1000023 /* ytdlp */; };
 		B1000031 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000024 /* SettingsView.swift */; };
 		B1000033 /* TranscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000026 /* TranscriptionManager.swift */; };
 		B1000035 /* TranscriptionResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000028 /* TranscriptionResultView.swift */; };
@@ -37,7 +37,7 @@
 		B1000D02 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		B1000D04 /* Summarizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Summarizer.swift; sourceTree = "<group>"; };
 		B1000D06 /* AIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackend.swift; sourceTree = "<group>"; };
-		B1000023 /* yt-dlp */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = "yt-dlp"; sourceTree = "<group>"; };
+		B1000023 /* ytdlp */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ytdlp; sourceTree = "<group>"; };
 		B1000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B1000026 /* TranscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionManager.swift; sourceTree = "<group>"; };
 		B1000028 /* TranscriptionResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionResultView.swift; sourceTree = "<group>"; };
@@ -99,7 +99,7 @@
 		B1000021 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				B1000023 /* yt-dlp */,
+				B1000023 /* ytdlp */,
 				B1000051 /* ffmpeg */,
 			);
 			path = Resources;
@@ -173,7 +173,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B1000005 /* Assets.xcassets in Resources */,
-				B1000007 /* yt-dlp in Resources */,
+				B1000007 /* ytdlp in Resources */,
 				B1000061 /* ffmpeg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

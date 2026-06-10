@@ -99,16 +99,51 @@ fi
 echo "▸ Signing bundled binaries and dylibs..."
 RESOURCES="$APP_PATH/Contents/Resources"
 
-# Sign all dylibs
-find "$RESOURCES" -name "*.dylib" | sort | while read -r lib; do
+# Sign all dylibs and Python extension modules (yt-dlp onedir build)
+find "$RESOURCES" \( -name "*.dylib" -o -name "*.so" \) -type f | sort | while read -r lib; do
     echo "  Signing $(basename "$lib")..."
-    codesign --force --verify --verbose \
+    codesign --force --verify \
         --sign "$DEVELOPER_ID" \
         --options runtime \
         --entitlements "$ENTITLEMENTS" \
         --timestamp \
         "$lib"
 done
+
+# Sign the embedded Python framework (yt-dlp onedir build)
+if [ -d "$RESOURCES/ytdlp/_internal/Python.framework" ]; then
+    echo "  Signing Python.framework..."
+    codesign --force --verify \
+        --sign "$DEVELOPER_ID" \
+        --options runtime \
+        --entitlements "$ENTITLEMENTS" \
+        --timestamp \
+        "$RESOURCES/ytdlp/_internal/Python.framework"
+fi
+
+# Sign remaining Mach-O files inside ytdlp/_internal (e.g. the bare Python dylib copy)
+find "$RESOURCES/ytdlp/_internal" -type f ! -name "*.dylib" ! -name "*.so" ! -path "*/Python.framework/*" 2>/dev/null | sort | while read -r bin; do
+    if file "$bin" | grep -q "Mach-O"; then
+        echo "  Signing $(basename "$bin")..."
+        codesign --force --verify \
+            --sign "$DEVELOPER_ID" \
+            --options runtime \
+            --entitlements "$ENTITLEMENTS" \
+            --timestamp \
+            "$bin"
+    fi
+done
+
+# Sign the yt-dlp launcher itself (after its dependencies)
+if [ -f "$RESOURCES/ytdlp/yt-dlp_macos" ]; then
+    echo "  Signing yt-dlp_macos..."
+    codesign --force --verify \
+        --sign "$DEVELOPER_ID" \
+        --options runtime \
+        --entitlements "$ENTITLEMENTS" \
+        --timestamp \
+        "$RESOURCES/ytdlp/yt-dlp_macos"
+fi
 
 # Sign all standalone executables (non-.dylib files that are Mach-O)
 find "$RESOURCES" -maxdepth 1 -type f ! -name "*.dylib" ! -name "*.icns" ! -name "*.car" | sort | while read -r bin; do
