@@ -26,27 +26,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 struct MindExtractApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var settings = AppSettings.shared
-    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .preferredColorScheme(settings.appearanceMode.colorScheme)
-                .tint(Color(NSColor.labelColor))
-                .onAppear { applyAppearance(settings.appearanceMode) }
-                .onChange(of: settings.appearanceMode) { applyAppearance($0) }
-                .overlay {
-                    if !hasSeenOnboarding {
-                        OnboardingView(onDismiss: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                hasSeenOnboarding = true
-                            }
-                        })
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .transition(.opacity)
-                    }
-                }
-                .animation(.easeInOut(duration: 0.3), value: hasSeenOnboarding)
+                .tint(DS.Colors.accent)
+                .preferredColorScheme(.dark)
+                .onAppear { NSApp.appearance = NSAppearance(named: .darkAqua) }
         }
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1000, height: 740)
@@ -70,17 +56,15 @@ struct MindExtractApp: App {
                 }
                 .keyboardShortcut("?", modifiers: .command)
             }
+            CommandMenu("Go") {
+                Button("Media") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.download) }
+                    .keyboardShortcut("1", modifiers: .command)
+                Button("Transcripts") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.transcripts) }
+                    .keyboardShortcut("2", modifiers: .command)
+                Button("History") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.history) }
+                    .keyboardShortcut("3", modifiers: .command)
+            }
         }
-    }
-}
-
-// MARK: - Helpers
-
-private func applyAppearance(_ mode: AppearanceMode) {
-    switch mode {
-    case .system: NSApp.appearance = nil
-    case .light:  NSApp.appearance = NSAppearance(named: .aqua)
-    case .dark:   NSApp.appearance = NSAppearance(named: .darkAqua)
     }
 }
 
@@ -88,4 +72,5 @@ private func applyAppearance(_ mode: AppearanceMode) {
 
 extension Notification.Name {
     static let openSettings = Notification.Name("openSettings")
+    static let navigate = Notification.Name("navigate")
 }

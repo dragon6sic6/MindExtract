@@ -1,10 +1,6 @@
 import SwiftUI
 import AppKit
 
-enum ActivityTab: String, CaseIterable {
-    case downloads = "Downloads"
-    case transcriptions = "Transcriptions"
-}
 
 struct RecentActivityView: View {
     @ObservedObject var historyManager = HistoryManager.shared
@@ -14,103 +10,39 @@ struct RecentActivityView: View {
 
     var onRedownload: ((HistoryItem) -> Void)? = nil
 
-    @State private var selectedTab: ActivityTab = .downloads
     @State private var searchText = ""
     @State private var showClearDownloadsConfirmation = false
-    @State private var showClearTranscriptionsConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tab picker + search row
-            VStack(spacing: 0) {
+            // Search + clear row (History = downloads; transcripts live under Transcripts)
+            if !historyManager.history.isEmpty {
                 HStack(spacing: 8) {
-                    Picker("Activity", selection: $selectedTab) {
-                        ForEach(ActivityTab.allCases, id: \.self) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
+                    SearchField(text: $searchText)
 
-                    // Clear all button
-                    if canClearCurrentTab {
-                        Button(action: {
-                            if selectedTab == .downloads {
-                                showClearDownloadsConfirmation = true
-                            } else {
-                                showClearTranscriptionsConfirmation = true
-                            }
-                        }) {
-                            Image(systemName: "trash")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Clear all \(selectedTab.rawValue.lowercased())")
-                        .transition(.opacity)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
-
-                // Search bar
-                if hasItemsInCurrentTab {
-                    HStack(spacing: 6) {
-                        Image(systemName: "magnifyingglass")
+                    Button(action: { showClearDownloadsConfirmation = true }) {
+                        Image(systemName: "trash")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        TextField("Search…", text: $searchText)
-                            .textFieldStyle(.plain)
-                            .font(.subheadline)
-                        if !searchText.isEmpty {
-                            Button(action: { searchText = "" }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.plain)
-                        }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(7)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
+                    .buttonStyle(.plain)
+                    .help("Clear download history")
                 }
-            }
-            .animation(.easeInOut(duration: 0.15), value: selectedTab)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
 
-            Divider()
-
-            // Content
-            switch selectedTab {
-            case .downloads:
-                downloadsContent
-            case .transcriptions:
-                transcriptionsContent
+                Divider()
             }
+
+            downloadsContent
         }
         .confirmationDialog("Clear all download history?", isPresented: $showClearDownloadsConfirmation, titleVisibility: .visible) {
             Button("Clear All", role: .destructive) { historyManager.clearHistory() }
             Button("Cancel", role: .cancel) {}
         } message: { Text("This cannot be undone.") }
-        .confirmationDialog("Clear all transcription history?", isPresented: $showClearTranscriptionsConfirmation, titleVisibility: .visible) {
-            Button("Clear All", role: .destructive) { transcriptionHistory.clearHistory() }
-            Button("Cancel", role: .cancel) {}
-        } message: { Text("This cannot be undone.") }
     }
 
     // MARK: - Helpers
-
-    private var canClearCurrentTab: Bool {
-        selectedTab == .downloads ? !historyManager.history.isEmpty : !transcriptionHistory.history.isEmpty
-    }
-
-    private var hasItemsInCurrentTab: Bool {
-        selectedTab == .downloads ? !historyManager.history.isEmpty : !transcriptionHistory.history.isEmpty
-    }
 
     // MARK: - Downloads Tab
 
@@ -123,7 +55,7 @@ struct RecentActivityView: View {
     }
 
     private var groupedDownloads: [(label: String, items: [HistoryItem])] {
-        groupByDate(filteredDownloads, date: { $0.downloadDate })
+        groupHistoryByDate(filteredDownloads, date: { $0.downloadDate })
     }
 
     @ViewBuilder
@@ -150,56 +82,7 @@ struct RecentActivityView: View {
                             .padding(.horizontal, 8)
                             .padding(.bottom, 8)
                         } header: {
-                            groupHeader(label: group.label, count: group.items.count)
-                        }
-                    }
-                }
-                .padding(.top, 4)
-            }
-        }
-    }
-
-    // MARK: - Transcriptions Tab
-
-    private var filteredTranscriptions: [TranscriptionHistoryItem] {
-        guard !searchText.isEmpty else { return transcriptionHistory.history }
-        return transcriptionHistory.history.filter {
-            $0.title.localizedCaseInsensitiveContains(searchText)
-        }
-    }
-
-    private var groupedTranscriptions: [(label: String, items: [TranscriptionHistoryItem])] {
-        groupByDate(filteredTranscriptions, date: { $0.transcriptionDate })
-    }
-
-    @ViewBuilder
-    private var transcriptionsContent: some View {
-        if transcriptionHistory.history.isEmpty {
-            emptyState(icon: "text.bubble", title: "No Transcriptions", subtitle: "Your transcriptions appear here")
-        } else if filteredTranscriptions.isEmpty {
-            noSearchResults
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
-                    ForEach(groupedTranscriptions, id: \.label) { group in
-                        Section {
-                            VStack(spacing: 4) {
-                                ForEach(group.items) { item in
-                                    TranscriptionHistoryRowImproved(
-                                        item: item,
-                                        onSelect: {
-                                            if item.fileExists {
-                                                transcriptionManager.openTranscriptionFromHistory(item)
-                                            }
-                                        },
-                                        onRemove: { transcriptionHistory.removeFromHistory(item) }
-                                    )
-                                }
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.bottom, 8)
-                        } header: {
-                            groupHeader(label: group.label, count: group.items.count)
+                            HistoryGroupHeader(label: group.label, count: group.items.count)
                         }
                     }
                 }
@@ -209,50 +92,6 @@ struct RecentActivityView: View {
     }
 
     // MARK: - Shared helpers
-
-    private func groupHeader(label: String, count: Int) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 12))
-                .fontWeight(.semibold)
-                .foregroundColor(.secondary)
-                .textCase(.uppercase)
-            Spacer()
-            Text("\(count)")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Color.secondary.opacity(0.12))
-                .cornerRadius(4)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color(NSColor.windowBackgroundColor))
-    }
-
-    private func groupByDate<T>(_ items: [T], date: (T) -> Date) -> [(label: String, items: [T])] {
-        let calendar = Calendar.current
-        let now = Date()
-        var today: [T] = []
-        var yesterday: [T] = []
-        var thisWeek: [T] = []
-        var older: [T] = []
-        for item in items {
-            let d = date(item)
-            if calendar.isDateInToday(d) {
-                today.append(item)
-            } else if calendar.isDateInYesterday(d) {
-                yesterday.append(item)
-            } else if let days = calendar.dateComponents([.day], from: d, to: now).day, days < 7 {
-                thisWeek.append(item)
-            } else {
-                older.append(item)
-            }
-        }
-        return [("Today", today), ("Yesterday", yesterday), ("This Week", thisWeek), ("Older", older)]
-            .filter { !$0.items.isEmpty }
-    }
 
     private var noSearchResults: some View {
         VStack(spacing: 8) {
@@ -307,8 +146,7 @@ struct DownloadHistoryRowImproved: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text(item.title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(DS.Typography.rowTitle)
                         .lineLimit(1)
                         .foregroundColor(.primary)
 
@@ -358,10 +196,7 @@ struct DownloadHistoryRowImproved: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
-        )
+        .rowChrome()
         .contextMenu {
             if let onRedownload {
                 Button("Download Again") { onRedownload() }
@@ -374,141 +209,6 @@ struct DownloadHistoryRowImproved: View {
                 NSWorkspace.shared.open(URL(fileURLWithPath: downloadPath))
             }
             Divider()
-            Button("Remove from History", role: .destructive, action: onRemove)
-        }
-    }
-}
-
-// MARK: - Transcription History Row (improved)
-
-struct TranscriptionHistoryRowImproved: View {
-    let item: TranscriptionHistoryItem
-    let onSelect: () -> Void
-    let onRemove: () -> Void
-
-    @State private var isHovering = false
-
-    /// Derive a meaningful display title from the file path or stored title
-    private var displayTitle: String {
-        // Try to get a meaningful name from the file path first
-        let url = URL(fileURLWithPath: item.filePath)
-        let fileName = url.deletingPathExtension().lastPathComponent
-        // If the file name is something meaningful (not empty or generic), use it
-        if !fileName.isEmpty && fileName != "transcription" {
-            return fileName
-        }
-        // Fall back to stored title, but skip generic "Video Transcription"
-        if item.title != "Video Transcription" && !item.title.isEmpty {
-            return item.title
-        }
-        return fileName.isEmpty ? "Untitled" : fileName
-    }
-
-    private var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter.string(from: item.transcriptionDate)
-    }
-
-    var body: some View {
-        Button(action: {
-            if item.fileExists { onSelect() }
-        }) {
-            HStack(spacing: 10) {
-                // Icon
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(item.fileExists ? Color.orange.opacity(0.12) : Color.secondary.opacity(0.08))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: item.fileExists ? "doc.text.fill" : "doc.text")
-                        .font(.system(size: 14))
-                        .foregroundColor(item.fileExists ? .orange : .secondary)
-                }
-
-                // Info
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(displayTitle)
-                        .font(.system(size: 13))
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                        .foregroundColor(item.fileExists ? .primary : .secondary)
-
-                    HStack(spacing: 6) {
-                        // Model pill
-                        Text("Whisper \(item.modelUsed)")
-                            .font(.system(size: 10))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(Color.orange.opacity(0.1))
-                            .foregroundColor(.orange)
-                            .cornerRadius(3)
-
-                        if let duration = item.duration {
-                            Text(duration)
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Text(formattedDate)
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-
-                        if !item.fileExists {
-                            Text("Missing")
-                                .font(.system(size: 10))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(Color.red.opacity(0.1))
-                                .foregroundColor(.red)
-                                .cornerRadius(3)
-                        }
-                    }
-                }
-
-                Spacer(minLength: 4)
-
-                // Actions
-                HStack(spacing: 2) {
-                    if item.fileExists {
-                        HistoryActionButton(icon: "folder", help: "Show in Finder") {
-                            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.filePath)])
-                        }
-                        HistoryActionButton(icon: "doc.on.doc", help: "Copy text") {
-                            if let text = item.transcriptionText {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(text, forType: .string)
-                            }
-                        }
-                    }
-                    HistoryActionButton(icon: "trash", help: "Remove from history", color: .red, action: onRemove)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isHovering && item.fileExists
-                          ? Color(NSColor.controlBackgroundColor)
-                          : Color(NSColor.controlBackgroundColor).opacity(0.5))
-            )
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in isHovering = hovering }
-        .contextMenu {
-            if item.fileExists {
-                Button("Open Transcription", action: onSelect)
-                Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.filePath)])
-                }
-                Button("Copy Text") {
-                    if let text = item.transcriptionText {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(text, forType: .string)
-                    }
-                }
-                Divider()
-            }
             Button("Remove from History", role: .destructive, action: onRemove)
         }
     }
@@ -528,11 +228,270 @@ struct HistoryActionButton: View {
                 .font(.system(size: 12))
                 .foregroundColor(color)
                 .frame(width: 24, height: 24)
-                .background(Color.primary.opacity(0.06))
-                .cornerRadius(5)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(6)
         }
         .buttonStyle(.plain)
         .help(help)
+    }
+}
+
+// MARK: - Shared history helpers (used by History and Transcripts)
+
+func groupHistoryByDate<T>(_ items: [T], date: (T) -> Date) -> [(label: String, items: [T])] {
+    let calendar = Calendar.current
+    let now = Date()
+    var today: [T] = []
+    var yesterday: [T] = []
+    var thisWeek: [T] = []
+    var older: [T] = []
+    for item in items {
+        let d = date(item)
+        if calendar.isDateInToday(d) {
+            today.append(item)
+        } else if calendar.isDateInYesterday(d) {
+            yesterday.append(item)
+        } else if let days = calendar.dateComponents([.day], from: d, to: now).day, days < 7 {
+            thisWeek.append(item)
+        } else {
+            older.append(item)
+        }
+    }
+    return [("Today", today), ("Yesterday", yesterday), ("This Week", thisWeek), ("Older", older)]
+        .filter { !$0.items.isEmpty }
+}
+
+struct HistoryGroupHeader: View {
+    let label: String
+    let count: Int
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 12))
+                .fontWeight(.semibold)
+                .foregroundColor(.secondary)
+                .textCase(.uppercase)
+            Spacer()
+            Text("\(count)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(Color.secondary.opacity(0.12))
+                .cornerRadius(4)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(DS.Colors.backdrop)
+    }
+}
+
+// MARK: - Transcripts List (mirrors the History layout)
+
+struct TranscriptsListView: View {
+    @ObservedObject var transcriptionHistory = TranscriptionHistoryManager.shared
+    @ObservedObject var transcriptionManager = TranscriptionManager.shared
+
+    var onGoToMedia: (() -> Void)? = nil
+
+    @State private var searchText = ""
+    @State private var showClearConfirmation = false
+
+    private var filteredTranscripts: [TranscriptionHistoryItem] {
+        guard !searchText.isEmpty else { return transcriptionHistory.history }
+        return transcriptionHistory.history.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private var groupedTranscripts: [(label: String, items: [TranscriptionHistoryItem])] {
+        groupHistoryByDate(filteredTranscripts, date: { $0.transcriptionDate })
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if !transcriptionHistory.history.isEmpty {
+                HStack(spacing: 8) {
+                    SearchField(text: $searchText)
+
+                    Button(action: { showClearConfirmation = true }) {
+                        Image(systemName: "trash")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear all transcripts")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+
+                Divider()
+            }
+
+            content
+        }
+        .confirmationDialog("Clear all transcripts?", isPresented: $showClearConfirmation, titleVisibility: .visible) {
+            Button("Clear All", role: .destructive) { transcriptionHistory.clearHistory() }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("This removes the list — saved transcript files stay on disk.") }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if transcriptionHistory.history.isEmpty {
+            VStack(spacing: 8) {
+                Spacer()
+                Image(systemName: "text.bubble")
+                    .font(.system(size: 32))
+                    .foregroundColor(.secondary.opacity(0.35))
+                Text("No transcripts yet")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+                Text("Transcribe a video or file from Media — your transcripts appear here")
+                    .font(.caption)
+                    .foregroundColor(.secondary.opacity(0.7))
+                if let onGoToMedia {
+                    Button(action: onGoToMedia) {
+                        Label("Go to Media", systemImage: "tray.and.arrow.down")
+                    }
+                    .secondaryGlassButton()
+                    .padding(.top, 2)
+                }
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding()
+        } else if filteredTranscripts.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 28))
+                    .foregroundColor(.secondary.opacity(0.35))
+                Text("No results for \"\(searchText)\"")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding()
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
+                    ForEach(groupedTranscripts, id: \.label) { group in
+                        Section {
+                            VStack(spacing: 4) {
+                                ForEach(group.items) { item in
+                                    TranscriptHistoryRow(
+                                        item: item,
+                                        onOpen: {
+                                            if item.fileExists {
+                                                transcriptionManager.openTranscriptionFromHistory(item)
+                                            }
+                                        },
+                                        onRemove: { transcriptionHistory.removeFromHistory(item) }
+                                    )
+                                }
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.bottom, 8)
+                        } header: {
+                            HistoryGroupHeader(label: group.label, count: group.items.count)
+                        }
+                    }
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+}
+
+// MARK: - Transcript Row (mirrors DownloadHistoryRowImproved)
+
+struct TranscriptHistoryRow: View {
+    let item: TranscriptionHistoryItem
+    let onOpen: () -> Void
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "text.bubble")
+                .font(.system(size: 13))
+                .foregroundColor(item.fileExists ? DS.Colors.accent : .secondary)
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text(item.title)
+                        .font(DS.Typography.rowTitle)
+                        .lineLimit(1)
+                        .foregroundColor(item.fileExists ? .primary : .secondary)
+
+                    if !item.fileExists {
+                        Text("Missing")
+                            .font(.caption)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.12))
+                            .foregroundColor(.orange)
+                            .cornerRadius(3)
+                    }
+                }
+
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    if let duration = item.duration {
+                        Text(duration)
+                            .font(.caption)
+                        Text("·")
+                            .font(.caption)
+                    }
+                    Text(item.transcriptionDate, style: .date)
+                        .font(.caption)
+                }
+                .foregroundColor(.secondary)
+            }
+
+            Spacer(minLength: 4)
+
+            // Actions (always visible — same pattern as download rows)
+            HStack(spacing: 2) {
+                if item.fileExists {
+                    HistoryActionButton(icon: "folder", help: "Show in Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.filePath)])
+                    }
+                    HistoryActionButton(icon: "doc.on.doc", help: "Copy text") {
+                        if let text = try? String(contentsOfFile: item.filePath, encoding: .utf8) {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(text, forType: .string)
+                        }
+                    }
+                }
+                HistoryActionButton(icon: "trash", help: "Remove from list", color: .red, action: onRemove)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .rowChrome()
+        .contentShape(Rectangle())
+        .onTapGesture { onOpen() }
+        .contextMenu {
+            if item.fileExists {
+                Button("Open Transcript", action: onOpen)
+                Button("Show in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.filePath)])
+                }
+                Button("Copy Text") {
+                    if let text = try? String(contentsOfFile: item.filePath, encoding: .utf8) {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
+                    }
+                }
+                Divider()
+            }
+            Button("Remove from List", role: .destructive, action: onRemove)
+        }
     }
 }
 

@@ -2,13 +2,44 @@ import Foundation
 import SwiftUI
 import WhisperKit
 import SpeakerKit
+import Speech
+import AVFoundation
 
 // MARK: - Transcription Manager (WhisperKit)
 
+@MainActor
 class TranscriptionManager: ObservableObject {
     static let shared = TranscriptionManager()
 
     @Published var transcriptionState: TranscriptionState = .idle
+
+    /// True only when a WhisperKit model must be downloaded before transcription is
+    /// possible. Apple Speech needs no model, so this is false whenever it's active.
+    var needsModelDownload: Bool {
+        !useAppleSpeech() && downloadedModels.isEmpty
+    }
+
+    /// User-assigned names for diarized speakers (e.g. "Speaker 1" → "Anna").
+    /// Applied in the result view and in copied/exported text.
+    @Published var speakerNameOverrides: [String: String] = [:]
+
+    /// Resolves a raw speaker label to its user-assigned name, if any.
+    func speakerDisplayName(_ original: String) -> String {
+        let trimmed = speakerNameOverrides[original]?.trimmingCharacters(in: .whitespaces)
+        return (trimmed?.isEmpty == false) ? trimmed! : original
+    }
+
+    /// True while a transcription pipeline is actively running (download → model
+    /// load → extract → transcribe). Used to guard against closing the window mid-run.
+    var isTranscribing: Bool {
+        switch transcriptionState {
+        case .downloadingAudio, .extractingAudio, .transcribing, .loadingModel:
+            return true
+        default:
+            return false
+        }
+    }
+
     @Published var downloadingModel: WhisperModel?
     @Published var modelDownloadProgress: Double = 0
     @Published var downloadedModels: Set<WhisperModel> = []
@@ -42,9 +73,11 @@ class TranscriptionManager: ObservableObject {
     // MARK: - Token Cleaning
 
     /// Strip WhisperKit special tokens like <|5.92|>, <|startoftranscript|>, <|en|>, <|transcribe|>, etc.
-    private static let tokenPattern = try! NSRegularExpression(pattern: "<\\|[^|]*\\|>", options: [])
+    // NSRegularExpression is immutable and thread-safe for matching, so it is
+    // safe to reference from the nonisolated cleanTokens().
+    nonisolated(unsafe) private static let tokenPattern = try! NSRegularExpression(pattern: "<\\|[^|]*\\|>", options: [])
 
-    private func cleanTokens(_ text: String) -> String {
+    nonisolated private func cleanTokens(_ text: String) -> String {
         let range = NSRange(text.startIndex..., in: text)
         let cleaned = Self.tokenPattern.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
         // Collapse multiple spaces and trim
@@ -249,6 +282,12 @@ class TranscriptionManager: ObservableObject {
             }
             DispatchQueue.main.async {
                 self.downloadedModels.remove(model)
+                // If the deleted model was the default, repoint the default at
+                // another downloaded model so the next transcribe doesn't fail.
+                if AppSettings.shared.defaultWhisperModel == model,
+                   let replacement = self.downloadedModels.first {
+                    AppSettings.shared.defaultWhisperModel = replacement
+                }
             }
         } catch {
             DispatchQueue.main.async {
@@ -339,6 +378,8 @@ class TranscriptionManager: ObservableObject {
         // Sync with file system before checking model availability
         loadDownloadedModels(synchronous: true)
 
+        let usingApple = useAppleSpeech()
+
         guard let ffmpegPath = ffmpegBinaryPath else {
             DispatchQueue.main.async {
                 self.transcriptionState = .error("FFmpeg binary not found")
@@ -346,11 +387,14 @@ class TranscriptionManager: ObservableObject {
             return
         }
 
-        guard isModelDownloaded(model) else {
-            DispatchQueue.main.async {
-                self.transcriptionState = .modelNotDownloaded
+        // Apple Speech needs no downloaded model; only require one for WhisperKit.
+        if !usingApple {
+            guard isModelDownloaded(model) else {
+                DispatchQueue.main.async {
+                    self.transcriptionState = .modelNotDownloaded
+                }
+                return
             }
-            return
         }
 
         let videoURL = URL(fileURLWithPath: videoPath)
@@ -375,8 +419,8 @@ class TranscriptionManager: ObservableObject {
                 return
             }
 
-            // Run WhisperKit transcription
-            self.runWhisperKit(audioPath: tempAudioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language) {
+            // Run transcription with the selected engine
+            self.runTranscription(audioPath: tempAudioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language) {
                 // Clean up temp audio
                 try? self.fileManager.removeItem(atPath: tempAudioPath)
             }
@@ -389,12 +433,17 @@ class TranscriptionManager: ObservableObject {
         // Sync with file system before checking model availability
         loadDownloadedModels(synchronous: true)
 
-        guard isModelDownloaded(model) else {
-            DispatchQueue.main.async {
-                self.transcriptionState = .modelNotDownloaded
+        let usingApple = useAppleSpeech()
+
+        // Apple Speech needs no downloaded model; only require one for WhisperKit.
+        if !usingApple {
+            guard isModelDownloaded(model) else {
+                DispatchQueue.main.async {
+                    self.transcriptionState = .modelNotDownloaded
+                }
+                try? fileManager.removeItem(atPath: audioPath)
+                return
             }
-            try? fileManager.removeItem(atPath: audioPath)
-            return
         }
 
         guard let ffmpegPath = ffmpegBinaryPath else {
@@ -426,7 +475,7 @@ class TranscriptionManager: ObservableObject {
                 return
             }
 
-            self.runWhisperKit(audioPath: tempWavPath, model: model, outputPath: outputPath, outputFormat: .txt, language: language) {
+            self.runTranscription(audioPath: tempWavPath, model: model, outputPath: outputPath, outputFormat: .txt, language: language) {
                 try? self.fileManager.removeItem(atPath: tempWavPath)
             }
         }
@@ -440,11 +489,23 @@ class TranscriptionManager: ObservableObject {
         try? fileManager.removeItem(atPath: playbackAudioPath)
         try? fileManager.copyItem(atPath: audioPath, toPath: playbackAudioPath)
 
+        // Probe the true audio duration up front so the progress estimate has a
+        // denominator from the start (previously it stayed at 0% until the first
+        // segment streamed in).
+        let probedDuration: Float = {
+            if let f = try? AVAudioFile(forReading: URL(fileURLWithPath: audioPath)),
+               f.fileFormat.sampleRate > 0 {
+                return Float(Double(f.length) / f.fileFormat.sampleRate)
+            }
+            return 0
+        }()
+
         DispatchQueue.main.async {
             self.transcriptionState = .transcribing(progress: 0)
             self.liveTranscriptionText = ""
             self.segments = []
-            self.audioDuration = 0
+            self.speakerNameOverrides = [:]
+            self.audioDuration = probedDuration
             self.audioFilePath = playbackAudioPath
             self.showTranscriptionView = true
         }
@@ -574,6 +635,8 @@ class TranscriptionManager: ObservableObject {
                                 case .multiple(let ids):
                                     speakerLabel = "Speaker \(ids.map { "\($0 + 1)" }.joined(separator: "/"))"
                                 case .noMatch:
+                                    speakerLabel = nil
+                                @unknown default:
                                     speakerLabel = nil
                                 }
 
@@ -902,7 +965,7 @@ class TranscriptionManager: ObservableObject {
                 content = segments.map { seg in
                     let ts = formatTimestampBracket(seg.start)
                     if let speaker = seg.speaker {
-                        return "\(ts) \(speaker): \(seg.text)"
+                        return "\(ts) \(speakerDisplayName(speaker)): \(seg.text)"
                     }
                     return "\(ts) \(seg.text)"
                 }.joined(separator: "\n\n")
@@ -929,7 +992,7 @@ class TranscriptionManager: ObservableObject {
             srt += "\(i + 1)\n"
             srt += "\(start) --> \(end)\n"
             if let speaker = seg.speaker {
-                srt += "\(speaker): \(seg.text)\n\n"
+                srt += "\(speakerDisplayName(speaker)): \(seg.text)\n\n"
             } else {
                 srt += "\(seg.text)\n\n"
             }
@@ -1072,6 +1135,216 @@ class TranscriptionManager: ObservableObject {
             }
             DispatchQueue.main.async {
                 self.showTranscriptionView = true
+            }
+        }
+    }
+}
+
+// MARK: - Transcription Engine Routing & Apple SpeechAnalyzer
+
+extension TranscriptionManager {
+
+    /// Resolves a desired language ("auto" or a code) to a locale the SpeechTranscriber
+    /// actually supports, falling back to English, then any supported locale.
+    @available(macOS 26.0, *)
+    static func resolveTranscriberLocale(language: String) async -> Locale {
+        let supported = await SpeechTranscriber.supportedLocales
+        func norm(_ s: String) -> String { s.replacingOccurrences(of: "_", with: "-").lowercased() }
+        let desired = (language == "auto") ? Locale.current.identifier : language
+        let desiredNorm = norm(desired)
+        let desiredLang = Locale(identifier: desired).language.languageCode?.identifier
+
+        if let exact = supported.first(where: { norm($0.identifier) == desiredNorm }) { return exact }
+        if let langMatch = supported.first(where: { $0.language.languageCode?.identifier == desiredLang }) { return langMatch }
+        if let english = supported.first(where: { norm($0.identifier).hasPrefix("en") }) { return english }
+        return supported.first ?? Locale(identifier: "en-US")
+    }
+
+    /// Runs SpeakerKit diarization and assigns a speaker label to each transcript
+    /// segment by maximum time-overlap. Engine-agnostic (used for the Apple Speech
+    /// path, which has no built-in diarization). Returns the input unchanged on failure.
+    func assignSpeakersByOverlap(to segments: [TranscriptionSegmentData], audioPath: String) async -> [TranscriptionSegmentData] {
+        do {
+            let audioArray = try AudioProcessor.loadAudioAsFloatArray(fromPath: audioPath)
+            let speakerKit = try await SpeakerKit(PyannoteConfig(verbose: false))
+            let options = PyannoteDiarizationOptions(
+                clusterDistanceThreshold: 0.7,
+                useExclusiveReconciliation: true
+            )
+            let result = try await speakerKit.diarize(audioArray: audioArray, options: options)
+            await speakerKit.unloadModels()
+
+            let diar = result.segments
+            guard !diar.isEmpty else { return segments }
+
+            func label(for info: SpeakerInfo) -> String? {
+                switch info {
+                case .speakerId(let id): return "Speaker \(id + 1)"
+                case .multiple(let ids): return "Speaker \(ids.map { "\($0 + 1)" }.joined(separator: "/"))"
+                case .noMatch: return nil
+                @unknown default: return nil
+                }
+            }
+
+            return segments.map { seg in
+                var bestSpeaker: SpeakerInfo?
+                var bestOverlap: Float = 0
+                for d in diar {
+                    let overlap = min(seg.end, d.endTime) - max(seg.start, d.startTime)
+                    if overlap > bestOverlap {
+                        bestOverlap = overlap
+                        bestSpeaker = d.speaker
+                    }
+                }
+                var copy = seg
+                copy.speaker = bestSpeaker.flatMap(label)
+                return copy
+            }
+        } catch {
+            print("[MindExtract] Apple-path diarization failed: \(error)")
+            return segments
+        }
+    }
+
+    /// Whether to use Apple's SpeechAnalyzer for the next transcription.
+    /// Falls back to WhisperKit when SpeechAnalyzer isn't available (macOS < 26).
+    func useAppleSpeech() -> Bool {
+        let choice = AppSettings.shared.transcriptionEngine
+        if choice == .whisperKit { return false }
+        if #available(macOS 26.0, *) {
+            return choice == .appleSpeech || choice == .automatic
+        }
+        return false
+    }
+
+    /// Routes an already-extracted audio file to the selected engine.
+    func runTranscription(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
+        if useAppleSpeech(), #available(macOS 26.0, *) {
+            runSpeechAnalyzer(audioPath: audioPath, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
+        } else {
+            runWhisperKit(audioPath: audioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
+        }
+    }
+
+    /// Builds the export text for the chosen format from finished segments.
+    func buildTranscriptText(_ segments: [TranscriptionSegmentData], format: TranscriptionOutputFormat) -> String {
+        switch format {
+        case .srt:
+            return buildSRT(from: segments)
+        case .vtt:
+            return buildVTT(from: segments)
+        case .json:
+            return buildJSON(from: segments)
+        case .txt:
+            return segments.map { seg in
+                let ts = self.formatTimestampBracket(seg.start)
+                if let speaker = seg.speaker {
+                    return "\(ts) \(speaker): \(seg.text)"
+                }
+                return "\(ts) \(seg.text)"
+            }.joined(separator: "\n\n")
+        }
+    }
+
+    /// Transcribes a (WAV) audio file with Apple's on-device SpeechAnalyzer.
+    /// Streams segments live, reports true audio-time progress, no model download.
+    /// (Speaker diarization is not yet applied on this path.)
+    @available(macOS 26.0, *)
+    func runSpeechAnalyzer(audioPath: String, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
+        // Keep a copy of the audio for the result view's player.
+        let playbackAudioPath = applicationSupportPath.appendingPathComponent("last_transcription.wav").path
+        try? fileManager.removeItem(atPath: playbackAudioPath)
+        try? fileManager.copyItem(atPath: audioPath, toPath: playbackAudioPath)
+
+        transcriptionState = .loadingModel(modelName: "Apple Speech")
+        liveTranscriptionText = ""
+        segments = []
+        speakerNameOverrides = [:]
+        audioDuration = 0
+        audioFilePath = playbackAudioPath
+        showTranscriptionView = true
+
+        currentTask = Task {
+            do {
+                // Match against the engine's actual supported locales — passing a raw
+                // region locale (e.g. sv_SE / en_SE) fails with "unsupported locale".
+                let locale = await Self.resolveTranscriberLocale(language: language)
+
+                let transcriber = SpeechTranscriber(
+                    locale: locale,
+                    transcriptionOptions: [],
+                    reportingOptions: [],
+                    attributeOptions: [.audioTimeRange]
+                )
+
+                // Download the locale model on first use.
+                if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+                    transcriptionState = .loadingModel(modelName: "Apple Speech (installing language model…)")
+                    try await request.downloadAndInstall()
+                }
+
+                let audioFile = try AVAudioFile(forReading: URL(fileURLWithPath: audioPath))
+                let sampleRate = audioFile.fileFormat.sampleRate
+                let totalDuration = sampleRate > 0 ? Double(audioFile.length) / sampleRate : 0
+                if totalDuration > 0 { audioDuration = Float(totalDuration) }
+
+                transcriptionState = .transcribing(progress: 0)
+
+                // File-based analysis: processes in the background and ends the
+                // results stream when the whole file is done.
+                let analyzer = try await SpeechAnalyzer(
+                    inputAudioFile: audioFile,
+                    modules: [transcriber],
+                    finishAfterFile: true
+                )
+                _ = analyzer  // retained for the duration of the results loop
+
+                var collected: [TranscriptionSegmentData] = []
+                for try await result in transcriber.results {
+                    if Task.isCancelled { break }
+                    let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty else { continue }
+                    let start = Float(result.range.start.seconds)
+                    let end = Float(result.range.end.seconds)
+                    let seg = TranscriptionSegmentData(start: start, end: end, text: text, speaker: nil, words: [], avgLogprob: 0)
+                    collected.append(seg)
+                    segments.append(seg)
+                    liveTranscriptionText = segments.map { $0.text }.joined(separator: "\n\n")
+                    if totalDuration > 0 {
+                        transcriptionState = .transcribing(progress: min(Double(end) / totalDuration, 0.99))
+                    }
+                }
+
+                if Task.isCancelled {
+                    transcriptionState = .idle
+                    cleanup()
+                    return
+                }
+
+                // Optional speaker diarization (engine-agnostic: assign speakers to
+                // the transcript segments by time-overlap with SpeakerKit's output).
+                var finalSegments = collected
+                if AppSettings.shared.enableSpeakerDiarization && !collected.isEmpty {
+                    transcriptionState = .transcribing(progress: 0.97)
+                    finalSegments = await assignSpeakersByOverlap(to: collected, audioPath: audioPath)
+                }
+
+                let fullText = buildTranscriptText(finalSegments, format: outputFormat)
+                try fullText.write(toFile: outputPath, atomically: true, encoding: .utf8)
+
+                segments = finalSegments
+                liveTranscriptionText = finalSegments.map { $0.text }.joined(separator: "\n\n")
+                lastSavedPath = outputPath
+                transcriptionState = .completed(outputPath: outputPath)
+                saveToHistory(title: currentTranscriptionTitle, filePath: outputPath)
+                cleanup()
+            } catch {
+                if Task.isCancelled {
+                    transcriptionState = .idle
+                } else {
+                    transcriptionState = .error("Transcription failed: \(error.localizedDescription)")
+                }
+                cleanup()
             }
         }
     }

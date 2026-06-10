@@ -25,6 +25,7 @@ enum TranscriptionTab: String, CaseIterable {
 
 // MARK: - Audio Player
 
+@MainActor
 class AudioPlayerManager: ObservableObject {
     @Published var isPlaying = false
     @Published var currentTime: TimeInterval = 0
@@ -55,8 +56,8 @@ class AudioPlayerManager: ObservableObject {
             p.play()
             isPlaying = true
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                guard let self = self, let p = self.player else { return }
-                DispatchQueue.main.async {
+                Task { @MainActor in
+                    guard let self = self, let p = self.player else { return }
                     self.currentTime = p.currentTime
                     if !p.isPlaying && self.isPlaying {
                         self.isPlaying = false
@@ -88,7 +89,7 @@ class AudioPlayerManager: ObservableObject {
         duration = 0
     }
 
-    deinit {
+    isolated deinit {
         stop()
     }
 }
@@ -104,6 +105,25 @@ struct TranscriptionResultView: View {
     @State private var selectedTab: TranscriptionTab = .text
     @State private var searchText: String = ""
     @State private var showSearch = false
+    @State private var editingSpeaker: String?
+    @State private var editingName: String = ""
+
+    private func commitRename(for speaker: String) {
+        let trimmed = editingName.trimmingCharacters(in: .whitespaces)
+        transcriptionManager.speakerNameOverrides[speaker] = trimmed.isEmpty ? nil : trimmed
+        editingSpeaker = nil
+    }
+
+    /// The segment currently under the audio playhead (while playing), for live
+    /// highlight + follow-along scrolling in the Timeline tab.
+    private var activeSegmentID: UUID? {
+        guard audioPlayer.isPlaying else { return nil }
+        let t = Float(audioPlayer.currentTime)
+        if let exact = transcriptionManager.segments.first(where: { t >= $0.start && t < $0.end }) {
+            return exact.id
+        }
+        return transcriptionManager.segments.last(where: { $0.start <= t })?.id
+    }
 
     private var isTranscribing: Bool {
         switch transcriptionManager.transcriptionState {
@@ -164,20 +184,54 @@ struct TranscriptionResultView: View {
             if !speakersInSegments.isEmpty {
                 HStack(spacing: 16) {
                     ForEach(speakersInSegments, id: \.self) { speaker in
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(SpeakerColors.color(for: speaker))
-                                .frame(width: 8, height: 8)
-                            Text(speaker)
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
+                        Button {
+                            editingName = transcriptionManager.speakerDisplayName(speaker)
+                            editingSpeaker = speaker
+                        } label: {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(SpeakerColors.color(for: speaker))
+                                    .frame(width: 8, height: 8)
+                                Text(transcriptionManager.speakerDisplayName(speaker))
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary.opacity(0.45))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .help("Rename speaker")
+                        .popover(isPresented: Binding(
+                            get: { editingSpeaker == speaker },
+                            set: { if !$0 { editingSpeaker = nil } }
+                        )) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Rename \(speaker)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                TextField("Name", text: $editingName)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 190)
+                                    .onSubmit { commitRename(for: speaker) }
+                                HStack {
+                                    Button("Reset") {
+                                        transcriptionManager.speakerNameOverrides[speaker] = nil
+                                        editingSpeaker = nil
+                                    }
+                                    Spacer()
+                                    Button("Save") { commitRename(for: speaker) }
+                                        .keyboardShortcut(.defaultAction)
+                                }
+                            }
+                            .padding(12)
                         }
                     }
                     Spacer()
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 4)
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
+                .background(Color.white.opacity(0.03))
 
                 Divider()
             }
@@ -204,10 +258,8 @@ struct TranscriptionResultView: View {
             // Bottom bar
             bottomBar
         }
-        .frame(minWidth: 600, idealWidth: 750, maxWidth: 1000,
-               minHeight: 500, idealHeight: 650, maxHeight: 900)
-        .background(Color(NSColor.windowBackgroundColor))
-        .onChange(of: transcriptionManager.audioFilePath) { path in
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onChange(of: transcriptionManager.audioFilePath) { _, path in
             if let path = path {
                 audioPlayer.load(path: path)
             }
@@ -226,14 +278,23 @@ struct TranscriptionResultView: View {
 
     private var headerView: some View {
         HStack(spacing: 12) {
-            // Back / title area
-            VStack(alignment: .leading, spacing: 2) {
-                Text(transcriptionManager.currentTranscriptionTitle.isEmpty
-                     ? "Transcription"
-                     : transcriptionManager.currentTranscriptionTitle)
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(1)
+            // Back to the Transcripts list (kept in memory — not discarded).
+            Button(action: { if !isTranscribing { audioPlayer.stop(); onClose?() } }) {
+                HStack(spacing: 3) {
+                    Image(systemName: "chevron.left")
+                    Text("Transcripts")
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(isTranscribing ? .secondary.opacity(0.4) : .accentColor)
             }
+            .buttonStyle(.plain)
+            .disabled(isTranscribing)
+
+            Text(transcriptionManager.currentTranscriptionTitle.isEmpty
+                 ? "Transcription"
+                 : transcriptionManager.currentTranscriptionTitle)
+                .font(.system(size: 14, weight: .semibold))
+                .lineLimit(1)
 
             Spacer()
 
@@ -260,22 +321,9 @@ struct TranscriptionResultView: View {
                         .foregroundColor(showSearch ? .accentColor : .secondary)
                 }
                 .buttonStyle(.plain)
+                .help("Search transcript")
             }
 
-            // Close
-            Button(action: {
-                if !isTranscribing {
-                    audioPlayer.stop()
-                    transcriptionManager.clearTranscription()
-                    onClose?()
-                }
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.secondary.opacity(0.6))
-            }
-            .buttonStyle(.plain)
-            .disabled(isTranscribing)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -290,30 +338,12 @@ struct TranscriptionResultView: View {
     // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            TextField("Search transcription...", text: $searchText)
-                .textFieldStyle(.plain)
-                .font(.system(size: 12))
-            if !searchText.isEmpty {
-                Button(action: { searchText = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
-        .padding(.horizontal, 16)
-        .padding(.top, 4)
-        .offset(y: 20)
-        .zIndex(1)
+        SearchField(text: $searchText)
+            .background(DS.Colors.backdrop, in: Capsule())
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .offset(y: 20)
+            .zIndex(1)
     }
 
     // MARK: - Tab Picker (Segmented)
@@ -329,17 +359,17 @@ struct TranscriptionResultView: View {
                         .padding(.vertical, 5)
                         .background(
                             selectedTab == tab
-                                ? Color(NSColor.controlBackgroundColor)
+                                ? Color.white.opacity(0.12)
                                 : Color.clear
                         )
-                        .cornerRadius(5)
+                        .cornerRadius(6)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(2)
-        .background(Color(NSColor.separatorColor).opacity(0.2))
-        .cornerRadius(7)
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(8)
     }
 
     // MARK: - Status Pill
@@ -363,7 +393,7 @@ struct TranscriptionResultView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Color.blue.opacity(0.08))
+            .background(Color.blue.opacity(0.1))
             .cornerRadius(12)
 
         case .loadingModel(let modelName):
@@ -394,7 +424,7 @@ struct TranscriptionResultView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Color.blue.opacity(0.08))
+            .background(Color.blue.opacity(0.1))
             .cornerRadius(12)
 
         default:
@@ -415,7 +445,7 @@ struct TranscriptionResultView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .background(Color.blue.opacity(0.08))
+        .background(Color.blue.opacity(0.1))
         .cornerRadius(12)
     }
 
@@ -427,7 +457,7 @@ struct TranscriptionResultView: View {
         case .downloadingAudio(let progress) where progress > 0:
             ProgressView(value: progress)
                 .progressViewStyle(.linear)
-                .tint(.orange)
+                .tint(DS.Colors.accent)
                 .frame(height: 2)
 
         case .transcribing(let progress) where progress > 0:
@@ -452,13 +482,13 @@ struct TranscriptionResultView: View {
                         Label("Show in Finder", systemImage: "folder")
                             .font(.system(size: 12))
                     }
-                    .buttonStyle(.bordered)
+                    .secondaryGlassButton()
                     .controlSize(.mini)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
-            .background(Color.green.opacity(0.05))
+            .background(Color.green.opacity(0.08))
 
         case .error(let message):
             HStack(spacing: 8) {
@@ -473,7 +503,7 @@ struct TranscriptionResultView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
-            .background(Color.red.opacity(0.05))
+            .background(Color.red.opacity(0.08))
 
         default:
             EmptyView()
@@ -490,7 +520,7 @@ struct TranscriptionResultView: View {
                         .frame(maxWidth: .infinity, minHeight: 200)
                         .padding(32)
                 } else if transcriptionManager.segments.isEmpty && !isTranscribing && !isCompleted {
-                    Text("Waiting for transcription...")
+                    Text("Waiting for transcription…")
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, minHeight: 200)
@@ -502,7 +532,7 @@ struct TranscriptionResultView: View {
                         .id("textBottom")
                 }
             }
-            .onChange(of: transcriptionManager.segments.count) { _ in
+            .onChange(of: transcriptionManager.segments.count) { _, _ in
                 if isTranscribing {
                     withAnimation(.easeOut(duration: 0.2)) {
                         proxy.scrollTo("textBottom", anchor: .bottom)
@@ -522,7 +552,7 @@ struct TranscriptionResultView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 40)
         } else {
-            ConfidenceTextBlock(segments: segments, searchText: searchText)
+            ConfidenceTextBlock(segments: segments, searchText: searchText, speakerNames: transcriptionManager.speakerNameOverrides)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
         }
@@ -550,6 +580,8 @@ struct TranscriptionResultView: View {
                                 segment: segment,
                                 searchText: searchText,
                                 isEven: index % 2 == 0,
+                                speakerNames: transcriptionManager.speakerNameOverrides,
+                                isActive: segment.id == activeSegmentID,
                                 onTap: {
                                     audioPlayer.seek(to: TimeInterval(segment.start))
                                     if !audioPlayer.isPlaying {
@@ -565,10 +597,18 @@ struct TranscriptionResultView: View {
                     .id("timelineBottom")
                 }
             }
-            .onChange(of: transcriptionManager.segments.count) { _ in
+            .onChange(of: transcriptionManager.segments.count) { _, _ in
                 if isTranscribing, let lastId = transcriptionManager.segments.last?.id {
                     withAnimation(.easeOut(duration: 0.2)) {
                         proxy.scrollTo(lastId, anchor: .bottom)
+                    }
+                }
+            }
+            .onChange(of: activeSegmentID) { _, newID in
+                // Follow the audio playhead through the transcript.
+                if !isTranscribing, let id = newID {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo(id, anchor: .center)
                     }
                 }
             }
@@ -635,8 +675,8 @@ struct TranscriptionResultView: View {
             .frame(width: 40)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .padding(.vertical, 10)
+        .glassSurface(cornerRadius: 0)
     }
 
     private func formatPlayerTime(_ time: TimeInterval) -> String {
@@ -682,7 +722,7 @@ struct TranscriptionResultView: View {
                     Label(showCopiedAlert ? "Copied!" : "Copy", systemImage: showCopiedAlert ? "checkmark" : "doc.on.doc")
                         .font(.system(size: 12))
                 }
-                .buttonStyle(.bordered)
+                .secondaryGlassButton()
                 .controlSize(.small)
                 .tint(showCopiedAlert ? .green : nil)
 
@@ -701,20 +741,6 @@ struct TranscriptionResultView: View {
                 .controlSize(.small)
             }
 
-            // Done
-            if isCompleted || hasError {
-                Button(action: {
-                    audioPlayer.stop()
-                    transcriptionManager.clearTranscription()
-                    onClose?()
-                }) {
-                    Text("Done")
-                        .font(.system(size: 12))
-                        .frame(width: 50)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -726,6 +752,12 @@ struct TranscriptionResultView: View {
 struct ConfidenceTextBlock: View {
     let segments: [TranscriptionSegmentData]
     let searchText: String
+    var speakerNames: [String: String] = [:]
+
+    private func displayName(_ s: String) -> String {
+        let t = speakerNames[s]?.trimmingCharacters(in: .whitespaces)
+        return (t?.isEmpty == false) ? t! : s
+    }
 
     private func formatTimestamp(_ seconds: Float) -> String {
         let mins = Int(seconds) / 60
@@ -747,7 +779,8 @@ struct ConfidenceTextBlock: View {
                 if speaker != prevSpeaker {
                     let color = SpeakerColors.color(for: speaker)
                     let timestamp = formatTimestamp(segment.start)
-                    let labelText = index > 0 ? "\n\(speaker)  ·  \(timestamp)\n" : "\(speaker)  ·  \(timestamp)\n"
+                    let name = displayName(speaker)
+                    let labelText = index > 0 ? "\n\(name)  ·  \(timestamp)\n" : "\(name)  ·  \(timestamp)\n"
                     speakerLabel = Text(labelText).foregroundColor(color).font(.system(size: 13, weight: .bold))
                 }
             }
@@ -780,9 +813,16 @@ struct SegmentRow: View {
     let segment: TranscriptionSegmentData
     let searchText: String
     let isEven: Bool
+    var speakerNames: [String: String] = [:]
+    var isActive: Bool = false
     var onTap: (() -> Void)?
 
     @State private var isHovered = false
+
+    private func displayName(_ s: String) -> String {
+        let t = speakerNames[s]?.trimmingCharacters(in: .whitespaces)
+        return (t?.isEmpty == false) ? t! : s
+    }
 
     // Accent colors for left border based on speaker or confidence
     private var accentColor: Color {
@@ -797,15 +837,15 @@ struct SegmentRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            // Left accent bar
+            // Left accent bar — thicker + full-strength while this segment plays
             Rectangle()
-                .fill(accentColor)
-                .frame(width: 3)
+                .fill(isActive ? accentColor : accentColor.opacity(0.85))
+                .frame(width: isActive ? 4 : 3)
 
             VStack(alignment: .leading, spacing: 4) {
                 // Speaker label (if available)
                 if let speaker = segment.speaker {
-                    Text(speaker)
+                    Text(displayName(speaker))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(SpeakerColors.color(for: speaker))
                 }
@@ -828,10 +868,13 @@ struct SegmentRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            isHovered
-                ? Color.accentColor.opacity(0.06)
-                : (isEven ? Color(NSColor.controlBackgroundColor).opacity(0.3) : Color.clear)
+            isActive
+                ? Color.accentColor.opacity(0.14)
+                : (isHovered
+                    ? Color.accentColor.opacity(0.06)
+                    : (isEven ? Color.white.opacity(0.03) : Color.clear))
         )
+        .animation(.easeInOut(duration: 0.2), value: isActive)
         .onHover { isHovered = $0 }
         .onTapGesture {
             onTap?()
@@ -880,15 +923,15 @@ struct WaitingAnimationView: View {
     private var titleText: String {
         switch state {
         case .downloadingAudio(let progress):
-            return progress > 0 ? "Downloading audio... \(Int(progress * 100))%" : "Downloading audio..."
+            return progress > 0 ? "Downloading audio... \(Int(progress * 100))%" : "Downloading audio…"
         case .loadingModel(let modelName):
-            return modelName.isEmpty ? "Loading AI model..." : "Loading \(modelName) model..."
+            return modelName.isEmpty ? "Loading AI model…" : "Loading \(modelName) model…"
         case .extractingAudio:
-            return "Extracting audio..."
+            return "Extracting audio…"
         case .transcribing:
-            return "Transcribing audio..."
+            return "Transcribing audio…"
         default:
-            return "Preparing..."
+            return "Preparing…"
         }
     }
 
@@ -903,7 +946,7 @@ struct WaitingAnimationView: View {
         case .transcribing:
             return "Words will appear here in real time"
         default:
-            return "Please wait..."
+            return "Please wait…"
         }
     }
 

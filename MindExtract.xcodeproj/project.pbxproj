@@ -15,16 +15,12 @@
 		B1000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000013 /* Models.swift */; };
 		B1000004 /* YTDLPWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000014 /* YTDLPWrapper.swift */; };
 		B1000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000015 /* Assets.xcassets */; };
-		B1000006 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000022 /* AboutView.swift */; };
+		B1000D01 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D02 /* DesignSystem.swift */; };
 		B1000007 /* yt-dlp in Resources */ = {isa = PBXBuildFile; fileRef = B1000023 /* yt-dlp */; };
 		B1000031 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000024 /* SettingsView.swift */; };
-		B1000032 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000025 /* HistoryView.swift */; };
 		B1000033 /* TranscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000026 /* TranscriptionManager.swift */; };
-		B1000034 /* TranscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000027 /* TranscriptionSettingsView.swift */; };
 		B1000035 /* TranscriptionResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000028 /* TranscriptionResultView.swift */; };
 		B1000036 /* RecentActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000029 /* RecentActivityView.swift */; };
-		B1000037 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000038 /* OnboardingView.swift */; };
-		B10000A1 /* TranscriptionWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000A2 /* TranscriptionWindowController.swift */; };
 		B1000061 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = B1000051 /* ffmpeg */; };
 /* End PBXBuildFile section */
 
@@ -36,16 +32,12 @@
 		B1000014 /* YTDLPWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YTDLPWrapper.swift; sourceTree = "<group>"; };
 		B1000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B1000016 /* MindExtract.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MindExtract.entitlements; sourceTree = "<group>"; };
-		B1000022 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		B1000D02 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		B1000023 /* yt-dlp */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = "yt-dlp"; sourceTree = "<group>"; };
 		B1000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		B1000025 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		B1000026 /* TranscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionManager.swift; sourceTree = "<group>"; };
-		B1000027 /* TranscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionSettingsView.swift; sourceTree = "<group>"; };
 		B1000028 /* TranscriptionResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionResultView.swift; sourceTree = "<group>"; };
 		B1000029 /* RecentActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentActivityView.swift; sourceTree = "<group>"; };
-		B1000038 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		B10000A2 /* TranscriptionWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionWindowController.swift; sourceTree = "<group>"; };
 		B1000051 /* ffmpeg */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = ffmpeg; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -84,15 +76,11 @@
 			children = (
 				B1000011 /* MindExtractApp.swift */,
 				B1000012 /* ContentView.swift */,
-				B1000022 /* AboutView.swift */,
+				B1000D02 /* DesignSystem.swift */,
 				B1000024 /* SettingsView.swift */,
-				B1000025 /* HistoryView.swift */,
 				B1000026 /* TranscriptionManager.swift */,
-				B1000027 /* TranscriptionSettingsView.swift */,
 				B1000028 /* TranscriptionResultView.swift */,
 				B1000029 /* RecentActivityView.swift */,
-				B1000038 /* OnboardingView.swift */,
-				B10000A2 /* TranscriptionWindowController.swift */,
 				B1000013 /* Models.swift */,
 				B1000014 /* YTDLPWrapper.swift */,
 				B1000015 /* Assets.xcassets */,
@@ -193,15 +181,11 @@
 			files = (
 				B1000001 /* MindExtractApp.swift in Sources */,
 				B1000002 /* ContentView.swift in Sources */,
-				B1000006 /* AboutView.swift in Sources */,
+				B1000D01 /* DesignSystem.swift in Sources */,
 				B1000031 /* SettingsView.swift in Sources */,
-				B1000032 /* HistoryView.swift in Sources */,
 				B1000033 /* TranscriptionManager.swift in Sources */,
-				B1000034 /* TranscriptionSettingsView.swift in Sources */,
 				B1000035 /* TranscriptionResultView.swift in Sources */,
 				B1000036 /* RecentActivityView.swift in Sources */,
-				B1000037 /* OnboardingView.swift in Sources */,
-				B10000A1 /* TranscriptionWindowController.swift in Sources */,
 				B1000003 /* Models.swift in Sources */,
 				B1000004 /* YTDLPWrapper.swift in Sources */,
 			);
@@ -262,7 +246,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -318,7 +302,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -337,7 +321,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 26;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -349,11 +333,11 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.5.13;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -368,7 +352,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 26;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -380,11 +364,11 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.5.13;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -417,15 +401,15 @@
 			repositoryURL = "https://github.com/sparkle-project/Sparkle";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 2.0.0;
+				minimumVersion = 2.9.1;
 			};
 		};
 		WK000003WK00000000000001 /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/argmaxinc/WhisperKit";
+			repositoryURL = "https://github.com/argmaxinc/argmax-oss-swift";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.9.0;
+				minimumVersion = 1.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

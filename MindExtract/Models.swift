@@ -214,44 +214,24 @@ struct HistoryItem: Identifiable, Codable, Equatable {
 
 // MARK: - App Settings
 
-enum FormatPreset: String, CaseIterable, Codable {
-    case bestVideo = "Best Video"
-    case hd1080p = "1080p"
-    case hd720p = "720p"
-    case sd480p = "480p"
-    case audioOnly = "Audio Only (MP3)"
+// MARK: - Transcription Engine Choice
 
-    var ytdlpFormat: String {
+/// Which on-device transcription engine to use.
+/// - automatic: Apple SpeechAnalyzer on macOS 26+, else WhisperKit.
+/// - appleSpeech: force Apple SpeechAnalyzer (macOS 26+ only).
+/// - whisperKit: force WhisperKit (works on all supported macOS versions).
+enum TranscriptionEngineChoice: String, CaseIterable, Codable, Identifiable {
+    case automatic = "Automatic"
+    case appleSpeech = "Apple Speech"
+    case whisperKit = "WhisperKit"
+
+    var id: String { rawValue }
+
+    var detail: String {
         switch self {
-        case .bestVideo: return "bestvideo+bestaudio/best"
-        case .hd1080p: return "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
-        case .hd720p: return "bestvideo[height<=720]+bestaudio/best[height<=720]"
-        case .sd480p: return "bestvideo[height<=480]+bestaudio/best[height<=480]"
-        case .audioOnly: return "bestaudio"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .bestVideo: return "star.fill"
-        case .hd1080p: return "4k.tv"
-        case .hd720p: return "tv"
-        case .sd480p: return "tv.fill"
-        case .audioOnly: return "music.note"
-        }
-    }
-}
-
-enum AppearanceMode: String, CaseIterable, Codable {
-    case system = "System"
-    case light = "Light"
-    case dark = "Dark"
-
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system: return nil
-        case .light: return .light
-        case .dark: return .dark
+        case .automatic: return "Apple's built-in speech on macOS 26+, otherwise WhisperKit"
+        case .appleSpeech: return "Fast, free, no model download (requires macOS 26)"
+        case .whisperKit: return "Open-source Whisper models, works on all Macs"
         }
     }
 }
@@ -420,15 +400,13 @@ enum TranscriptionState: Equatable {
     case modelNotDownloaded
 }
 
+@MainActor
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
-    @AppStorage("defaultFormatPreset") var defaultFormatPreset: FormatPreset = .bestVideo
-    @AppStorage("appearanceMode") var appearanceMode: AppearanceMode = .light
     @AppStorage("downloadSubtitles") var downloadSubtitles: Bool = false
     @AppStorage("subtitleLanguage") var subtitleLanguage: String = "en"
     @AppStorage("parallelDownloads") var parallelDownloads: Int = 2
-    @AppStorage("preferredResolution") var preferredResolution: String = "720p"
     @AppStorage("playSoundOnComplete") var playSoundOnComplete: Bool = true
     @AppStorage("showNotifications") var showNotifications: Bool = true
     @AppStorage("downloadPath") var downloadPath: String = NSHomeDirectory() + "/Downloads"
@@ -444,6 +422,7 @@ class AppSettings: ObservableObject {
     @AppStorage("defaultWhisperModel") var defaultWhisperModel: WhisperModel = .small
     @AppStorage("transcriptionOutputFormat") var transcriptionOutputFormat: TranscriptionOutputFormat = .txt
     @AppStorage("enableSpeakerDiarization") var enableSpeakerDiarization: Bool = true
+    @AppStorage("transcriptionEngine") var transcriptionEngine: TranscriptionEngineChoice = .automatic
 
     private init() {}
 }
@@ -479,13 +458,30 @@ struct TranscriptionHistoryItem: Identifiable, Codable, Equatable {
 
 // MARK: - History Manager
 
+/// Resolves a JSON file URL inside `~/Library/Application Support/MindExtract/`,
+/// creating the directory if needed. Used for history persistence so we don't
+/// store growing JSON blobs in UserDefaults (which Apple caps at a few KB).
+private func historyFileURL(named fileName: String) -> URL {
+    let fm = FileManager.default
+    let base = (try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
+        ?? fm.temporaryDirectory
+    let dir = base.appendingPathComponent("MindExtract", isDirectory: true)
+    if !fm.fileExists(atPath: dir.path) {
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+    }
+    return dir.appendingPathComponent(fileName)
+}
+
+@MainActor
 class HistoryManager: ObservableObject {
     static let shared = HistoryManager()
 
     @Published var history: [HistoryItem] = []
 
-    private let historyKey = "downloadHistory"
+    private let fileURL = historyFileURL(named: "downloadHistory.json")
+    private let legacyKey = "downloadHistory"
     private let maxHistoryItems = 100
+    private let ioQueue = DispatchQueue(label: "com.mindact.mindextract.history.download")
 
     private init() {
         loadHistory()
@@ -517,28 +513,44 @@ class HistoryManager: ObservableObject {
     }
 
     private func saveHistory() {
-        if let encoded = try? JSONEncoder().encode(history) {
-            UserDefaults.standard.set(encoded, forKey: historyKey)
+        // Write off the main thread; atomic write avoids partial/corrupt files.
+        let snapshot = history
+        ioQueue.async { [fileURL] in
+            if let encoded = try? JSONEncoder().encode(snapshot) {
+                try? encoded.write(to: fileURL, options: .atomic)
+            }
         }
     }
 
     private func loadHistory() {
-        if let data = UserDefaults.standard.data(forKey: historyKey),
+        // Prefer the JSON file.
+        if let data = try? Data(contentsOf: fileURL),
            let decoded = try? JSONDecoder().decode([HistoryItem].self, from: data) {
             history = decoded
+            return
+        }
+        // One-time migration from the legacy UserDefaults blob.
+        if let data = UserDefaults.standard.data(forKey: legacyKey),
+           let decoded = try? JSONDecoder().decode([HistoryItem].self, from: data) {
+            history = decoded
+            saveHistory()
+            UserDefaults.standard.removeObject(forKey: legacyKey)
         }
     }
 }
 
 // MARK: - Transcription History Manager
 
+@MainActor
 class TranscriptionHistoryManager: ObservableObject {
     static let shared = TranscriptionHistoryManager()
 
     @Published var history: [TranscriptionHistoryItem] = []
 
-    private let historyKey = "transcriptionHistory"
+    private let fileURL = historyFileURL(named: "transcriptionHistory.json")
+    private let legacyKey = "transcriptionHistory"
     private let maxHistoryItems = 50
+    private let ioQueue = DispatchQueue(label: "com.mindact.mindextract.history.transcription")
 
     private init() {
         loadHistory()
@@ -570,15 +582,25 @@ class TranscriptionHistoryManager: ObservableObject {
     }
 
     private func saveHistory() {
-        if let encoded = try? JSONEncoder().encode(history) {
-            UserDefaults.standard.set(encoded, forKey: historyKey)
+        let snapshot = history
+        ioQueue.async { [fileURL] in
+            if let encoded = try? JSONEncoder().encode(snapshot) {
+                try? encoded.write(to: fileURL, options: .atomic)
+            }
         }
     }
 
     private func loadHistory() {
-        if let data = UserDefaults.standard.data(forKey: historyKey),
+        if let data = try? Data(contentsOf: fileURL),
            let decoded = try? JSONDecoder().decode([TranscriptionHistoryItem].self, from: data) {
             history = decoded
+            return
+        }
+        if let data = UserDefaults.standard.data(forKey: legacyKey),
+           let decoded = try? JSONDecoder().decode([TranscriptionHistoryItem].self, from: data) {
+            history = decoded
+            saveHistory()
+            UserDefaults.standard.removeObject(forKey: legacyKey)
         }
     }
 }

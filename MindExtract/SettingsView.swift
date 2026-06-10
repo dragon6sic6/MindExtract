@@ -2,70 +2,138 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = true
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var downloader: YTDLPWrapper
     @ObservedObject var transcriptionManager = TranscriptionManager.shared
     @State private var showAdvancedAuth = false
+    @State private var showWhisperKitModels = false
+
+    private var appleSpeechAvailable: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header — matches Download / Transcribe header style
-            HStack {
-                Text("Settings")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-
-            Divider()
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+
+                    // MARK: Transcription (the headline feature — first)
+                    SettingsSection(title: "Transcription", icon: "text.bubble") {
+                        HStack {
+                            Text("Engine")
+                            Spacer()
+                            Picker("", selection: $settings.transcriptionEngine) {
+                                ForEach(TranscriptionEngineChoice.allCases) { choice in
+                                    Text(choice.rawValue).tag(choice)
+                                }
+                            }
+                            .frame(width: 180)
+                            .help("Which speech engine transcribes your audio. Automatic picks the best one for your Mac.")
+                        }
+                        Text(settings.transcriptionEngine.detail)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if settings.transcriptionEngine == .appleSpeech && !appleSpeechAvailable {
+                            Text("Apple Speech requires macOS 26 — WhisperKit will be used instead until you upgrade.")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        HStack {
+                            Text("Save transcripts as")
+                            Spacer()
+                            Picker("", selection: $settings.transcriptionOutputFormat) {
+                                ForEach(TranscriptionOutputFormat.allCases, id: \.self) { format in
+                                    Text(format.displayName).tag(format)
+                                }
+                            }
+                            .frame(width: 180)
+                            .help("The file format used when a transcript is saved. SRT and VTT are subtitle formats.")
+                        }
+
+                        Toggle(isOn: $settings.enableSpeakerDiarization) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Speaker labels")
+                                Text("Identify who said what in conversations and interviews")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .help("Adds “Speaker 1”, “Speaker 2”… labels to the transcript. You can rename them afterwards.")
+
+                        Divider()
+                            .padding(.vertical, 2)
+
+                        // WhisperKit is the optional/advanced engine — tucked away.
+                        DisclosureGroup(isExpanded: $showWhisperKitModels) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                if transcriptionManager.useAppleSpeech() {
+                                    Text("You're using Apple's built-in speech — these models are only needed if you switch the engine to WhisperKit.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                HStack {
+                                    Text("Default model")
+                                    Spacer()
+                                    Picker("", selection: $settings.defaultWhisperModel) {
+                                        ForEach(WhisperModel.allCases) { model in
+                                            HStack {
+                                                Text(model.displayName)
+                                                if !transcriptionManager.isModelDownloaded(model) {
+                                                    Text("(not downloaded)")
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                            .tag(model)
+                                        }
+                                    }
+                                    .frame(width: 220)
+                                }
+
+                                VStack(spacing: 0) {
+                                    ForEach(WhisperModel.allCases) { model in
+                                        ModelRow(model: model)
+                                    }
+                                }
+
+                                HStack {
+                                    Text("Storage used")
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    Text(transcriptionManager.formatBytes(transcriptionManager.totalStorageUsed()))
+                                        .foregroundColor(.secondary)
+                                        .fontWeight(.medium)
+                                }
+                            }
+                            .padding(.top, 8)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("WhisperKit models")
+                                Text("Optional offline models — an alternative to Apple's built-in speech")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        if !transcriptionManager.isFfmpegAvailable {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("Audio tools are missing — transcription is unavailable. Reinstall MindExtract to fix this.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
 
                     // MARK: Downloads
                     SettingsSection(title: "Downloads", icon: "arrow.down.circle") {
                         HStack {
-                            Text("Default Format")
-                            Spacer()
-                            Picker("", selection: $settings.defaultFormatPreset) {
-                                ForEach(FormatPreset.allCases, id: \.self) { preset in
-                                    Label(preset.rawValue, systemImage: preset.icon)
-                                        .tag(preset)
-                                }
-                            }
-                            .frame(width: 180)
-                        }
-
-                        HStack {
-                            Text("Resolution Preset")
-                            Spacer()
-                            Picker("", selection: $settings.preferredResolution) {
-                                Text("720p").tag("720p")
-                                Text("1080p").tag("1080p")
-                                Text("1440p").tag("1440p")
-                                Text("4K (2160p)").tag("2160p")
-                            }
-                            .frame(width: 180)
-                        }
-
-                        HStack {
-                            Text("Parallel Downloads")
-                            Spacer()
-                            Picker("", selection: $settings.parallelDownloads) {
-                                Text("1 (Sequential)").tag(1)
-                                Text("2").tag(2)
-                                Text("3").tag(3)
-                                Text("4").tag(4)
-                            }
-                            .frame(width: 180)
-                        }
-
-                        HStack {
-                            Text("Save to")
+                            Text("Save downloads to")
                             Spacer()
                             Text(settings.downloadPath)
                                 .font(.caption)
@@ -73,18 +141,32 @@ struct SettingsView: View {
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                                 .frame(maxWidth: 150)
-                            Button("Change...") {
+                            Button("Change…") {
                                 selectDownloadFolder()
                             }
-                            .buttonStyle(.bordered)
+                            .secondaryGlassButton()
                             .controlSize(.small)
                         }
 
+                        HStack {
+                            Text("Simultaneous downloads")
+                            Spacer()
+                            Picker("", selection: $settings.parallelDownloads) {
+                                Text("1").tag(1)
+                                Text("2").tag(2)
+                                Text("3").tag(3)
+                                Text("4").tag(4)
+                            }
+                            .frame(width: 180)
+                            .help("How many videos download at the same time when you queue several.")
+                        }
+
                         Toggle("Download subtitles when available", isOn: $settings.downloadSubtitles)
+                            .help("Saves the video's subtitle file alongside the download, when the site provides one.")
 
                         if settings.downloadSubtitles {
                             HStack {
-                                Text("Subtitle Language")
+                                Text("Subtitle language")
                                 Spacer()
                                 Picker("", selection: $settings.subtitleLanguage) {
                                     Text("English").tag("en")
@@ -99,147 +181,34 @@ struct SettingsView: View {
                         }
                     }
 
-                    // MARK: Transcription
-                    SettingsSection(title: "Transcription", icon: "text.bubble") {
-                        // Engine status
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("WhisperKit")
-                            Spacer()
-                            Text("Core ML")
-                                .foregroundColor(.secondary)
-                        }
-
-                        HStack {
-                            Image(systemName: transcriptionManager.isFfmpegAvailable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundColor(transcriptionManager.isFfmpegAvailable ? .green : .red)
-                            Text("FFmpeg")
-                            Spacer()
-                            Text(transcriptionManager.isFfmpegAvailable ? "Available" : "Not Found")
-                                .foregroundColor(.secondary)
-                        }
-
-                        if !transcriptionManager.areBinariesAvailable {
-                            Text("FFmpeg is required for audio extraction. Bundle it in the app's Resources folder.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-
-                        Divider()
-                            .padding(.vertical, 2)
-
-                        HStack {
-                            Text("Default Model")
-                            Spacer()
-                            Picker("", selection: $settings.defaultWhisperModel) {
-                                ForEach(WhisperModel.allCases) { model in
-                                    HStack {
-                                        Text(model.displayName)
-                                        if !transcriptionManager.isModelDownloaded(model) {
-                                            Text("(not downloaded)")
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                    .tag(model)
-                                }
-                            }
-                            .frame(width: 220)
-                        }
-
-                        HStack {
-                            Text("Output Format")
-                            Spacer()
-                            Picker("", selection: $settings.transcriptionOutputFormat) {
-                                ForEach(TranscriptionOutputFormat.allCases, id: \.self) { format in
-                                    Text(format.displayName).tag(format)
-                                }
-                            }
-                            .frame(width: 180)
-                        }
-
-                        Toggle(isOn: $settings.enableSpeakerDiarization) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Speaker Diarization")
-                                Text("Identify different speakers in transcriptions (uses Pyannote AI model)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-
-                        Divider()
-                            .padding(.vertical, 2)
-
-                        // Model downloads
-                        VStack(spacing: 0) {
-                            ForEach(WhisperModel.allCases) { model in
-                                ModelRow(model: model)
-                            }
-                        }
-
-                        Divider()
-                            .padding(.vertical, 4)
-
-                        HStack {
-                            Text("Storage Used")
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(transcriptionManager.formatBytes(transcriptionManager.totalStorageUsed()))
-                                .foregroundColor(.secondary)
-                                .fontWeight(.medium)
-                        }
-                    }
-
-                    // MARK: Appearance
-                    SettingsSection(title: "Appearance", icon: "paintbrush") {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Theme")
-                            Picker("", selection: $settings.appearanceMode) {
-                                ForEach(AppearanceMode.allCases, id: \.self) { mode in
-                                    Text(mode.rawValue).tag(mode)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .frame(maxWidth: .infinity)
-                        }
-                    }
-
-                    // MARK: YouTube Account
-                    SettingsSection(title: "YouTube Account", icon: "person.crop.circle") {
+                    // MARK: YouTube sign-in
+                    SettingsSection(title: "YouTube", icon: "person.crop.circle") {
+                        Text("Most videos download without signing in. Sign in only if YouTube blocks a download — for example age-restricted or members-only videos, or a “confirm you're not a bot” error.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                         youtubeAuthContent
                     }
 
-                    // MARK: Behavior
-                    SettingsSection(title: "Behavior", icon: "gearshape") {
-                        Toggle("Play sound when download completes", isOn: $settings.playSoundOnComplete)
-                        Toggle("Show notifications", isOn: $settings.showNotifications)
-                    }
-
-                    // MARK: Keyboard Shortcuts
-                    SettingsSection(title: "Keyboard Shortcuts", icon: "keyboard") {
-                        ShortcutRow(keys: "⌘V", description: "Paste URL and fetch")
-                        ShortcutRow(keys: "⌘D", description: "Start download")
-                        ShortcutRow(keys: "⌘M", description: "Download as MP3")
-                        ShortcutRow(keys: "⌘,", description: "Open settings")
+                    // MARK: Notifications
+                    SettingsSection(title: "Notifications", icon: "bell") {
+                        Toggle("Show a notification when a download finishes", isOn: $settings.showNotifications)
+                        Toggle("Play a sound when a download finishes", isOn: $settings.playSoundOnComplete)
                     }
 
                     // MARK: About
                     SettingsSection(title: "About", icon: "info.circle") {
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Setup Guide")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                Text("Re-run the first-launch walkthrough")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                            Text("Version")
                             Spacer()
-                            Button("Re-run Guide") {
-                                hasSeenOnboarding = false
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+                            Text("\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"))")
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Text("Everything runs on your Mac — no audio or video ever leaves your computer.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
                         }
                     }
                 }
@@ -268,7 +237,7 @@ struct SettingsView: View {
                         Button("Sign Out") {
                             downloader.signOutYouTube()
                         }
-                        .buttonStyle(.bordered)
+                        .secondaryGlassButton()
                         .controlSize(.small)
                     }
                 } else {
@@ -285,7 +254,7 @@ struct SettingsView: View {
                                 Text("Sign in to YouTube")
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .primaryGlassButton()
                         .controlSize(.regular)
                     }
                 }
@@ -295,13 +264,13 @@ struct SettingsView: View {
                     HStack(spacing: 8) {
                         ProgressView()
                             .controlSize(.small)
-                        Text("Waiting for sign-in...")
+                        Text("Waiting for sign-in…")
                             .fontWeight(.medium)
                         Spacer()
                         Button("Cancel") {
                             downloader.cancelSignIn()
                         }
-                        .buttonStyle(.bordered)
+                        .secondaryGlassButton()
                         .controlSize(.small)
                     }
 
@@ -339,7 +308,7 @@ struct SettingsView: View {
                             }
                         }
                         .padding(10)
-                        .background(Color.primary.opacity(0.05))
+                        .background(Color.white.opacity(0.06))
                         .cornerRadius(8)
                     }
                 }
@@ -354,7 +323,7 @@ struct SettingsView: View {
                     Button("Sign Out") {
                         downloader.signOutYouTube()
                     }
-                    .buttonStyle(.bordered)
+                    .secondaryGlassButton()
                     .controlSize(.small)
                 }
 
@@ -375,7 +344,7 @@ struct SettingsView: View {
                             Text("Try Again")
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .primaryGlassButton()
                     .controlSize(.regular)
                 }
             }
@@ -404,7 +373,7 @@ struct SettingsView: View {
                             }
                             .controlSize(.mini)
                         }
-                        Button(settings.cookiesFilePath.isEmpty ? "Select..." : "Change...") {
+                        Button(settings.cookiesFilePath.isEmpty ? "Select…" : "Change…") {
                             selectCookiesFile()
                         }
                         .controlSize(.mini)
@@ -480,31 +449,77 @@ struct SettingsSection<Content: View>: View {
             VStack(alignment: .leading, spacing: 10) {
                 content
             }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(10)
+            .glassCard(padding: 16, cornerRadius: 12)
         }
     }
 }
 
-// MARK: - Shortcut Row
 
-struct ShortcutRow: View {
-    let keys: String
-    let description: String
+// MARK: - WhisperKit Model Row
+
+struct ModelRow: View {
+    let model: WhisperModel
+    @ObservedObject var transcriptionManager = TranscriptionManager.shared
+
+    private var isDownloaded: Bool { transcriptionManager.isModelDownloaded(model) }
+    private var isDownloading: Bool { transcriptionManager.downloadingModel == model }
+    private var isPrewarming: Bool { transcriptionManager.prewarmingModel == model }
 
     var body: some View {
         HStack {
-            Text(keys)
-                .font(.system(.body, design: .monospaced))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color(NSColor.tertiaryLabelColor).opacity(0.2))
-                .cornerRadius(4)
-            Text(description)
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(model.displayName).fontWeight(.medium)
+                    if model.isRecommended {
+                        Text("Recommended")
+                            .font(.caption)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.primary.opacity(0.08))
+                            .foregroundColor(.primary)
+                            .cornerRadius(4)
+                    }
+                }
+                Text(model.description).font(.caption).foregroundColor(.secondary)
+            }
             Spacer()
+            Text(model.sizeDescription)
+                .font(.caption).foregroundColor(.secondary)
+                .frame(width: 70, alignment: .trailing)
+
+            if isDownloading {
+                HStack(spacing: 8) {
+                    ProgressView(value: transcriptionManager.modelDownloadProgress).frame(width: 60)
+                    Button(action: { transcriptionManager.cancelModelDownload() }) {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Cancel download")
+                }
+                .frame(width: 100)
+            } else if isDownloaded {
+                HStack(spacing: 8) {
+                    if isPrewarming {
+                        ProgressView().scaleEffect(0.5).help("Optimizing model for your device…")
+                    } else {
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                    }
+                    Button(action: { transcriptionManager.deleteModel(model) }) {
+                        Image(systemName: "trash").foregroundColor(.red)
+                    }
+                    .buttonStyle(.plain).help("Delete model")
+                }
+                .frame(width: 100)
+            } else {
+                Button(action: { transcriptionManager.downloadModel(model) }) {
+                    Label("Download", systemImage: "arrow.down.circle")
+                }
+                .secondaryGlassButton()
+                .controlSize(.small)
+                .disabled(transcriptionManager.downloadingModel != nil)
+                .frame(width: 100)
+            }
         }
+        .padding(.vertical, 4)
     }
 }
 

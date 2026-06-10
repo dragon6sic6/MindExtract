@@ -5,59 +5,9 @@ import UniformTypeIdentifiers
 
 enum SidebarItem: String, Hashable {
     case download = "Download"
-    case transcribe = "Transcribe"
+    case transcripts = "Transcripts"
     case history = "History"
     case settings = "Settings"
-}
-
-// MARK: - Drop Zone View
-
-struct DropZoneView: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    @Binding var isDragging: Bool
-    let dropTypes: [UTType]
-    let onDrop: ([NSItemProvider]) -> Bool
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(
-                    isDragging ? Color.primary.opacity(0.5) : Color.secondary.opacity(0.22),
-                    style: StrokeStyle(lineWidth: isDragging ? 2 : 1.5, dash: [9, 5])
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(isDragging ? Color.primary.opacity(0.04) : Color.clear)
-                )
-
-            VStack(spacing: 10) {
-                Image(systemName: isDragging ? "arrow.down" : icon)
-                    .font(.system(size: 24))
-                    .foregroundColor(isDragging ? .primary : .secondary.opacity(0.45))
-                    .scaleEffect(isDragging ? 1.15 : 1.0)
-                    .animation(.spring(response: 0.25), value: isDragging)
-
-                VStack(spacing: 3) {
-                    Text(isDragging ? "Drop here" : title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(isDragging ? .primary : .secondary)
-
-                    if !isDragging {
-                        Text(subtitle)
-                            .font(.caption)
-                            .foregroundColor(.secondary.opacity(0.7))
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 112)
-        .animation(.easeInOut(duration: 0.15), value: isDragging)
-        .onDrop(of: dropTypes, isTargeted: $isDragging, perform: onDrop)
-    }
 }
 
 // MARK: - Content View
@@ -67,6 +17,7 @@ struct ContentView: View {
     @StateObject private var settings = AppSettings.shared
     @StateObject private var historyManager = HistoryManager.shared
     @StateObject private var transcriptionManager = TranscriptionManager.shared
+    @StateObject private var transcriptionHistory = TranscriptionHistoryManager.shared
 
     // Navigation
     @State private var selectedSidebarItem: SidebarItem? = .download
@@ -74,25 +25,62 @@ struct ContentView: View {
     // Download state
     @State private var urlInput: String = ""
     @State private var selectedFormat: VideoFormat?
+    @State private var showAllFormats = false
+
+    /// One clean "best" format per resolution (MP4 preferred for compatibility),
+    /// sorted high→low — instead of dumping all ~30 raw yt-dlp formats.
+    private func tieredVideoFormats(_ formats: [VideoFormat]) -> [VideoFormat] {
+        let videos = formats.filter { !$0.isAudioOnly && !$0.resolution.isEmpty }
+        var best: [String: VideoFormat] = [:]
+        for f in videos {
+            if let existing = best[f.resolution] {
+                if f.ext.lowercased() == "mp4" && existing.ext.lowercased() != "mp4" {
+                    best[f.resolution] = f
+                }
+            } else {
+                best[f.resolution] = f
+            }
+        }
+        func height(_ r: String) -> Int { Int(r.filter(\.isNumber)) ?? 0 }
+        return best.values.sorted { height($0.resolution) > height($1.resolution) }
+    }
+
+    /// Live download progress (0–1) while a download is running, else nil.
+    private var currentDownloadProgress: Double? {
+        if case .downloading(let p, _) = downloader.state { return p }
+        return nil
+    }
+
     @State private var selectedVideos: Set<String> = []
     @State private var showingLog = false
-    @State private var appMode: AppMode = .singleVideo
     @State private var isDraggingOverDownload = false
 
     // Transcribe state
-    @State private var isDraggingOverTranscribe = false
     @State private var selectedLocalFiles: [LocalFileInfo] = []
     @State private var showTranscriptionLanguagePicker = false
     @State private var selectedTranscriptionLanguage = "auto"
     @State private var pendingTranscriptionFile: LocalFileInfo? = nil
     @State private var pendingTranscriptionFilePath: String? = nil
-    @State private var transcribeAppMode: AppMode = .singleVideo  // for transcribe section
-
-    // Modals
-    @State private var showHistory = false
 
     private var detectedPlatform: Platform {
         Platform.detect(from: urlInput)
+    }
+
+    /// Soft, premium depth backdrop so Liquid Glass surfaces have something to
+    /// refract (glass looks flat over a plain white window). Stays subtle enough
+    /// to keep content fully readable.
+    private var appBackdrop: some View {
+        // Clean, uniform Messages-style dark gray — no gradients or glows.
+        Color(red: 0.11, green: 0.11, blue: 0.12)
+            .ignoresSafeArea()
+    }
+
+    /// Label for the engine that will actually run the next transcription.
+    private var activeEngineLabel: String {
+        if transcriptionManager.useAppleSpeech() {
+            return "Apple Speech"
+        }
+        return "WhisperKit · \(settings.defaultWhisperModel.displayName)"
     }
 
     var body: some View {
@@ -101,29 +89,30 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 160, ideal: 185, max: 210)
         } detail: {
             detailView
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(appBackdrop)
+                .navigationTitle("")
         }
         .frame(minWidth: 740, minHeight: 560)
+        .background(WindowConfigurator())
         .onAppear { checkPendingURL() }
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
             selectedSidebarItem = .settings
         }
-        .sheet(isPresented: $showHistory) {
-            HistoryView { item in
-                urlInput = item.url
-                selectedSidebarItem = .download
-                appMode = .singleVideo
-                performAction()
+        .onReceive(NotificationCenter.default.publisher(for: .navigate)) { note in
+            if let item = note.object as? SidebarItem {
+                selectedSidebarItem = item
             }
         }
-        .onChange(of: transcriptionManager.showTranscriptionView) { show in
+        // Show the in-app transcription view wherever it's triggered (Media, a
+        // completed download, or opening a past transcript from History).
+        .onChange(of: transcriptionManager.showTranscriptionView) { _, show in
             if show {
-                TranscriptionWindowController.shared.showWindow(manager: transcriptionManager)
-            } else {
-                TranscriptionWindowController.shared.close()
+                withAnimation(.easeInOut(duration: 0.25)) { selectedSidebarItem = .transcripts }
             }
         }
-        // Bridge downloader progress to transcription window when downloading audio for transcription
-        .onChange(of: downloader.state) { newState in
+        // Bridge downloader progress to the transcription view when downloading audio for transcription
+        .onChange(of: downloader.state) { _, newState in
             if case .downloadingAudio = transcriptionManager.transcriptionState {
                 if case .downloading(let progress, _) = newState {
                     transcriptionManager.transcriptionState = .downloadingAudio(progress: progress)
@@ -131,7 +120,7 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showTranscriptionLanguagePicker) {
-            TranscriptionLanguagePickerSheet(
+            TranscriptionOptionsSheet(
                 selectedLanguage: $selectedTranscriptionLanguage,
                 onStart: {
                     showTranscriptionLanguagePicker = false
@@ -157,69 +146,22 @@ struct ContentView: View {
     // MARK: - Sidebar
 
     private var sidebarView: some View {
-        VStack(spacing: 0) {
-            // App logo
-            HStack(spacing: 10) {
-                Image(systemName: "waveform.and.magnifyingglass")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.primary)
-                Text("MindExtract")
-                    .font(.system(size: 14, weight: .bold))
+        List(selection: $selectedSidebarItem) {
+            Section("Library") {
+                Label("Media", systemImage: "tray.and.arrow.down")
+                    .tag(SidebarItem.download)
+                Label("Transcripts", systemImage: "text.bubble")
+                    .tag(SidebarItem.transcripts)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 20)
-            .padding(.bottom, 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Divider()
-
-            // Primary navigation
-            VStack(spacing: 4) {
-                sidebarNavItem(item: .download, icon: "arrow.down.circle", label: "Download")
-                sidebarNavItem(item: .transcribe, icon: "text.bubble", label: "Transcribe")
+            Section {
+                Label("History", systemImage: "clock")
+                    .tag(SidebarItem.history)
+                Label("Settings", systemImage: "gearshape")
+                    .tag(SidebarItem.settings)
             }
-            .padding(.top, 12)
-            .padding(.horizontal, 10)
-
-            Spacer()
-
-            Divider()
-
-            // Secondary navigation
-            VStack(spacing: 4) {
-                sidebarNavItem(item: .history, icon: "clock", label: "History")
-                sidebarNavItem(item: .settings, icon: "gearshape", label: "Settings")
-            }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 10)
         }
-        .background(Color(NSColor.windowBackgroundColor))
-    }
-
-    @ViewBuilder
-    private func sidebarNavItem(item: SidebarItem, icon: String, label: String) -> some View {
-        Button(action: { selectedSidebarItem = item }) {
-            sidebarNavRow(icon: icon, label: label, isSelected: selectedSidebarItem == item)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func sidebarNavRow(icon: String, label: String, isSelected: Bool) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
-                .foregroundColor(isSelected ? .primary : Color(NSColor.tertiaryLabelColor))
-                .frame(width: 22)
-            Text(label)
-                .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
-                .foregroundColor(isSelected ? .primary : Color(NSColor.secondaryLabelColor))
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(isSelected ? Color.primary.opacity(0.08) : Color.clear)
-        .cornerRadius(9)
-        .contentShape(Rectangle())
+        .listStyle(.sidebar)
+        .navigationTitle("")
     }
 
     // MARK: - Detail View
@@ -229,8 +171,19 @@ struct ContentView: View {
         switch selectedSidebarItem ?? .download {
         case .download:
             downloadDetailView
-        case .transcribe:
-            transcribeDetailView
+        case .transcripts:
+            // Live transcription and saved transcripts both live here.
+            if transcriptionManager.showTranscriptionView {
+                TranscriptionResultView(
+                    transcriptionManager: transcriptionManager,
+                    onClose: {
+                        transcriptionManager.showTranscriptionView = false
+                    }
+                )
+                .transition(.opacity)
+            } else {
+                transcriptsListView
+            }
         case .history:
             historyDetailView
         case .settings:
@@ -242,46 +195,6 @@ struct ContentView: View {
 
     private var downloadDetailView: some View {
         VStack(spacing: 0) {
-            // Section header
-            HStack(spacing: 12) {
-                Text("Download")
-                    .font(.title2)
-                    .fontWeight(.bold)
-
-                if downloader.videoInfo != nil || !downloader.scannedVideos.isEmpty {
-                    Button(action: clearAll) {
-                        Image(systemName: "xmark.circle")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Clear")
-                }
-
-                Spacer()
-
-                // Mode picker (Video / Scan Page)
-                Picker("", selection: Binding(
-                    get: { appMode == .pageScan ? AppMode.pageScan : AppMode.singleVideo },
-                    set: { newMode in
-                        appMode = newMode
-                        downloader.reset()
-                        selectedFormat = nil
-                        selectedVideos = []
-                    }
-                )) {
-                    Text("Video").tag(AppMode.singleVideo)
-                    Text("Scan Page").tag(AppMode.pageScan)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 164)
-                .labelsHidden()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-
-            Divider()
-
             // yt-dlp warning banner
             if !downloader.isYTDLPInstalled {
                 ytdlpWarningBanner
@@ -289,63 +202,32 @@ struct ContentView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
-                    // Drop zone (shown when no content loaded)
-                    if downloader.videoInfo == nil &&
+                    // Local media files dropped here → ready to transcribe
+                    if !selectedLocalFiles.isEmpty {
+                        localFileListSection
+                        VStack(spacing: 8) { localFileTranscriptionStatus }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 16)
+                    } else if downloader.videoInfo == nil &&
                        downloader.scannedVideos.isEmpty &&
                        !(downloader.state == .fetchingFormats) &&
                        !(downloader.state == .scanningPage) {
-                        VStack(spacing: 12) {
-                            urlInputField
-                                .padding(.horizontal, 20)
-                                .padding(.top, 20)
-
-                            HStack(spacing: 8) {
-                                Rectangle()
-                                    .frame(height: 1)
-                                    .foregroundColor(Color.secondary.opacity(0.18))
-                                Text("or")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary.opacity(0.6))
-                                Rectangle()
-                                    .frame(height: 1)
-                                    .foregroundColor(Color.secondary.opacity(0.18))
-                            }
-                            .padding(.horizontal, 28)
-
-                            DropZoneView(
-                                icon: "link.badge.plus",
-                                title: "Drag & drop a URL here",
-                                subtitle: "drag & drop from your browser",
-                                isDragging: $isDraggingOverDownload,
-                                dropTypes: [.url, .text, .fileURL],
-                                onDrop: { providers in
-                                    handleDrop(providers: providers)
-                                    return true
-                                }
-                            )
-                            .padding(.horizontal, 20)
-
-                            Text("Supports: YouTube, Vimeo, Twitter/X, TikTok, and 1000+ sites")
-                                .font(.caption2)
-                                .foregroundColor(.secondary.opacity(0.6))
-                        }
+                        mediaInputPanel
                     } else if case .fetchingFormats = downloader.state {
-                        VStack(spacing: 12) {
-                            urlInputField.padding(.horizontal, 20).padding(.top, 20)
-                            ProgressView("Fetching video info...")
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .padding(40)
+                        VStack(spacing: 18) {
+                            mediaInputPanel
+                            ProgressView("Loading…")
+                                .padding(.top, 8)
                         }
                     } else if case .scanningPage = downloader.state {
-                        VStack(spacing: 12) {
-                            urlInputField.padding(.horizontal, 20).padding(.top, 20)
-                            ProgressView("Scanning page for videos...")
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .padding(40)
+                        VStack(spacing: 18) {
+                            mediaInputPanel
+                            ProgressView("Loading…")
+                                .padding(.top, 8)
                         }
-                    } else if appMode == .singleVideo, let info = downloader.videoInfo {
+                    } else if let info = downloader.videoInfo {
                         videoAndFormatsSection(info: info)
-                    } else if appMode == .pageScan, !downloader.scannedVideos.isEmpty {
+                    } else if !downloader.scannedVideos.isEmpty {
                         scannedVideosSection
                     }
 
@@ -355,12 +237,12 @@ struct ContentView: View {
                             .padding(.horizontal, 20)
                     }
 
-                    // Bottom section
+                    // Bottom section — single-video actions are now inline on the
+                    // selected quality row; only the save location + scan actions live here.
                     VStack(spacing: 12) {
-                        if appMode == .singleVideo && downloader.videoInfo != nil {
+                        if downloader.videoInfo != nil {
                             downloadLocationSection
-                            actionButtonsSection
-                        } else if appMode == .pageScan && !selectedVideos.isEmpty {
+                        } else if !downloader.scannedVideos.isEmpty && !selectedVideos.isEmpty {
                             downloadLocationSection
                             actionButtonsSection
                         }
@@ -376,21 +258,66 @@ struct ContentView: View {
                 logSection
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if downloader.videoInfo != nil || !downloader.scannedVideos.isEmpty || !selectedLocalFiles.isEmpty {
+                    Button(action: clearAll) {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .help("Clear and start over")
+                }
+            }
+        }
+    }
+
+    // MARK: - Unified media input (URL field + drop, one surface)
+
+    private var mediaInputPanel: some View {
+        VStack(spacing: 14) {
+            urlInputField
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.down.doc")
+                Text("or drop a video / audio file here to transcribe")
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+            Text("Supports YouTube, Vimeo, X, TikTok, and 1000+ sites — plus local files")
+                .font(.caption2)
+                .foregroundColor(.secondary.opacity(0.55))
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(isDraggingOverDownload ? DS.Colors.accent.opacity(0.08) : Color.white.opacity(0.025))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    isDraggingOverDownload ? DS.Colors.accent.opacity(0.6) : Color.white.opacity(0.08),
+                    style: StrokeStyle(lineWidth: isDraggingOverDownload ? 2 : 1, dash: [7, 5])
+                )
+        )
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .animation(.easeInOut(duration: 0.15), value: isDraggingOverDownload)
+        .onDrop(of: [.fileURL, .url, .text], isTargeted: $isDraggingOverDownload) { providers in
+            handleDrop(providers: providers)
+            return true
+        }
     }
 
     // MARK: - URL Input Field (shared)
 
     private var urlInputField: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: detectedPlatform.icon)
                     .foregroundColor(.secondary)
                     .frame(width: 16)
 
                 TextField(
-                    appMode == .singleVideo
-                        ? "Paste a YouTube, Vimeo, TikTok or other URL…"
-                        : "https://youtube.com/playlist?list=...",
+                    "Paste a video or website URL…",
                     text: $urlInput
                 )
                 .textFieldStyle(.plain)
@@ -403,6 +330,7 @@ struct ContentView: View {
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .help("Clear")
                 }
 
                 Button(action: pasteFromClipboard) {
@@ -412,260 +340,54 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .help("Paste (⌘V)")
             }
-            .padding(14)
-            .background(Color(NSColor.textBackgroundColor))
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+            .background(Color.white.opacity(0.06), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
 
+            // Circular send-style action button (Messages-like)
             Button(action: performAction) {
-                if case .fetchingFormats = downloader.state {
-                    ProgressView().scaleEffect(0.7).frame(width: 70)
-                } else if case .scanningPage = downloader.state {
-                    ProgressView().scaleEffect(0.7).frame(width: 70)
-                } else {
-                    Text(appMode == .singleVideo ? "Fetch" : "Scan")
-                        .frame(width: 70)
+                Group {
+                    if case .fetchingFormats = downloader.state {
+                        ProgressView().controlSize(.small)
+                    } else if case .scanningPage = downloader.state {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
                 }
+                .frame(width: 32, height: 32)
+                .background(
+                    (urlInput.isEmpty ? Color.secondary.opacity(0.25) : DS.Colors.accent),
+                    in: Circle()
+                )
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
             .disabled(urlInput.isEmpty ||
                       downloader.state == .fetchingFormats ||
                       downloader.state == .scanningPage)
-        }
-    }
-
-    // MARK: - Transcribe Detail
-
-    private var transcribeDetailView: some View {
-        VStack(spacing: 0) {
-            // Section header
-            HStack(spacing: 12) {
-                Text("Transcribe")
-                    .font(.title2)
-                    .fontWeight(.bold)
-
-                Spacer()
-
-                // Mode picker (URL / Local File)
-                Picker("", selection: Binding(
-                    get: { transcribeAppMode == .localFile ? AppMode.localFile : AppMode.singleVideo },
-                    set: { newMode in
-                        transcribeAppMode = newMode
-                        if newMode == .singleVideo { downloader.reset() }
-                        selectedLocalFiles = []
-                        transcriptionManager.resetState()
-                    }
-                )) {
-                    Text("From URL").tag(AppMode.singleVideo)
-                    Text("Local File").tag(AppMode.localFile)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 180)
-                .labelsHidden()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-
-            Divider()
-
-            ScrollView {
-                VStack(spacing: 16) {
-                    if transcribeAppMode == .localFile {
-                        // ── Local File mode ──
-                        if selectedLocalFiles.isEmpty {
-                            VStack(spacing: 12) {
-                                DropZoneView(
-                                    icon: "doc.badge.plus",
-                                    title: "Drop media files here",
-                                    subtitle: "drag & drop  ·  or browse below",
-                                    isDragging: $isDraggingOverTranscribe,
-                                    dropTypes: [.fileURL, .movie, .video, .audio],
-                                    onDrop: { providers in
-                                        handleDropForTranscription(providers: providers)
-                                        return true
-                                    }
-                                )
-                                .padding(.horizontal, 20)
-                                .padding(.top, 20)
-
-                                Button(action: selectLocalFiles) {
-                                    Label("Browse Files...", systemImage: "folder")
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.large)
-                                .padding(.horizontal, 20)
-                            }
-                        } else {
-                            localFileListSection
-                        }
-
-                        // Status / model prompt
-                        VStack(spacing: 8) {
-                            localFileTranscriptionStatus
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 16)
-
-                    } else {
-                        // ── URL mode — paste URL, press Transcribe ──
-                        VStack(spacing: 12) {
-                            transcribeURLInputField
-                                .padding(.horizontal, 20)
-                                .padding(.top, 20)
-
-                            HStack(spacing: 8) {
-                                Rectangle()
-                                    .frame(height: 1)
-                                    .foregroundColor(Color.secondary.opacity(0.18))
-                                Text("or")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary.opacity(0.6))
-                                Rectangle()
-                                    .frame(height: 1)
-                                    .foregroundColor(Color.secondary.opacity(0.18))
-                            }
-                            .padding(.horizontal, 28)
-
-                            DropZoneView(
-                                icon: "link.badge.plus",
-                                title: "Drag & drop a video URL here",
-                                subtitle: "drag & drop from your browser",
-                                isDragging: $isDraggingOverTranscribe,
-                                dropTypes: [.url, .text],
-                                onDrop: { providers in
-                                    handleDropForTranscribeURL(providers: providers)
-                                    return true
-                                }
-                            )
-                            .padding(.horizontal, 20)
-
-                            Text("Supports: YouTube, Vimeo, Twitter/X, TikTok, and 1000+ sites")
-                                .font(.caption2)
-                                .foregroundColor(.secondary.opacity(0.6))
-                        }
-
-                        // Transcription status (progress, errors, completed)
-                        VStack(spacing: 12) {
-                            transcriptionStatusView
-                                .padding(.top, 4)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 16)
-                    }
-                }
-            }
-        }
-    }
-
-    // URL input for transcribe section — no Fetch needed, go straight to Transcribe
-    private var transcribeURLInputField: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: detectedPlatform.icon)
-                    .foregroundColor(.secondary)
-                    .frame(width: 16)
-
-                TextField("Paste a YouTube, Vimeo, TikTok or other URL…", text: $urlInput)
-                    .textFieldStyle(.plain)
-                    .font(.body)
-                    .onSubmit { triggerTranscribeFromURL() }
-
-                if !urlInput.isEmpty {
-                    Button(action: { urlInput = ""; transcriptionManager.resetState() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                Button(action: {
-                    if let str = NSPasteboard.general.string(forType: .string) {
-                        urlInput = str.trimmingCharacters(in: .whitespacesAndNewlines)
-                    }
-                }) {
-                    Image(systemName: "doc.on.clipboard")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Paste (⌘V)")
-            }
-            .padding(14)
-            .background(Color(NSColor.textBackgroundColor))
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
-
-            Button(action: triggerTranscribeFromURL) {
-                if isTranscribing {
-                    ProgressView().scaleEffect(0.7).frame(width: 90)
-                } else {
-                    Text("Transcribe").frame(width: 90)
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(urlInput.isEmpty || isTranscribing)
-        }
-    }
-
-    private var transcribeURLButton: some View {
-        Group {
-            if transcriptionManager.areBinariesAvailable {
-                Button(action: {
-                    if transcriptionManager.downloadedModels.isEmpty {
-                        transcriptionManager.transcriptionState = .modelNotDownloaded
-                    } else {
-                        pendingTranscriptionFile = nil
-                        pendingTranscriptionFilePath = nil
-                        showTranscriptionLanguagePicker = true
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: "text.bubble.fill")
-                        Text(isTranscribing ? "Transcribing..." : "Transcribe with WhisperKit")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-                .controlSize(.large)
-                .disabled(isTranscribing)
-            }
+            .help("Load")
         }
     }
 
     // MARK: - History Detail
 
     private var historyDetailView: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("History")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-
-            Divider()
-
-            RecentActivityView(onRedownload: { item in
-                urlInput = item.url
-                selectedSidebarItem = .download
-                appMode = .singleVideo
-                performAction()
-            })
-        }
+        RecentActivityView(onRedownload: { item in
+            urlInput = item.url
+            selectedSidebarItem = .download
+            performAction()
+        })
     }
+
+    // MARK: - Transcripts Destination
+
+    private var transcriptsListView: some View {
+        TranscriptsListView(onGoToMedia: { selectedSidebarItem = .download })
+    }
+
 
     // MARK: - yt-dlp Warning Banner
 
@@ -674,18 +396,14 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(.orange)
-                (Text("yt-dlp not found — downloading is unavailable. Run ")
+                Text("Downloading isn't available — a component is missing. Reinstall MindExtract to fix this.")
                     .font(.footnote)
-                + Text("setup_binaries.sh")
-                    .font(.system(.footnote, design: .monospaced))
-                + Text(" to install it.")
-                    .font(.footnote))
             }
             .foregroundColor(.primary)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.orange.opacity(0.12))
+            .background(Color.orange.opacity(0.08))
 
             Divider()
         }
@@ -704,14 +422,14 @@ struct ContentView: View {
                     Label("Add More", systemImage: "plus")
                         .font(.caption)
                 }
-                .buttonStyle(.bordered)
+                .secondaryGlassButton()
                 .controlSize(.small)
 
                 Button(action: { selectedLocalFiles.removeAll() }) {
                     Label("Clear", systemImage: "trash")
                         .font(.caption)
                 }
-                .buttonStyle(.bordered)
+                .secondaryGlassButton()
                 .controlSize(.small)
             }
             .padding(.horizontal, 20)
@@ -723,6 +441,7 @@ struct ContentView: View {
                         LocalFileRow(
                             file: file,
                             transcriptionState: transcriptionManager.transcriptionState,
+                            showTranscribeButton: selectedLocalFiles.count > 1,
                             onRemove: { selectedLocalFiles.removeAll { $0.id == file.id } },
                             onTranscribe: {
                                 pendingTranscriptionFile = file
@@ -734,7 +453,7 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 20)
             }
-            .frame(height: 250)
+            .frame(maxHeight: 250)
         }
     }
 
@@ -762,7 +481,7 @@ struct ContentView: View {
     }
 
     private func transcribeLocalFile(_ file: LocalFileInfo) {
-        if transcriptionManager.downloadedModels.isEmpty {
+        if transcriptionManager.needsModelDownload {
             transcriptionManager.transcriptionState = .modelNotDownloaded
             return
         }
@@ -789,14 +508,14 @@ struct ContentView: View {
                 Button(action: { downloader.clearQueue() }) {
                     Text("Clear").font(.caption)
                 }
-                .buttonStyle(.bordered)
+                .secondaryGlassButton()
                 .controlSize(.small)
 
                 if !downloader.isProcessingQueue {
                     Button(action: { downloader.startQueue(outputPath: settings.downloadPath) }) {
                         Label("Download All", systemImage: "arrow.down.circle.fill").font(.caption)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .primaryGlassButton()
                     .controlSize(.small)
                 }
             }
@@ -810,9 +529,7 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(14)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(12)
+        .glassCard(padding: 14, cornerRadius: 12)
     }
 
     // MARK: - Video and Formats Section
@@ -848,64 +565,89 @@ struct ContentView: View {
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    Text("\(info.formats.count) formats available")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    // Media-level actions live with the media itself.
+                    HStack(spacing: 8) {
+                        mediaActionPill("Audio", icon: "music.note", action: downloadAsAudio)
+                            .disabled(isDownloading || isTranscribing)
+                        if transcriptionManager.areBinariesAvailable {
+                            mediaActionPill("Transcribe", icon: "text.bubble") {
+                                if transcriptionManager.needsModelDownload {
+                                    transcriptionManager.transcriptionState = .modelNotDownloaded
+                                } else {
+                                    pendingTranscriptionFile = nil
+                                    pendingTranscriptionFilePath = nil
+                                    showTranscriptionLanguagePicker = true
+                                }
+                            }
+                            .disabled(isDownloading || isTranscribing)
+                        }
+                        mediaActionPill("Queue", icon: "plus", action: addVideoToQueue)
+                    }
+                    .padding(.top, 6)
                 }
 
                 Spacer()
-
-                // Add to Queue — visible right in the card so it's easy to find
-                Button(action: addVideoToQueue) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "plus.circle")
-                            .font(.system(size: 20))
-                        Text("Queue")
-                            .font(.caption2)
-                    }
-                    .foregroundColor(.secondary)
-                    .frame(width: 48)
-                }
-                .buttonStyle(.plain)
-                .help("Add to queue and load another video")
             }
             .padding()
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(12)
+            .glassSurface(cornerRadius: 12)
             .padding(.horizontal, 20)
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Select Format").font(.headline)
-                    Spacer()
-                    HStack(spacing: 6) {
-                        QuickFormatButton(title: "Best", icon: "star.fill", isSelected: isFormatSelected(type: .best)) {
-                            selectedFormat = info.formats.first { !$0.isAudioOnly }
-                        }
-                        QuickFormatButton(title: "Audio", icon: "music.note", isSelected: isFormatSelected(type: .audio)) {
-                            selectedFormat = info.formats.first { $0.isAudioOnly }
-                        }
-                        QuickFormatButton(title: settings.preferredResolution, icon: "tv", isSelected: isFormatSelected(type: .preferredRes)) {
-                            selectedFormat = info.formats.first { $0.resolution == settings.preferredResolution && !$0.isVideoOnly }
-                                ?? info.formats.first { $0.resolution == settings.preferredResolution }
-                        }
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                Text("Select Quality")
+                    .font(.headline)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
 
                 ScrollView {
-                    LazyVStack(spacing: 4) {
-                        ForEach(info.formats) { format in
-                            FormatRow(format: format, isSelected: selectedFormat == format)
-                                .onTapGesture { selectedFormat = format }
+                    LazyVStack(spacing: 6) {
+                        let shown = showAllFormats ? info.formats : tieredVideoFormats(info.formats)
+                        ForEach(shown) { format in
+                            FormatRow(
+                                format: format,
+                                isSelected: selectedFormat == format,
+                                downloadProgress: (selectedFormat == format) ? currentDownloadProgress : nil,
+                                canDownload: canDownload && !isTranscribing,
+                                onDownload: startDownload
+                            )
+                            .onTapGesture {
+                                if currentDownloadProgress == nil {
+                                    withAnimation(.easeInOut(duration: 0.18)) { selectedFormat = format }
+                                }
+                            }
+                            .opacity(isDownloading && selectedFormat != format ? 0.4 : 1)
+                            .allowsHitTesting(!(isDownloading && selectedFormat != format))
                         }
+
+                        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showAllFormats.toggle() } }) {
+                            Text(showAllFormats
+                                 ? "Show fewer"
+                                 : "Show all \(info.formats.count) formats")
+                                .font(.caption)
+                                .foregroundColor(DS.Colors.accent)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 20)
                 }
-                .frame(height: 180)
+                .frame(maxHeight: 300)
+            }
+            .onAppear {
+                // Auto-select the best available quality so Download is ready.
+                if selectedFormat == nil {
+                    selectedFormat = tieredVideoFormats(info.formats).first ?? info.formats.first
+                }
             }
         }
+    }
+
+    /// Quiet glass pill for a media-level action in the video card header.
+    private func mediaActionPill(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+        }
+        .secondaryGlassButton()
     }
 
     // MARK: - Scanned Videos Section
@@ -919,7 +661,7 @@ struct ContentView: View {
                     Text(selectedVideos.count == downloader.scannedVideos.count ? "Deselect All" : "Select All")
                         .font(.caption)
                 }
-                .buttonStyle(.bordered)
+                .secondaryGlassButton()
                 .controlSize(.small)
             }
             .padding(.horizontal, 20)
@@ -953,20 +695,19 @@ struct ContentView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer()
-            Button("Change...") { selectDownloadFolder() }
-                .buttonStyle(.bordered)
+            Button("Change…") { selectDownloadFolder() }
+                .secondaryGlassButton()
                 .controlSize(.small)
         }
         .padding(12)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
+        .rowChrome()
     }
 
     // MARK: - Action Buttons
 
     private var actionButtonsSection: some View {
         VStack(spacing: 16) {
-            if appMode == .singleVideo && downloader.videoInfo != nil {
+            if downloader.videoInfo != nil {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Actions")
                         .font(.caption)
@@ -977,11 +718,11 @@ struct ContentView: View {
                         Button(action: startDownload) {
                             HStack {
                                 Image(systemName: "arrow.down.circle.fill")
-                                Text(isDownloading ? "Downloading..." : "Download Video")
+                                Text(isDownloading ? "Downloading…" : "Download Video")
                             }
                             .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .primaryGlassButton()
                         .controlSize(.large)
                         .disabled(!canDownload || isTranscribing)
 
@@ -992,13 +733,13 @@ struct ContentView: View {
                             }
                             .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.bordered)
+                        .secondaryGlassButton()
                         .controlSize(.large)
                         .disabled(isDownloading || isTranscribing)
 
                         if transcriptionManager.areBinariesAvailable {
                             Button(action: {
-                                if transcriptionManager.downloadedModels.isEmpty {
+                                if transcriptionManager.needsModelDownload {
                                     transcriptionManager.transcriptionState = .modelNotDownloaded
                                 } else {
                                     pendingTranscriptionFile = nil
@@ -1012,8 +753,8 @@ struct ContentView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.bordered)
-                            .tint(.orange)
+                            .secondaryGlassButton()
+                            .tint(DS.Colors.accent)
                             .controlSize(.large)
                             .disabled(isDownloading || isTranscribing)
                         }
@@ -1022,13 +763,14 @@ struct ContentView: View {
                             Button(action: { downloader.cancelDownload() }) {
                                 Image(systemName: "xmark")
                             }
-                            .buttonStyle(.bordered)
+                            .secondaryGlassButton()
+                            .help("Cancel download")
                             .tint(.red)
                             .controlSize(.large)
                         }
                     }
                 }
-            } else if appMode == .pageScan && !selectedVideos.isEmpty {
+            } else if !selectedVideos.isEmpty {
                 HStack(spacing: 10) {
                     Button(action: startDownload) {
                         HStack {
@@ -1037,7 +779,7 @@ struct ContentView: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .primaryGlassButton()
                     .controlSize(.large)
                     .disabled(isDownloading)
 
@@ -1045,7 +787,8 @@ struct ContentView: View {
                         Button(action: { downloader.cancelDownload() }) {
                             Image(systemName: "xmark")
                         }
-                        .buttonStyle(.bordered)
+                        .secondaryGlassButton()
+                        .help("Cancel download")
                         .tint(.red)
                         .controlSize(.large)
                     }
@@ -1064,42 +807,6 @@ struct ContentView: View {
         switch transcriptionManager.transcriptionState {
         case .extractingAudio, .transcribing, .loadingModel: return true
         default: return false
-        }
-    }
-
-    // Trigger the transcribe-from-URL flow directly (no Fetch step)
-    private func triggerTranscribeFromURL() {
-        guard !urlInput.isEmpty else { return }
-        if transcriptionManager.downloadedModels.isEmpty {
-            transcriptionManager.transcriptionState = .modelNotDownloaded
-            return
-        }
-        pendingTranscriptionFile = nil
-        pendingTranscriptionFilePath = nil
-        showTranscriptionLanguagePicker = true
-    }
-
-    // Drop handler for the URL transcribe zone — sets URL and triggers transcription
-    private func handleDropForTranscribeURL(providers: [NSItemProvider]) {
-        for provider in providers {
-            if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                    guard let url = url, !url.isFileURL else { return }
-                    DispatchQueue.main.async {
-                        self.urlInput = url.absoluteString
-                        self.triggerTranscribeFromURL()
-                    }
-                }
-            } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                _ = provider.loadObject(ofClass: String.self) { text, _ in
-                    if let text = text {
-                        DispatchQueue.main.async {
-                            self.urlInput = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                            self.triggerTranscribeFromURL()
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -1123,7 +830,7 @@ struct ContentView: View {
     }
 
     private func transcribeFromURL() {
-        if transcriptionManager.downloadedModels.isEmpty {
+        if transcriptionManager.needsModelDownload {
             transcriptionManager.transcriptionState = .modelNotDownloaded
             return
         }
@@ -1170,7 +877,7 @@ struct ContentView: View {
 
     private var canDownload: Bool {
         if case .downloading = downloader.state { return false }
-        if appMode == .singleVideo {
+        if downloader.videoInfo != nil {
             return selectedFormat != nil && !urlInput.isEmpty
         } else {
             return !selectedVideos.isEmpty
@@ -1183,7 +890,7 @@ struct ContentView: View {
     }
 
     private func addVideoToQueue() {
-        if appMode == .singleVideo {
+        if downloader.videoInfo != nil {
             downloader.addCurrentVideoToQueue(isAudioOnly: false)
         } else {
             let selectedVids = downloader.scannedVideos.filter { selectedVideos.contains($0.id) }
@@ -1201,22 +908,9 @@ struct ContentView: View {
     private var statusSection: some View {
         Group {
             switch downloader.state {
-            case .idle, .fetchingFormats, .scanningPage:
+            case .idle, .fetchingFormats, .scanningPage, .downloading:
+                // Download progress is shown inline on the selected format row.
                 EmptyView()
-
-            case .downloading(let progress, let speed):
-                VStack(spacing: 8) {
-                    ProgressView(value: progress).progressViewStyle(.linear)
-                    HStack {
-                        Text("\(Int(progress * 100))%").font(.headline)
-                        Spacer()
-                        Text(speed).foregroundColor(.secondary)
-                    }
-                    .font(.caption)
-                }
-                .padding()
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(8)
 
             case .completed:
                 VStack(spacing: 8) {
@@ -1224,16 +918,20 @@ struct ContentView: View {
                         Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
                         Text("Download completed!").fontWeight(.medium)
                         Spacer()
-                        Button("Open Folder") {
-                            NSWorkspace.shared.open(URL(fileURLWithPath: settings.downloadPath))
+                        Button("Show in Finder") {
+                            if let path = downloader.lastDownloadedFilePath {
+                                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+                            } else {
+                                NSWorkspace.shared.open(URL(fileURLWithPath: settings.downloadPath))
+                            }
                         }
-                        .buttonStyle(.bordered)
+                        .secondaryGlassButton()
                         .controlSize(.small)
 
                         if transcriptionManager.areBinariesAvailable,
                            let filePath = downloader.lastDownloadedFilePath {
                             Button(action: {
-                                if transcriptionManager.downloadedModels.isEmpty {
+                                if transcriptionManager.needsModelDownload {
                                     transcriptionManager.transcriptionState = .modelNotDownloaded
                                 } else {
                                     pendingTranscriptionFile = nil
@@ -1243,9 +941,9 @@ struct ContentView: View {
                             }) {
                                 Label("Transcribe", systemImage: "text.bubble")
                             }
-                            .buttonStyle(.bordered)
+                            .secondaryGlassButton()
                             .controlSize(.small)
-                            .tint(.orange)
+                            .tint(DS.Colors.accent)
                         }
                     }
                     transcriptionStatusView
@@ -1259,8 +957,15 @@ struct ContentView: View {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red)
                     Text(message).foregroundColor(.red).lineLimit(2).font(.system(size: 12))
                     Spacer()
+                    if downloader.lastErrorNeedsAuth {
+                        Button("Sign in to YouTube") {
+                            selectedSidebarItem = .settings
+                        }
+                        .primaryGlassButton()
+                        .controlSize(.small)
+                    }
                     Button("Dismiss") { downloader.retry() }
-                        .buttonStyle(.bordered)
+                        .secondaryGlassButton()
                         .controlSize(.small)
                 }
                 .padding()
@@ -1280,7 +985,7 @@ struct ContentView: View {
                         downloader.retry()
                         performAction()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .primaryGlassButton()
                     .controlSize(.small)
                 }
                 .padding()
@@ -1312,11 +1017,11 @@ struct ContentView: View {
                 if progress > 0 {
                     ProgressView(value: progress)
                         .progressViewStyle(.linear)
-                        .tint(.orange)
+                        .tint(DS.Colors.accent)
                 }
             }
             .padding(10)
-            .background(Color.orange.opacity(0.08))
+            .background(Color.blue.opacity(0.1))
             .cornerRadius(8)
 
         case .loadingModel(let modelName):
@@ -1330,7 +1035,7 @@ struct ContentView: View {
                 ElapsedTimeText()
             }
             .padding(10)
-            .background(Color.blue.opacity(0.08))
+            .background(Color.blue.opacity(0.1))
             .cornerRadius(8)
 
         case .extractingAudio:
@@ -1343,7 +1048,7 @@ struct ContentView: View {
                 Spacer()
             }
             .padding(10)
-            .background(Color.blue.opacity(0.08))
+            .background(Color.blue.opacity(0.1))
             .cornerRadius(8)
 
         case .transcribing(let progress):
@@ -1359,12 +1064,13 @@ struct ContentView: View {
                         Image(systemName: "xmark.circle").foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .help("Cancel transcription")
                 }
                 ProgressView(value: max(progress, 0.02))
                     .progressViewStyle(.linear)
             }
             .padding(10)
-            .background(Color.blue.opacity(0.08))
+            .background(Color.blue.opacity(0.1))
             .cornerRadius(8)
 
         case .completed(let outputPath):
@@ -1395,7 +1101,7 @@ struct ContentView: View {
                     Label("View", systemImage: "doc.text.magnifyingglass")
                         .font(.system(size: 12))
                 }
-                .buttonStyle(.borderedProminent)
+                .primaryGlassButton()
                 .controlSize(.small)
                 Button {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: outputPath)])
@@ -1403,7 +1109,7 @@ struct ContentView: View {
                     Image(systemName: "folder")
                         .font(.system(size: 12))
                 }
-                .buttonStyle(.bordered)
+                .secondaryGlassButton()
                 .controlSize(.small)
                 .help("Show in Finder")
                 Button {
@@ -1422,7 +1128,7 @@ struct ContentView: View {
                 Text(message).font(.system(size: 12)).foregroundColor(.red).lineLimit(2)
                 Spacer()
                 Button("Dismiss") { transcriptionManager.resetState() }
-                    .buttonStyle(.bordered)
+                    .secondaryGlassButton()
                     .controlSize(.mini)
             }
 
@@ -1446,12 +1152,12 @@ struct ContentView: View {
                     Label("Download a Model", systemImage: "arrow.down.circle.fill")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .primaryGlassButton()
                 .controlSize(.regular)
             }
             .padding(14)
-            .background(Color.blue.opacity(0.08))
-            .cornerRadius(10)
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(8)
         }
     }
 
@@ -1462,16 +1168,16 @@ struct ContentView: View {
             if !transcriptionManager.areBinariesAvailable {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                    Text("FFmpeg binary not found").font(.system(size: 12)).foregroundColor(.orange)
+                    Text("Audio tools are missing — transcription is unavailable").font(.system(size: 12)).foregroundColor(.orange)
                     Spacer()
                     Button("Settings") { selectedSidebarItem = .settings }
-                        .buttonStyle(.bordered)
+                        .secondaryGlassButton()
                         .controlSize(.mini)
                 }
                 .padding()
                 .background(Color.orange.opacity(0.1))
                 .cornerRadius(8)
-            } else if transcriptionManager.downloadedModels.isEmpty {
+            } else if transcriptionManager.needsModelDownload {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 10) {
                         Image(systemName: "brain.head.profile")
@@ -1491,23 +1197,44 @@ struct ContentView: View {
                         Label("Download a Model", systemImage: "arrow.down.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .primaryGlassButton()
                     .controlSize(.regular)
                 }
                 .padding(14)
-                .background(Color.blue.opacity(0.08))
-                .cornerRadius(10)
-            } else {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                    Text("Ready to transcribe").font(.system(size: 13)).foregroundColor(.secondary)
-                    Spacer()
-                    Text("WhisperKit · \(settings.defaultWhisperModel.displayName)")
-                        .font(.system(size: 13)).foregroundColor(.secondary)
-                }
-                .padding()
-                .background(Color.green.opacity(0.1))
+                .background(Color.blue.opacity(0.1))
                 .cornerRadius(8)
+            } else {
+                VStack(spacing: 10) {
+                    // Single file → one prominent, obvious primary action here.
+                    if selectedLocalFiles.count <= 1 {
+                        Button {
+                            pendingTranscriptionFile = selectedLocalFiles.first
+                            pendingTranscriptionFilePath = nil
+                            showTranscriptionLanguagePicker = true
+                        } label: {
+                            Label("Transcribe", systemImage: "text.bubble")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .primaryGlassButton()
+                        .controlSize(.large)
+                        .disabled(selectedLocalFiles.isEmpty)
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                        Text(selectedLocalFiles.count > 1
+                             ? "Click Transcribe on each file above"
+                             : "Ready")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(activeEngineLabel)\(settings.enableSpeakerDiarization ? "  ·  Speaker labels" : "")")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
 
         case .downloadingAudio, .loadingModel, .extractingAudio, .transcribing:
@@ -1522,11 +1249,15 @@ struct ContentView: View {
                 .background(Color.green.opacity(0.1))
                 .cornerRadius(8)
 
-        case .error, .modelNotDownloaded:
+        case .error:
             VStack(spacing: 8) { transcriptionStatusView }
                 .padding()
                 .background(Color.red.opacity(0.1))
                 .cornerRadius(8)
+
+        case .modelNotDownloaded:
+            // Self-chromed (blue card) — no extra wrapper.
+            transcriptionStatusView
         }
     }
 
@@ -1566,13 +1297,13 @@ struct ContentView: View {
                     Button(action: copyLogToClipboard) {
                         Label("Copy", systemImage: "doc.on.doc").font(.caption)
                     }
-                    .buttonStyle(.bordered)
+                    .secondaryGlassButton()
                     .controlSize(.mini)
 
                     Button(action: { downloader.outputLog = "" }) {
                         Label("Clear", systemImage: "trash").font(.caption)
                     }
-                    .buttonStyle(.bordered)
+                    .secondaryGlassButton()
                     .controlSize(.mini)
                 }
             }
@@ -1589,7 +1320,7 @@ struct ContentView: View {
                         .textSelection(.enabled)
                 }
                 .frame(height: 150)
-                .background(Color(NSColor.textBackgroundColor))
+                .background(Color.white.opacity(0.03))
             }
         }
     }
@@ -1634,32 +1365,13 @@ struct ContentView: View {
         }
     }
 
-    private func handleDropForTranscription(providers: [NSItemProvider]) {
-        for provider in providers {
-            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                    guard let url = url, url.isFileURL else { return }
-                    let videoExtensions = ["mp4", "mkv", "webm", "avi", "mov", "m4v", "wmv", "flv", "mp3", "m4a", "wav", "flac"]
-                    guard videoExtensions.contains(url.pathExtension.lowercased()) else { return }
-                    DispatchQueue.main.async {
-                        let fileInfo = LocalFileInfo(url: url)
-                        if !self.selectedLocalFiles.contains(where: { $0.url == url }) {
-                            self.selectedLocalFiles.append(fileInfo)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private func handleDroppedURL(_ url: URL) {
         DispatchQueue.main.async {
             if url.isFileURL {
                 let videoExtensions = ["mp4", "mkv", "webm", "avi", "mov", "m4v", "wmv", "flv", "mp3", "m4a", "wav", "flac"]
                 if videoExtensions.contains(url.pathExtension.lowercased()) {
-                    // If in transcribe section, add to local files
-                    if self.selectedSidebarItem == .transcribe {
-                        self.transcribeAppMode = .localFile
+                    // Add to local files when on the media surface.
+                    if self.selectedSidebarItem == .download {
                         let fileInfo = LocalFileInfo(url: url)
                         if !self.selectedLocalFiles.contains(where: { $0.url == url }) {
                             self.selectedLocalFiles.append(fileInfo)
@@ -1673,28 +1385,13 @@ struct ContentView: View {
         }
     }
 
-    private enum FormatType { case best, audio, preferredRes }
-
-    private func isFormatSelected(type: FormatType) -> Bool {
-        guard let selected = selectedFormat, let info = downloader.videoInfo else { return false }
-        switch type {
-        case .best: return selected == info.formats.first { !$0.isAudioOnly }
-        case .audio: return selected.isAudioOnly
-        case .preferredRes: return selected.resolution == settings.preferredResolution
-        }
-    }
-
     private func performAction() {
         guard !urlInput.isEmpty else { return }
         downloader.reset()
         selectedFormat = nil
         selectedVideos = []
-
-        if appMode == .singleVideo {
-            downloader.fetchFormats(url: urlInput)
-        } else if appMode == .pageScan {
-            downloader.scanPage(url: urlInput)
-        }
+        // One unified entry — the app auto-detects single video vs. playlist/page.
+        downloader.loadURL(urlInput)
     }
 
     private func clearAll() {
@@ -1702,6 +1399,7 @@ struct ContentView: View {
         downloader.reset()
         selectedFormat = nil
         selectedVideos = []
+        selectedLocalFiles = []
     }
 
     private func pasteFromClipboard() {
@@ -1744,87 +1442,113 @@ struct ContentView: View {
     }
 
     private func startDownload() {
-        if appMode == .singleVideo {
+        if downloader.videoInfo != nil {
             guard let format = selectedFormat else { return }
             downloader.download(url: urlInput, formatId: format.id, outputPath: settings.downloadPath)
         } else {
-            guard let firstId = selectedVideos.first,
-                  let video = downloader.scannedVideos.first(where: { $0.id == firstId }) else { return }
-            downloader.downloadBest(url: video.url, outputPath: settings.downloadPath)
+            // Download ALL selected videos by enqueuing them and starting the
+            // parallel queue (previously only the first selected video downloaded).
+            let selectedVids = downloader.scannedVideos.filter { selectedVideos.contains($0.id) }
+            guard !selectedVids.isEmpty else { return }
+            downloader.addSelectedVideosToQueue(videos: selectedVids, isAudioOnly: false)
+            downloader.startQueue(outputPath: settings.downloadPath)
         }
     }
 }
 
 // MARK: - Supporting Views
 
-struct QuickFormatButton: View {
-    let title: String
-    let icon: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(title, systemImage: icon).font(.caption)
-        }
-        .buttonStyle(.bordered)
-        .tint(isSelected ? .primary : .secondary)
-    }
-}
-
 struct FormatRow: View {
     let format: VideoFormat
     let isSelected: Bool
+    var downloadProgress: Double? = nil
+    var canDownload: Bool = true
+    var onDownload: () -> Void = {}
+
+    private var isDownloading: Bool { downloadProgress != nil }
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             Image(systemName: format.isAudioOnly ? "music.note" : "film")
-                .foregroundColor(.secondary)
-                .frame(width: 20)
+                .font(.system(size: 16))
+                .foregroundStyle((isSelected || isDownloading) ? DS.Colors.accent : Color.secondary)
+                .frame(width: 22)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
-                    Text(format.resolution)
-                        .font(.system(.body, design: .monospaced))
-                        .fontWeight(.medium)
-
+                    Text(format.isAudioOnly ? "Audio" : format.resolution)
+                        .font(.system(size: 15, weight: .semibold))
                     Text(format.ext.uppercased())
                         .font(.caption2)
                         .fontWeight(.medium)
-                        .padding(.horizontal, 6)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 7)
                         .padding(.vertical, 2)
-                        .background(Color.primary.opacity(0.08))
-                        .cornerRadius(4)
-
-                    if format.isVideoOnly {
-                        Text("video only")
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.orange.opacity(0.2))
-                            .cornerRadius(4)
-                    }
-
-                    if !format.filesize.isEmpty {
-                        Text(format.filesize).font(.caption).foregroundColor(.secondary)
-                    }
+                        .background(Color.white.opacity(0.08), in: Capsule())
                 }
-
-                if !format.note.isEmpty && format.note != format.resolution {
+                if isDownloading {
+                    Text("Downloading…")
+                        .font(.caption2).foregroundColor(DS.Colors.accent)
+                } else if !format.note.isEmpty && format.note != format.resolution {
                     Text(format.note).font(.caption2).foregroundColor(.secondary)
                 }
             }
 
             Spacer()
 
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill").foregroundColor(.primary)
+            if let p = downloadProgress {
+                Text("\(Int(p * 100))%")
+                    .font(.callout.weight(.semibold))
+                    .foregroundColor(DS.Colors.accent)
+                    .monospacedDigit()
+            } else if isSelected {
+                if !format.filesize.isEmpty {
+                    Text(format.filesize)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                // The action lives right on the chosen quality.
+                Button(action: onDownload) {
+                    Label("Download", systemImage: "arrow.down.circle.fill")
+                }
+                .primaryGlassButton()
+                .disabled(!canDownload)
+            } else {
+                if !format.filesize.isEmpty {
+                    Text(format.filesize)
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                }
+                Image(systemName: "circle")
+                    .font(.system(size: 17))
+                    .foregroundStyle(Color.secondary.opacity(0.35))
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(isSelected ? Color.primary.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(isSelected ? DS.Colors.accent.opacity(0.14) : Color.white.opacity(0.04))
+                // Inline download progress — the row "fills" as it downloads.
+                if let p = downloadProgress {
+                    GeometryReader { geo in
+                        DS.Colors.accent.opacity(0.30)
+                            .frame(width: max(0, geo.size.width * p))
+                            .animation(.easeOut(duration: 0.25), value: p)
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .strokeBorder(
+                    (isSelected || isDownloading) ? DS.Colors.accent.opacity(0.55) : Color.white.opacity(0.07),
+                    lineWidth: 1
+                )
+        )
+        .contentShape(Rectangle())
     }
 }
 
@@ -1879,8 +1603,7 @@ struct VideoRow: View {
             .help("Download this video")
         }
         .padding(10)
-        .background(isSelected ? Color.primary.opacity(0.07) : Color(NSColor.controlBackgroundColor))
-        .cornerRadius(10)
+        .rowChrome(selected: isSelected)
     }
 }
 
@@ -1927,7 +1650,8 @@ struct QueueItemRow: View {
                         Text("MP3")
                             .font(.caption2)
                             .padding(.horizontal, 4).padding(.vertical, 1)
-                            .background(Color.purple.opacity(0.2))
+                            .background(Color.purple.opacity(0.12))
+                            .foregroundColor(.purple)
                             .cornerRadius(3)
                     }
                 }
@@ -1945,7 +1669,7 @@ struct QueueItemRow: View {
                 } else if case .completed = item.status {
                     Text("Completed").font(.caption2).foregroundColor(.green)
                 } else {
-                    Text("Waiting...").font(.caption2).foregroundColor(.secondary)
+                    Text("Waiting…").font(.caption2).foregroundColor(.secondary)
                 }
             }
 
@@ -1961,14 +1685,14 @@ struct QueueItemRow: View {
             }
         }
         .padding(8)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
+        .rowChrome()
     }
 }
 
 struct LocalFileRow: View {
     let file: LocalFileInfo
     let transcriptionState: TranscriptionState
+    var showTranscribeButton: Bool = true
     let onRemove: () -> Void
     let onTranscribe: () -> Void
 
@@ -1998,24 +1722,26 @@ struct LocalFileRow: View {
                     }
                     Text(file.url.pathExtension.uppercased())
                         .font(.caption2).fontWeight(.medium)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Color.primary.opacity(0.08))
-                        .cornerRadius(4)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(Color.white.opacity(0.08), in: Capsule())
                 }
             }
 
             Spacer()
 
-            Button(action: onTranscribe) {
-                if isTranscribing {
-                    ProgressView().scaleEffect(0.7).frame(width: 80)
-                } else {
-                    Label("Transcribe", systemImage: "text.bubble")
+            if showTranscribeButton {
+                Button(action: onTranscribe) {
+                    if isTranscribing {
+                        ProgressView().scaleEffect(0.7).frame(width: 80)
+                    } else {
+                        Label("Transcribe", systemImage: "text.bubble")
+                    }
                 }
+                .primaryGlassButton()
+                .controlSize(.small)
+                .disabled(isTranscribing)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            .disabled(isTranscribing)
 
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle").foregroundColor(.secondary)
@@ -2024,8 +1750,7 @@ struct LocalFileRow: View {
             .disabled(isTranscribing)
         }
         .padding(10)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(10)
+        .rowChrome()
     }
 
     private var fileIcon: String {
@@ -2037,92 +1762,109 @@ struct LocalFileRow: View {
     }
 }
 
-struct TranscriptionLanguagePickerSheet: View {
+struct TranscriptionOptionsSheet: View {
     @Binding var selectedLanguage: String
     let onStart: () -> Void
     let onCancel: () -> Void
 
+    @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var transcriptionManager = TranscriptionManager.shared
+
     private let languages: [(name: String, code: String)] = [
-        ("Auto-Detect", "auto"), ("English", "en"), ("Swedish", "sv"),
+        ("Auto-detect", "auto"), ("English", "en"), ("Swedish", "sv"),
         ("Spanish", "es"), ("French", "fr"), ("German", "de"),
         ("Portuguese", "pt"), ("Japanese", "ja"), ("Chinese", "zh"),
         ("Korean", "ko"), ("Italian", "it"), ("Dutch", "nl"),
         ("Russian", "ru"), ("Arabic", "ar"), ("Hindi", "hi")
     ]
 
+    private var languageName: String {
+        languages.first { $0.code == selectedLanguage }?.name ?? "Auto-detect"
+    }
+
+    private var usingApple: Bool { transcriptionManager.useAppleSpeech() }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
             VStack(spacing: 4) {
-                Text("Language")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                Text("Select the spoken language of the audio.")
+                Image(systemName: "waveform")
+                    .font(.system(size: 26))
+                    .foregroundStyle(DS.Colors.accent)
+                Text("Transcribe")
+                    .font(.title2).fontWeight(.semibold)
+                Text("Choose how to transcribe this audio. It runs fully on your Mac.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
             }
-            .padding(.top, 24)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 16)
+            .padding(.top, 22)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 18)
 
             Divider()
 
-            // Language list
-            ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(languages, id: \.code) { lang in
-                        Button(action: { selectedLanguage = lang.code }) {
-                            HStack {
-                                Text(lang.name)
-                                    .font(.body)
-                                    .foregroundColor(.primary)
-                                Spacer()
-                                if selectedLanguage == lang.code {
-                                    Image(systemName: "checkmark")
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 9)
-                            .background(
-                                selectedLanguage == lang.code
-                                    ? Color.primary.opacity(0.07)
-                                    : Color.clear
-                            )
-                            .cornerRadius(8)
-                        }
-                        .buttonStyle(.plain)
+            VStack(spacing: 16) {
+                // Engine
+                optionRow(title: "Engine",
+                          subtitle: usingApple ? "Apple on-device speech — no model download" : "WhisperKit · \(settings.defaultWhisperModel.displayName)") {
+                    Picker("", selection: $settings.transcriptionEngine) {
+                        ForEach(TranscriptionEngineChoice.allCases) { Text($0.rawValue).tag($0) }
                     }
+                    .labelsHidden()
+                    .frame(width: 150)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
+
+                // Language
+                optionRow(title: "Language", subtitle: "Spoken language of the audio") {
+                    Picker("", selection: $selectedLanguage) {
+                        ForEach(languages, id: \.code) { Text($0.name).tag($0.code) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 150)
+                }
+
+                // Speaker labels
+                optionRow(title: "Speaker labels", subtitle: "Identify who said what") {
+                    Toggle("", isOn: $settings.enableSpeakerDiarization)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                }
             }
-            .frame(maxHeight: 320)
+            .padding(20)
 
             Divider()
 
-            // Buttons
             HStack(spacing: 10) {
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(.bordered)
+                    .secondaryGlassButton()
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
 
                 Button(action: onStart) {
-                    Text("Start Transcription")
+                    Label("Start Transcription", systemImage: "waveform")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .primaryGlassButton()
                 .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
                 .frame(maxWidth: .infinity)
             }
             .padding(16)
         }
-        .frame(width: 320)
-        .background(Color(NSColor.windowBackgroundColor))
+        .frame(width: 420)
+    }
+
+    @ViewBuilder
+    private func optionRow<Control: View>(title: String, subtitle: String, @ViewBuilder control: () -> Control) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.body).fontWeight(.medium)
+                Text(subtitle).font(.caption).foregroundColor(.secondary)
+            }
+            Spacer()
+            control()
+        }
     }
 }
 

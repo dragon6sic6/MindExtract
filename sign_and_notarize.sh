@@ -30,7 +30,7 @@ fi
 BUNDLE_ID="com.mindact.mindextract"
 
 APP_NAME="MindExtract"
-DMG_NAME="MindExtract-1.5.13-Universal"
+DMG_NAME="MindExtract-2.0.0-Universal"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$PROJECT_DIR/build"
 OUTPUT_DIR="$PROJECT_DIR/dist"
@@ -234,7 +234,7 @@ if [ -f "$SPARKLE_TOOLS/sign_update" ] && [ -f "$APPCAST_PATH" ]; then
     RELEASE_NOTES_FILE="$PROJECT_DIR/release_notes.html"
 
     # Build appcast.xml using Python so HTML in release notes is handled safely
-    python3 - "$APPCAST_PATH" "$VERSION" "$BUILD" "$ED_SIG" "$DMG_FILESIZE" "$DOWNLOAD_URL" "$PUBDATE" "$RELEASE_NOTES_FILE" << 'PYEOF'
+    /usr/bin/python3 - "$APPCAST_PATH" "$VERSION" "$BUILD" "$ED_SIG" "$DMG_FILESIZE" "$DOWNLOAD_URL" "$PUBDATE" "$RELEASE_NOTES_FILE" << 'PYEOF'
 import sys, os
 
 appcast_path, version, build, ed_sig, filesize, url, pubdate, notes_file = sys.argv[1:]
@@ -258,7 +258,7 @@ xml = f"""<?xml version="1.0" encoding="utf-8"?>
       <pubDate>{pubdate}</pubDate>
       <sparkle:version>{build}</sparkle:version>
       <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
 {notes}
       ]]></description>
