@@ -7,22 +7,23 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.1.1</title>
-      <pubDate>Wed, 10 Jun 2026 09:24:41 +0000</pubDate>
-      <sparkle:version>29</sparkle:version>
-      <sparkle:shortVersionString>2.1.1</sparkle:shortVersionString>
+      <title>Version 2.1.2</title>
+      <pubDate>Wed, 10 Jun 2026 13:22:06 +0000</pubDate>
+      <sparkle:version>30</sparkle:version>
+      <sparkle:shortVersionString>2.1.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.1.1</h2>
+<h2>What's New in 2.1.2</h2>
 <ul>
-  <li><strong>About, clarified</strong> — Settings now includes a responsible-use note and open-source acknowledgements with licenses for the components MindExtract builds on (yt-dlp, FFmpeg, WhisperKit, Sparkle)</li>
-  <li><strong>Clearer privacy wording</strong> — nothing leaves your Mac unless you explicitly choose a cloud AI provider</li>
+  <li><strong>Much faster link loading</strong> — pasting a video link now loads in a few seconds instead of fifteen. The bundled downloader no longer triggers a security re-scan on every use.</li>
+  <li><strong>Instant preview</strong> — the video card (title, thumbnail, channel) appears the moment you paste a YouTube or Vimeo link, and Transcribe is available immediately while download qualities finish loading.</li>
+  <li><strong>Updated download engine</strong> — yt-dlp updated to the latest release for best site compatibility.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.1/MindExtract-2.1.1-Universal.dmg"
-        sparkle:edSignature="GEndqEBiA/2WURCSX2Ak6zz+xVpNSCtWRPfNPt9Me3jAKDbpy7n9KViBJe3I0pmMOIXmoNK0+6CZw8WJ66ykBw=="
-        length="74083829"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.2/MindExtract-2.1.2-Universal.dmg"
+        sparkle:edSignature="4tMB0uF0oiBHuwORbDN5j+gqHGXyUlEV4bs4CC1xku3Nbn8gUBKYYcLaLUOlcVmTD76oUvf4VguDaGFd4QjGDw=="
+        length="82857886"
         type="application/octet-stream"
       />
     </item>
