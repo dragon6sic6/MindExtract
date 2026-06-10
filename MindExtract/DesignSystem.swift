@@ -231,6 +231,7 @@ struct SolidAccentButtonStyle: ButtonStyle {
         @Environment(\.isEnabled) private var isEnabled
         var body: some View {
             configuration.label
+                .lineLimit(1)
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
@@ -254,6 +255,7 @@ struct QuietCapsuleButtonStyle: ButtonStyle {
         @Environment(\.isEnabled) private var isEnabled
         var body: some View {
             configuration.label
+                .lineLimit(1)
                 .font(.callout.weight(.medium))
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 12)

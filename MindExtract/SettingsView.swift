@@ -495,7 +495,7 @@ struct ModelRow: View {
                     .buttonStyle(.plain)
                     .help("Cancel download")
                 }
-                .frame(width: 100)
+                .frame(width: 100, alignment: .trailing)
             } else if isDownloaded {
                 HStack(spacing: 8) {
                     if isPrewarming {
@@ -508,15 +508,18 @@ struct ModelRow: View {
                     }
                     .buttonStyle(.plain).help("Delete model")
                 }
-                .frame(width: 100)
+                .frame(width: 100, alignment: .trailing)
             } else {
                 Button(action: { transcriptionManager.downloadModel(model) }) {
-                    Label("Download", systemImage: "arrow.down.circle")
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 17))
+                        .foregroundStyle(transcriptionManager.downloadingModel == nil
+                                         ? DS.Colors.accent : Color.secondary.opacity(0.4))
                 }
-                .secondaryGlassButton()
-                .controlSize(.small)
+                .buttonStyle(.plain)
+                .help("Download model")
                 .disabled(transcriptionManager.downloadingModel != nil)
-                .frame(width: 100)
+                .frame(width: 100, alignment: .trailing)
             }
         }
         .padding(.vertical, 4)
