@@ -14,6 +14,12 @@ enum AIBackendChoice: String, CaseIterable, Codable, Identifiable {
     case ollama = "Ollama (local)"
     case openAI = "OpenAI"
     case anthropic = "Anthropic"
+    case gemini = "Google Gemini"
+    case grok = "xAI Grok"
+    case mistral = "Mistral"
+    case groq = "Groq"
+    case openRouter = "OpenRouter"
+    case custom = "Custom endpoint"
 
     var id: String { rawValue }
 
@@ -24,6 +30,12 @@ enum AIBackendChoice: String, CaseIterable, Codable, Identifiable {
         case .ollama: return "Ollama"
         case .openAI: return "OpenAI"
         case .anthropic: return "Anthropic"
+        case .gemini: return "Gemini"
+        case .grok: return "Grok"
+        case .mistral: return "Mistral"
+        case .groq: return "Groq"
+        case .openRouter: return "OpenRouter"
+        case .custom: return "Custom"
         }
     }
 
@@ -33,6 +45,67 @@ enum AIBackendChoice: String, CaseIterable, Codable, Identifiable {
         case .ollama: return "Use models you've downloaded with Ollama (Gemma, Mistral, Llama…) — fully local"
         case .openAI: return "Cloud — transcript text is sent to OpenAI"
         case .anthropic: return "Cloud — transcript text is sent to Anthropic"
+        case .gemini: return "Cloud — transcript text is sent to Google"
+        case .grok: return "Cloud — transcript text is sent to xAI"
+        case .mistral: return "Cloud — European provider (EU-hosted). Transcript text is sent to Mistral"
+        case .groq: return "Cloud — fast open-model inference. Transcript text is sent to Groq"
+        case .openRouter: return "Cloud — an aggregator: your transcript goes to OpenRouter and is then forwarded to whichever model you pick (two hops)"
+        case .custom: return "Your own endpoint — the transcript is sent wherever you point it. You're in control; use a server you trust"
+        }
+    }
+
+    /// Keychain account holding this provider's API key (nil for local providers).
+    var keychainKey: String? {
+        switch self {
+        case .apple, .ollama: return nil
+        case .openAI: return "openai-api-key"
+        case .anthropic: return "anthropic-api-key"
+        case .gemini: return "gemini-api-key"
+        case .grok: return "grok-api-key"
+        case .mistral: return "mistral-api-key"
+        case .groq: return "groq-api-key"
+        case .openRouter: return "openrouter-api-key"
+        case .custom: return "custom-api-key"
+        }
+    }
+
+    /// OpenAI-Chat-Completions-compatible config (everything except Apple, Ollama,
+    /// Anthropic — which have their own wire formats).
+    @MainActor
+    func compatConfig(_ s: AppSettings) -> (baseURL: String, keychainKey: String, model: String, defaultModel: String)? {
+        switch self {
+        case .openAI:     return ("https://api.openai.com/v1", "openai-api-key", s.openAIModel, "gpt-4o-mini")
+        case .gemini:     return ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-api-key", s.geminiModel, "gemini-2.5-flash")
+        case .grok:       return ("https://api.x.ai/v1", "grok-api-key", s.grokModel, "grok-4.3")
+        case .mistral:    return ("https://api.mistral.ai/v1", "mistral-api-key", s.mistralModel, "mistral-small-latest")
+        case .groq:       return ("https://api.groq.com/openai/v1", "groq-api-key", s.groqModel, "openai/gpt-oss-120b")
+        case .openRouter: return ("https://openrouter.ai/api/v1", "openrouter-api-key", s.openRouterModel, "google/gemini-2.5-flash")
+        case .custom:     return (s.customBaseURL, "custom-api-key", s.customModel, "")
+        case .apple, .ollama, .anthropic: return nil
+        }
+    }
+
+    /// Rough prompt character budget (drives chunking) — smaller-context models
+    /// get a smaller budget so a long transcript chunks instead of overflowing.
+    var promptBudget: Int {
+        switch self {
+        case .groq: return 24_000      // hosted open models, modest context
+        case .mistral: return 90_000   // ~32k tokens on the small tier
+        default: return 200_000        // OpenAI/Gemini/Grok/OpenRouter/Custom — large
+        }
+    }
+
+    /// Where to get an API key (shown in Settings).
+    var keyURL: String? {
+        switch self {
+        case .openAI: return "https://platform.openai.com/api-keys"
+        case .anthropic: return "https://console.anthropic.com/settings/keys"
+        case .gemini: return "https://aistudio.google.com/apikey"
+        case .grok: return "https://console.x.ai"
+        case .mistral: return "https://console.mistral.ai/api-keys"
+        case .groq: return "https://console.groq.com/keys"
+        case .openRouter: return "https://openrouter.ai/keys"
+        case .apple, .ollama, .custom: return nil
         }
     }
 }
@@ -53,11 +126,21 @@ protocol AIBackend: Sendable {
 enum AIBackends {
     @MainActor
     static func current() -> AIBackend {
-        switch AppSettings.shared.aiBackend {
+        let s = AppSettings.shared
+        switch s.aiBackend {
         case .apple: return AppleIntelligenceBackend()
-        case .ollama: return OllamaBackend(model: AppSettings.shared.ollamaModel)
-        case .openAI: return OpenAIBackend(model: AppSettings.shared.openAIModel)
-        case .anthropic: return AnthropicBackend(model: AppSettings.shared.anthropicModel)
+        case .ollama: return OllamaBackend(model: s.ollamaModel)
+        case .anthropic: return AnthropicBackend(model: s.anthropicModel)
+        case .openAI, .gemini, .grok, .mistral, .groq, .openRouter, .custom:
+            let cfg = s.aiBackend.compatConfig(s)!
+            return OpenAICompatibleBackend(
+                providerName: s.aiBackend.shortName,
+                baseURL: cfg.baseURL,
+                apiKey: KeychainHelper.get(cfg.keychainKey) ?? "",
+                model: cfg.model,
+                defaultModel: cfg.defaultModel,
+                maxPromptChars: s.aiBackend.promptBudget
+            )
         }
     }
 }
@@ -160,24 +243,52 @@ struct OllamaBackend: AIBackend {
     }
 }
 
-// MARK: - OpenAI (cloud, opt-in)
+// MARK: - OpenAI Chat-Completions-compatible providers (cloud, opt-in)
+// One client serves OpenAI, Gemini's compat endpoint, Grok, Mistral, Groq,
+// OpenRouter, and any custom endpoint — they all share the same wire format.
 
-struct OpenAIBackend: AIBackend {
+struct OpenAICompatibleBackend: AIBackend {
+    let providerName: String
+    let baseURL: String
+    let apiKey: String
     let model: String
-    var badge: String { "Cloud · OpenAI (\(model))" }
-    let maxPromptChars = 200_000
+    let defaultModel: String
+
+    var resolvedModel: String { model.isEmpty ? defaultModel : model }
+    var badge: String { "Cloud · \(providerName) (\(resolvedModel))" }
+    var maxPromptChars: Int = 200_000
 
     func respond(instructions: String, prompt: String) async throws -> String {
-        guard let key = KeychainHelper.get("openai-api-key"), !key.isEmpty else {
-            throw AIError(message: "Add your OpenAI API key in Settings to use this provider.")
+        guard !apiKey.isEmpty else {
+            throw AIError(message: "Add your \(providerName) API key in Settings to use this provider.")
         }
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
+        var trimmedBase = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedBase.isEmpty else {
+            throw AIError(message: "Set the \(providerName) endpoint URL in Settings.")
+        }
+        // A custom URL without a scheme would parse but never connect — fix it up.
+        if !trimmedBase.lowercased().hasPrefix("http") {
+            trimmedBase = "https://" + trimmedBase
+        }
+        // Tolerate a pasted full endpoint (…/chat/completions) instead of just the base.
+        while trimmedBase.hasSuffix("/") { trimmedBase = String(trimmedBase.dropLast()) }
+        if trimmedBase.hasSuffix("/chat/completions") {
+            trimmedBase = String(trimmedBase.dropLast("/chat/completions".count))
+        }
+        let endpoint = trimmedBase + "/chat/completions"
+        guard let url = URL(string: endpoint), url.scheme != nil, url.host != nil else {
+            throw AIError(message: "\(providerName): the endpoint URL isn't valid. It should look like https://host/v1")
+        }
+        guard !resolvedModel.isEmpty else {
+            throw AIError(message: "Set a model name for \(providerName) in Settings.")
+        }
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 120
         let body: [String: Any] = [
-            "model": model.isEmpty ? "gpt-4o-mini" : model,
+            "model": resolvedModel,
             "messages": [
                 ["role": "system", "content": instructions],
                 ["role": "user", "content": prompt]
@@ -187,18 +298,22 @@ struct OpenAIBackend: AIBackend {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw AIError(message: "Unexpected response from OpenAI.")
+            throw AIError(message: "Unexpected response from \(providerName).")
         }
+        // Error can be an object {message} (OpenAI/Grok/Mistral) or a string.
         if let err = json["error"] as? [String: Any], let msg = err["message"] as? String {
-            throw AIError(message: "OpenAI: \(msg)")
+            throw AIError(message: "\(providerName): \(msg)")
+        }
+        if let err = json["error"] as? String {
+            throw AIError(message: "\(providerName): \(err)")
         }
         if (response as? HTTPURLResponse)?.statusCode == 401 {
-            throw AIError(message: "OpenAI rejected the API key — check it in Settings.")
+            throw AIError(message: "\(providerName) rejected the API key — check it in Settings.")
         }
         guard let choices = json["choices"] as? [[String: Any]],
               let message = choices.first?["message"] as? [String: Any],
               let content = message["content"] as? String else {
-            throw AIError(message: "Unexpected response from OpenAI.")
+            throw AIError(message: "Unexpected response from \(providerName).")
         }
         return content.trimmingCharacters(in: .whitespacesAndNewlines)
     }

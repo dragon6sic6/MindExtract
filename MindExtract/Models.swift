@@ -446,6 +446,13 @@ class AppSettings: ObservableObject {
     @AppStorage("ollamaModel") var ollamaModel: String = ""
     @AppStorage("openAIModel") var openAIModel: String = "gpt-4o-mini"
     @AppStorage("anthropicModel") var anthropicModel: String = "claude-haiku-4-5-20251001"
+    @AppStorage("geminiModel") var geminiModel: String = "gemini-2.5-flash"
+    @AppStorage("grokModel") var grokModel: String = "grok-4.3"
+    @AppStorage("mistralModel") var mistralModel: String = "mistral-small-latest"
+    @AppStorage("groqModel") var groqModel: String = "openai/gpt-oss-120b"
+    @AppStorage("openRouterModel") var openRouterModel: String = "google/gemini-2.5-flash"
+    @AppStorage("customBaseURL") var customBaseURL: String = ""
+    @AppStorage("customModel") var customModel: String = ""
 
     // Default language a new transcription starts with (the picker pre-selects it).
     @AppStorage("defaultTranscriptionLanguage") var defaultTranscriptionLanguage: String = "auto"

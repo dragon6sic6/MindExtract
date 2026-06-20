@@ -899,8 +899,12 @@ struct TranscriptionResultView: View {
         switch choice {
         case .apple: return true   // on-device; fails gracefully if AI is off
         case .ollama: return !AppSettings.shared.ollamaModel.isEmpty
-        case .openAI: return !(KeychainHelper.get("openai-api-key") ?? "").isEmpty
-        case .anthropic: return !(KeychainHelper.get("anthropic-api-key") ?? "").isEmpty
+        case .custom:
+            return !AppSettings.shared.customBaseURL.isEmpty
+                && !(KeychainHelper.get("custom-api-key") ?? "").isEmpty
+        default:
+            guard let kc = choice.keychainKey else { return true }
+            return !(KeychainHelper.get(kc) ?? "").isEmpty
         }
     }
 
@@ -912,8 +916,9 @@ struct TranscriptionResultView: View {
         }
         switch choice {
         case .ollama: return "Ollama — start Ollama / pick a model in Settings"
-        case .openAI, .anthropic: return "\(choice.shortName) — add API key in Settings"
+        case .custom: return "Custom — set endpoint + key in Settings"
         case .apple: return choice.shortName
+        default: return "\(choice.shortName) — add API key in Settings"
         }
     }
 

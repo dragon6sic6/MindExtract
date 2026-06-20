@@ -8,12 +8,9 @@ struct SettingsView: View {
     @State private var showAdvancedAuth = false
     @State private var showResetConfirmation = false
     @State private var showWhisperKitModels = false
-    @State private var openAIKey = KeychainHelper.get("openai-api-key") ?? ""
-    @State private var anthropicKey = KeychainHelper.get("anthropic-api-key") ?? ""
     @State private var ollamaModels: [String] = []
     @State private var ollamaDetectFailed = false
-    @State private var openAITest: KeyTestState = .idle
-    @State private var anthropicTest: KeyTestState = .idle
+    @State private var keyTests: [String: KeyTestState] = [:]   // keyed by Keychain account
 
     private func acknowledgementRow(_ name: String, _ license: String, _ url: String) -> some View {
         HStack {
@@ -41,24 +38,51 @@ struct SettingsView: View {
 
     enum KeyTestState: Equatable { case idle, testing, ok, fail(String) }
 
-    private func testKey(provider: AIBackendChoice) {
-        let key = provider == .openAI ? openAIKey : anthropicKey
-        guard !key.isEmpty else {
-            if provider == .openAI { openAITest = .fail("Enter a key first") } else { anthropicTest = .fail("Enter a key first") }
-            return
+    /// A binding that reads/writes an API key straight to the Keychain.
+    private func keychainBinding(_ key: String) -> Binding<String> {
+        Binding(
+            get: { KeychainHelper.get(key) ?? "" },
+            // Trim — a pasted key with a trailing newline/space otherwise 401s forever.
+            set: { KeychainHelper.set($0.trimmingCharacters(in: .whitespacesAndNewlines), key: key); keyTests[key] = .idle }
+        )
+    }
+
+    /// The Settings model field for a given cloud provider.
+    private func cloudModelBinding(_ c: AIBackendChoice) -> Binding<String>? {
+        switch c {
+        case .openAI: return $settings.openAIModel
+        case .anthropic: return $settings.anthropicModel
+        case .gemini: return $settings.geminiModel
+        case .grok: return $settings.grokModel
+        case .mistral: return $settings.mistralModel
+        case .groq: return $settings.groqModel
+        case .openRouter: return $settings.openRouterModel
+        case .custom: return $settings.customModel
+        case .apple, .ollama: return nil
         }
-        if provider == .openAI { openAITest = .testing } else { anthropicTest = .testing }
-        Task { @MainActor in
-            var req: URLRequest
-            if provider == .openAI {
-                req = URLRequest(url: URL(string: "https://api.openai.com/v1/models")!)
-                req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-            } else {
-                req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/models")!)
-                req.setValue(key, forHTTPHeaderField: "x-api-key")
-                req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+    }
+
+    /// Validate a key by hitting the provider's "list models" endpoint.
+    private func testKey(_ provider: AIBackendChoice) {
+        guard let kc = provider.keychainKey else { return }
+        let key = KeychainHelper.get(kc) ?? ""
+        guard !key.isEmpty else { keyTests[kc] = .fail("Enter a key first"); return }
+        keyTests[kc] = .testing
+        var req: URLRequest
+        if provider == .anthropic {
+            req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/models")!)
+            req.setValue(key, forHTTPHeaderField: "x-api-key")
+            req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        } else if let cfg = provider.compatConfig(settings) {
+            let base = cfg.baseURL.hasSuffix("/") ? String(cfg.baseURL.dropLast()) : cfg.baseURL
+            guard !base.isEmpty, let u = URL(string: base + "/models") else {
+                keyTests[kc] = .fail("Set the endpoint URL first"); return
             }
-            req.timeoutInterval = 12
+            req = URLRequest(url: u)
+            req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        } else { return }
+        req.timeoutInterval = 12
+        Task { @MainActor in
             let result: KeyTestState
             do {
                 let (_, resp) = try await URLSession.shared.data(for: req)
@@ -67,14 +91,15 @@ struct SettingsView: View {
             } catch {
                 result = .fail("Couldn't reach the server")
             }
-            if provider == .openAI { openAITest = result } else { anthropicTest = result }
+            keyTests[kc] = result
         }
     }
 
     @ViewBuilder
-    private func keyTestControl(_ state: KeyTestState, provider: AIBackendChoice) -> some View {
+    private func keyTestControl(_ provider: AIBackendChoice) -> some View {
+        let state = keyTests[provider.keychainKey ?? ""] ?? .idle
         HStack(spacing: 6) {
-            Button("Test") { testKey(provider: provider) }
+            Button("Test") { testKey(provider) }
                 .secondaryGlassButton()
                 .controlSize(.small)
             switch state {
@@ -88,6 +113,52 @@ struct SettingsView: View {
                     .foregroundColor(.orange).font(.caption).labelStyle(.titleAndIcon)
             }
         }
+    }
+
+    /// Key + model (+ endpoint for custom) for any OpenAI-compatible cloud provider.
+    @ViewBuilder
+    private func cloudProviderConfig(_ choice: AIBackendChoice) -> some View {
+        if choice == .custom {
+            HStack {
+                Text("Endpoint URL")
+                Spacer()
+                TextField("https://your-host/v1", text: $settings.customBaseURL)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 240)
+            }
+        }
+        if let kc = choice.keychainKey {
+            HStack {
+                Text("API key")
+                Spacer()
+                SecureField("key…", text: keychainBinding(kc))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 240)
+            }
+            HStack { Spacer(); keyTestControl(choice) }
+        }
+        if let mb = cloudModelBinding(choice) {
+            HStack {
+                Text("Model")
+                Spacer()
+                TextField("model name", text: mb)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 200)
+            }
+        }
+        if let url = choice.keyURL {
+            HStack {
+                Spacer()
+                Button("Get an API key →") {
+                    if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+                }
+                .buttonStyle(.link)
+                .font(.caption)
+            }
+        }
+        Text("Keys are stored securely in your Keychain.")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 
     private var appleSpeechAvailable: Bool {
@@ -242,8 +313,8 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        if (settings.aiBackend == .openAI && openAIKey.isEmpty) ||
-                           (settings.aiBackend == .anthropic && anthropicKey.isEmpty) {
+                        if let kc = settings.aiBackend.keychainKey,
+                           (KeychainHelper.get(kc) ?? "").isEmpty {
                             Label("Add an API key below to use this provider.", systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption)
                                 .foregroundColor(.orange)
@@ -279,59 +350,9 @@ struct SettingsView: View {
                                     .foregroundColor(.orange)
                             }
 
-                        case .openAI:
-                            HStack {
-                                Text("API key")
-                                Spacer()
-                                SecureField("sk-…", text: $openAIKey)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 200)
-                                    .onChange(of: openAIKey) { _, new in
-                                        KeychainHelper.set(new, key: "openai-api-key")
-                                        openAITest = .idle
-                                    }
-                            }
-                            HStack {
-                                Spacer()
-                                keyTestControl(openAITest, provider: .openAI)
-                            }
-                            HStack {
-                                Text("Model")
-                                Spacer()
-                                TextField("gpt-4o-mini", text: $settings.openAIModel)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 200)
-                            }
-                            Text("Stored securely in your Keychain.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-
-                        case .anthropic:
-                            HStack {
-                                Text("API key")
-                                Spacer()
-                                SecureField("sk-ant-…", text: $anthropicKey)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 200)
-                                    .onChange(of: anthropicKey) { _, new in
-                                        KeychainHelper.set(new, key: "anthropic-api-key")
-                                        anthropicTest = .idle
-                                    }
-                            }
-                            HStack {
-                                Spacer()
-                                keyTestControl(anthropicTest, provider: .anthropic)
-                            }
-                            HStack {
-                                Text("Model")
-                                Spacer()
-                                TextField("claude-haiku-4-5-20251001", text: $settings.anthropicModel)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 200)
-                            }
-                            Text("Stored securely in your Keychain.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        default:
+                            // OpenAI, Gemini, Grok, Mistral, Groq, OpenRouter, Anthropic, Custom
+                            cloudProviderConfig(settings.aiBackend)
                         }
                     }
 
