@@ -7,23 +7,26 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.1.2</title>
-      <pubDate>Wed, 10 Jun 2026 13:22:06 +0000</pubDate>
-      <sparkle:version>30</sparkle:version>
-      <sparkle:shortVersionString>2.1.2</sparkle:shortVersionString>
+      <title>Version 2.1.3</title>
+      <pubDate>Sat, 20 Jun 2026 11:31:54 +0000</pubDate>
+      <sparkle:version>31</sparkle:version>
+      <sparkle:shortVersionString>2.1.3</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.1.2</h2>
+<h2>What's New in 2.1.3</h2>
 <ul>
-  <li><strong>Much faster link loading</strong> — pasting a video link now loads in a few seconds instead of fifteen. The bundled downloader no longer triggers a security re-scan on every use.</li>
-  <li><strong>Instant preview</strong> — the video card (title, thumbnail, channel) appears the moment you paste a YouTube or Vimeo link, and Transcribe is available immediately while download qualities finish loading.</li>
-  <li><strong>Updated download engine</strong> — yt-dlp updated to the latest release for best site compatibility.</li>
+  <li><strong>Download several qualities of the same video</strong> — grab 720p and then 1080p back-to-back and you'll get both files. Each download now saves with its resolution in the name (e.g. "… 1080p.mp4") instead of the second one silently doing nothing.</li>
+  <li><strong>See the size before you download</strong> — the quality menu now shows each option's file size (e.g. "1080p · ~258 MB") and marks the recommended pick, so there are no surprises.</li>
+  <li><strong>Looks right at any window size</strong> — resize the window small or go fullscreen and text no longer crams or breaks in the middle of a word. The transcript header, speaker list, and other panels all adapt cleanly.</li>
+  <li><strong>Switch AI models right in the chat</strong> — a new model picker in the transcript chat lets you change between Apple Intelligence, Ollama, OpenAI, and Anthropic without going to Settings.</li>
+  <li><strong>Clearer AI messages</strong> — when Apple's on-device model declines a question, you now get a helpful explanation and a nudge to switch providers, instead of a cryptic error.</li>
+  <li><strong>Polish</strong> — the Export button now matches the rest of the app, and buttons stay consistent throughout.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.2/MindExtract-2.1.2-Universal.dmg"
-        sparkle:edSignature="4tMB0uF0oiBHuwORbDN5j+gqHGXyUlEV4bs4CC1xku3Nbn8gUBKYYcLaLUOlcVmTD76oUvf4VguDaGFd4QjGDw=="
-        length="82857886"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.3/MindExtract-2.1.3-Universal.dmg"
+        sparkle:edSignature="sMTNCkXMy+bBZrIOnJDmraux6dJ8t2EIu5lOemap0oXZD/tvy0p7P5EmxTvzdNZ2Nz4UEmblmXx4CcWEk8s1AA=="
+        length="82757412"
         type="application/octet-stream"
       />
     </item>
