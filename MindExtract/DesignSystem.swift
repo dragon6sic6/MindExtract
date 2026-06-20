@@ -279,4 +279,31 @@ extension View {
     func secondaryGlassButton() -> some View {
         self.buttonStyle(QuietCapsuleButtonStyle())
     }
+
+    /// A `Menu` styled to match `secondaryGlassButton()` — same quiet capsule,
+    /// so dropdown actions (Export, etc.) look identical to plain buttons next
+    /// to them instead of falling back to the system's bordered menu chrome.
+    func secondaryMenu() -> some View {
+        self.menuStyle(.button).buttonStyle(QuietCapsuleButtonStyle())
+    }
+
+    /// One-line chrome text that never wraps mid-word — for toolbar/header
+    /// labels, tabs, pills, and any control text. Truncates with "…" instead.
+    /// `fixedSize` keeps the label from being compressed into a wrap by a
+    /// crowded HStack; use the default for labels that should hold their width,
+    /// and `flexible: true` for a title that should truncate to share space.
+    func chromeText(_ truncation: Text.TruncationMode = .tail, flexible: Bool = false) -> some View {
+        self
+            .lineLimit(1)
+            .truncationMode(truncation)
+            .fixedSize(horizontal: !flexible, vertical: false)
+    }
+
+    /// Multi-line body text (titles, descriptions) capped at a few lines with
+    /// clean tail truncation — never an awkward mid-word break.
+    func readingText(lines: Int = 2) -> some View {
+        self
+            .lineLimit(lines)
+            .truncationMode(.tail)
+    }
 }

@@ -32,11 +32,18 @@ struct ContentView: View {
         let videos = formats.filter { !$0.isAudioOnly && !$0.resolution.isEmpty }
         var best: [String: VideoFormat] = [:]
         for f in videos {
-            if let existing = best[f.resolution] {
-                if f.ext.lowercased() == "mp4" && existing.ext.lowercased() != "mp4" {
-                    best[f.resolution] = f
-                }
-            } else {
+            guard let existing = best[f.resolution] else {
+                best[f.resolution] = f
+                continue
+            }
+            // Prefer a format that actually reports a size (YouTube's HLS
+            // variants often report none, the DASH ones do) — that's what
+            // lets us show "~150 MB" in the menu. Then prefer MP4.
+            let fHasSize = f.filesizeBytes > 0
+            let existingHasSize = existing.filesizeBytes > 0
+            if fHasSize != existingHasSize {
+                if fHasSize { best[f.resolution] = f }
+            } else if f.ext.lowercased() == "mp4" && existing.ext.lowercased() != "mp4" {
                 best[f.resolution] = f
             }
         }
@@ -92,7 +99,7 @@ struct ContentView: View {
                 .background(appBackdrop)
                 .navigationTitle("")
         }
-        .frame(minWidth: 740, minHeight: 560)
+        .frame(minWidth: 820, minHeight: 580)
         .background(WindowConfigurator())
         .onAppear { checkPendingURL() }
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
@@ -625,11 +632,13 @@ struct ContentView: View {
                     .clipShape(Capsule())
                 )
 
-                Button { downloader.cancelDownload() } label: {
-                    Image(systemName: "xmark")
+                Button(role: .cancel) { downloader.cancelDownload() } label: {
+                    Label("Cancel", systemImage: "xmark.circle.fill")
+                        .font(.callout.weight(.semibold))
                 }
                 .secondaryGlassButton()
-                .help("Cancel download")
+                .tint(.red)
+                .help("Cancel this download")
             } else if info.formats.isEmpty {
                 // oEmbed preview is up; yt-dlp is still fetching qualities.
                 HStack(spacing: 8) {
@@ -643,15 +652,16 @@ struct ContentView: View {
                 .background(Capsule().fill(Color.secondary.opacity(0.15)))
             } else {
                 Menu {
-                    ForEach(tieredVideoFormats(info.formats)) { f in
-                        Button(qualityMenuLabel(f)) {
+                    let tiered = tieredVideoFormats(info.formats)
+                    ForEach(Array(tiered.enumerated()), id: \.element.id) { index, f in
+                        Button(qualityMenuLabel(f, allFormats: info.formats, isRecommended: index == 0)) {
                             selectedFormat = f
                             startDownload()
                         }
                     }
                     Menu("All formats…") {
                         ForEach(info.formats) { f in
-                            Button(qualityMenuLabel(f)) {
+                            Button(qualityMenuLabel(f, allFormats: info.formats)) {
                                 selectedFormat = f
                                 startDownload()
                             }
@@ -696,9 +706,29 @@ struct ContentView: View {
         }
     }
 
-    private func qualityMenuLabel(_ f: VideoFormat) -> String {
+    /// Bytes of the best audio stream — added to video-only formats so the
+    /// menu shows the size of the *final* merged file, not just the video track.
+    private func bestAudioBytes(_ formats: [VideoFormat]) -> Int64 {
+        formats.filter { $0.isAudioOnly }.map(\.filesizeBytes).max() ?? 0
+    }
+
+    private static let menuByteFormatter: ByteCountFormatter = {
+        let f = ByteCountFormatter()
+        f.countStyle = .file
+        f.allowedUnits = [.useMB, .useGB]
+        return f
+    }()
+
+    /// One menu row: "1080p · ~258 MB" (or "· Recommended" on the top pick,
+    /// "· —" when the size is unknown). MP4 is dropped since every row is MP4.
+    private func qualityMenuLabel(_ f: VideoFormat, allFormats: [VideoFormat], isRecommended: Bool = false) -> String {
         let res = f.isAudioOnly ? "Audio" : f.resolution
-        return "\(res) — \(f.ext.uppercased())\(f.filesize.isEmpty ? "" : " · \(f.filesize)")"
+        var bytes = f.filesizeBytes
+        if f.isVideoOnly { bytes += bestAudioBytes(allFormats) }
+        let sizeStr = bytes > 0 ? "~\(Self.menuByteFormatter.string(fromByteCount: bytes))" : "—"
+        var label = "\(res) · \(sizeStr)"
+        if isRecommended { label += "  ·  Recommended" }
+        return label
     }
 
     /// Quiet glass pill for a media-level action in the video card header.

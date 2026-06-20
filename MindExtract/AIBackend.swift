@@ -17,6 +17,16 @@ enum AIBackendChoice: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Compact name for tight UI (e.g. the in-chat model switcher chip).
+    var shortName: String {
+        switch self {
+        case .apple: return "Apple"
+        case .ollama: return "Ollama"
+        case .openAI: return "OpenAI"
+        case .anthropic: return "Anthropic"
+        }
+    }
+
     var detail: String {
         switch self {
         case .apple: return "Built into macOS 26 — fully on-device, nothing leaves your Mac"
@@ -64,7 +74,23 @@ struct AppleIntelligenceBackend: AIBackend {
             switch SystemLanguageModel.default.availability {
             case .available:
                 let session = LanguageModelSession(instructions: instructions)
-                return try await session.respond(to: prompt).content
+                do {
+                    return try await session.respond(to: prompt).content
+                } catch {
+                    // Apple's on-device model runs every prompt and response
+                    // through a safety guardrail that false-positives on ordinary
+                    // transcripts (news, debates, legal testimony). It can't be
+                    // disabled from the app — translate the cryptic system error
+                    // into something actionable instead of dumping it in chat.
+                    let desc = (String(describing: error) + " " + error.localizedDescription).lowercased()
+                    if desc.contains("guardrail") || desc.contains("unsafe") || desc.contains("safety") {
+                        throw AIError(message: "Apple Intelligence blocked this as possibly sensitive — a known limitation of Apple's on-device safety filter, which often flags ordinary transcripts. Switch to a local model (Ollama) or a cloud provider under Settings → AI Summaries & Chat to avoid it.")
+                    }
+                    if desc.contains("context") || desc.contains("exceeded") || desc.contains("window") {
+                        throw AIError(message: "This transcript is too long for the on-device model. Switch to another AI provider under Settings → AI Summaries & Chat, which can handle longer text.")
+                    }
+                    throw AIError(message: "Apple Intelligence couldn't complete this request. Try again, or switch AI provider under Settings → AI Summaries & Chat.")
+                }
             case .unavailable(.appleIntelligenceNotEnabled):
                 throw AIError(message: "Turn on Apple Intelligence in System Settings, or pick another AI provider in Settings.")
             case .unavailable(.modelNotReady):

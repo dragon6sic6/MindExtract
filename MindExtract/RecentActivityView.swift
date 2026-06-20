@@ -167,17 +167,19 @@ struct DownloadHistoryRowImproved: View {
                         .foregroundColor(.secondary)
                     Text(item.platform)
                         .font(.caption)
+                        .chromeText()
                     if let size = item.fileSize {
                         Text("·")
                             .font(.caption)
                         Text(size)
                             .font(.caption)
+                            .chromeText()
                     }
                 }
                 .foregroundColor(.secondary)
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 8)
 
             // Actions (always visible)
             HStack(spacing: 2) {
@@ -444,16 +446,18 @@ struct TranscriptHistoryRow: View {
                     if let duration = item.duration {
                         Text(duration)
                             .font(.caption)
+                            .chromeText()
                         Text("·")
                             .font(.caption)
                     }
                     Text(item.transcriptionDate, style: .date)
                         .font(.caption)
+                        .chromeText()
                 }
                 .foregroundColor(.secondary)
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 8)
 
             // Actions (always visible — same pattern as download rows)
             HStack(spacing: 2) {

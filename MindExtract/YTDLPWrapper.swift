@@ -803,6 +803,7 @@ class YTDLPWrapper: ObservableObject {
                     ext: ext,
                     resolution: resolution,
                     filesize: filesize,
+                    filesizeBytes: filesizeNum,
                     note: formatNote,
                     isAudioOnly: isAudioOnly,
                     isVideoOnly: isVideoOnly
@@ -941,8 +942,11 @@ class YTDLPWrapper: ObservableObject {
         startDownloadStallDetection()
         outputLog = "Starting download...\n"
 
-        // Use truncated title (max 80 chars) + video ID to avoid "filename too long" errors
-        let outputTemplate = "\(outputPath)/%(title).80s [%(id)s].%(ext)s"
+        // Use truncated title (max 80 chars) + video ID to avoid "filename too long"
+        // errors. The resolution is part of the name so downloading several
+        // qualities of the same video produces distinct files instead of yt-dlp
+        // skipping the later ones as "already downloaded".
+        let outputTemplate = "\(outputPath)/%(title).80s [%(id)s] %(height)sp.%(ext)s"
 
         var args: [String]
         if let info = videoInfo,
@@ -1014,7 +1018,7 @@ class YTDLPWrapper: ObservableObject {
         startDownloadStallDetection()
         outputLog = "Starting download (best quality)...\n"
 
-        let outputTemplate = "\(outputPath)/%(title).80s [%(id)s].%(ext)s"
+        let outputTemplate = "\(outputPath)/%(title).80s [%(id)s] %(height)sp.%(ext)s"
 
         // Prefer H.264 (avc1) for QuickTime/macOS compatibility.
         // Falls back to any best video if H.264 is unavailable.
@@ -1316,10 +1320,9 @@ class YTDLPWrapper: ObservableObject {
     private func downloadQueueItem(item: QueueItem, outputPath: String, completion: @escaping (Bool, String?) -> Void) {
         state = .downloading(progress: 0, speed: "Starting…")
 
-        let outputTemplate = "\(outputPath)/%(title).80s [%(id)s].%(ext)s"
-
         var args: [String]
         if item.isAudioOnly {
+            let outputTemplate = "\(outputPath)/%(title).80s [%(id)s].%(ext)s"
             args = [
                 "-f", "bestaudio",
                 "-x",
@@ -1329,6 +1332,8 @@ class YTDLPWrapper: ObservableObject {
                 "--newline", "--progress", "--no-playlist", "--restrict-filenames"
             ]
         } else {
+            // Resolution in the name keeps multiple qualities from colliding.
+            let outputTemplate = "\(outputPath)/%(title).80s [%(id)s] %(height)sp.%(ext)s"
             // Prefer H.264 for QuickTime/macOS compatibility
             let h264Format = "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[vcodec^=av01]+bestaudio/bestvideo[vcodec^=avc]+bestaudio/bestvideo+bestaudio/best"
             args = [

@@ -10,6 +10,7 @@ struct VideoFormat: Identifiable, Hashable {
     let ext: String
     let resolution: String
     let filesize: String
+    let filesizeBytes: Int64
     let note: String
     let isAudioOnly: Bool
     let isVideoOnly: Bool

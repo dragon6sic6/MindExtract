@@ -14,9 +14,9 @@ struct SettingsView: View {
 
     private func acknowledgementRow(_ name: String, _ license: String, _ url: String) -> some View {
         HStack {
-            Text(name).font(.caption).fontWeight(.medium)
-            Text("· \(license)").font(.caption2).foregroundColor(.secondary)
-            Spacer()
+            Text(name).font(.caption).fontWeight(.medium).chromeText()
+            Text("· \(license)").font(.caption2).foregroundColor(.secondary).chromeText()
+            Spacer(minLength: 8)
             Button("License") {
                 if let u = URL(string: url) { NSWorkspace.shared.open(u) }
             }
@@ -608,21 +608,23 @@ struct ModelRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text(model.displayName).fontWeight(.medium)
+                    Text(model.displayName).fontWeight(.medium).chromeText()
                     if model.isRecommended {
                         Text("Recommended")
                             .font(.caption)
+                            .chromeText()
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background(Color.primary.opacity(0.08))
                             .foregroundColor(.primary)
                             .cornerRadius(4)
                     }
                 }
-                Text(model.description).font(.caption).foregroundColor(.secondary)
+                Text(model.description).font(.caption).foregroundColor(.secondary).lineLimit(1).truncationMode(.tail)
             }
-            Spacer()
+            Spacer(minLength: 8)
             Text(model.sizeDescription)
                 .font(.caption).foregroundColor(.secondary)
+                .lineLimit(1)
                 .frame(width: 70, alignment: .trailing)
 
             if isDownloading {

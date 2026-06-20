@@ -110,6 +110,9 @@ struct TranscriptionResultView: View {
     @State private var editingName: String = ""
     @ObservedObject private var summarizer = TranscriptSummarizer.shared
     @ObservedObject private var chat = TranscriptChat.shared
+    // Same UserDefaults key AppSettings uses, so switching here is instantly
+    // reflected by AIBackends.current() on the next question.
+    @AppStorage("aiBackend") private var aiBackend: AIBackendChoice = .apple
     @State private var summaryCopied = false
     @State private var chatInput = ""
 
@@ -189,7 +192,8 @@ struct TranscriptionResultView: View {
             // Speaker legend (shown when diarization data is present)
             let speakersInSegments = Array(Set(transcriptionManager.segments.compactMap { $0.speaker })).sorted()
             if !speakersInSegments.isEmpty {
-                HStack(spacing: 16) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                  HStack(spacing: 16) {
                     ForEach(speakersInSegments, id: \.self) { speaker in
                         Button {
                             editingName = transcriptionManager.speakerDisplayName(speaker)
@@ -202,6 +206,7 @@ struct TranscriptionResultView: View {
                                 Text(transcriptionManager.speakerDisplayName(speaker))
                                     .font(.system(size: 12))
                                     .foregroundColor(.secondary)
+                                    .chromeText()
                                 Image(systemName: "pencil")
                                     .font(.system(size: 9))
                                     .foregroundColor(.secondary.opacity(0.45))
@@ -234,10 +239,10 @@ struct TranscriptionResultView: View {
                             .padding(12)
                         }
                     }
-                    Spacer()
+                  }
+                  .padding(.horizontal, 16)
+                  .padding(.vertical, 4)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
                 .background(Color.white.opacity(0.03))
 
                 Divider()
@@ -295,15 +300,17 @@ struct TranscriptionResultView: View {
                 }
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(isTranscribing ? .secondary.opacity(0.4) : .accentColor)
+                .chromeText()
             }
             .buttonStyle(.plain)
             .disabled(isTranscribing)
+            .layoutPriority(1)
 
             Text(transcriptionManager.currentTranscriptionTitle.isEmpty
                  ? "Transcription"
                  : transcriptionManager.currentTranscriptionTitle)
                 .font(.system(size: 14, weight: .semibold))
-                .lineLimit(1)
+                .chromeText(.tail, flexible: true)
 
             Spacer()
 
@@ -364,6 +371,7 @@ struct TranscriptionResultView: View {
                     Text(tab.rawValue)
                         .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
                         .foregroundColor(selectedTab == tab ? .primary : .secondary)
+                        .chromeText()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 5)
                         .background(
@@ -419,10 +427,12 @@ struct TranscriptionResultView: View {
                 Text("Transcribing")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
+                    .chromeText()
                 if progress > 0 {
                     Text("\(Int(progress * 100))%")
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundColor(.secondary)
+                        .chromeText()
                 }
                 Button("Cancel") {
                     transcriptionManager.cancelTranscription()
@@ -430,11 +440,13 @@ struct TranscriptionResultView: View {
                 .font(.system(size: 11))
                 .buttonStyle(.plain)
                 .foregroundColor(.red.opacity(0.8))
+                .chromeText()
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
             .background(Color.blue.opacity(0.1))
             .cornerRadius(12)
+            .fixedSize()
 
         default:
             EmptyView()
@@ -672,8 +684,37 @@ struct TranscriptionResultView: View {
 
             Divider()
 
-            // Ask bar — question in, on-device answer out.
+            // Ask bar — model switcher, question in, answer out.
             HStack(spacing: 8) {
+                // In-chat AI model switcher — swap providers without leaving the
+                // conversation (e.g. when Apple's guardrail blocks a question).
+                Menu {
+                    Picker("AI model", selection: $aiBackend) {
+                        ForEach(AIBackendChoice.allCases) { choice in
+                            Text(choice.rawValue).tag(choice)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "cpu")
+                        Text(aiBackend.shortName)
+                            .chromeText()
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                            .opacity(0.7)
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(DS.Colors.inputFill, in: Capsule())
+                    .overlay(Capsule().strokeBorder(DS.Colors.inputStroke, lineWidth: 1))
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("AI model — switch provider for answers")
+
                 TextField("Ask about this transcript…", text: $chatInput)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
@@ -702,6 +743,18 @@ struct TranscriptionResultView: View {
             .padding(.vertical, 10)
         }
         .onAppear { chat.prepare(transcript: transcriptionManager.liveTranscriptionText) }
+        .onChange(of: aiBackend) { _, newValue in
+            // Switching to Ollama is only useful if a model is selected — grab
+            // the first installed one so the switch "just works".
+            if newValue == .ollama && AppSettings.shared.ollamaModel.isEmpty {
+                Task {
+                    let models = await OllamaBackend.installedModels()
+                    if let first = models.first {
+                        await MainActor.run { AppSettings.shared.ollamaModel = first }
+                    }
+                }
+            }
+        }
     }
 
     private func sendQuestion() {
@@ -941,8 +994,9 @@ struct TranscriptionResultView: View {
                     Label("Export", systemImage: "square.and.arrow.up")
                         .font(.system(size: 12))
                 }
-                .menuStyle(.borderedButton)
+                .secondaryMenu()
                 .controlSize(.small)
+                .fixedSize()
             }
 
         }
