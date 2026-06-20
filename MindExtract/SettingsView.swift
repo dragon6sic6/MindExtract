@@ -6,11 +6,14 @@ struct SettingsView: View {
     @ObservedObject var downloader: YTDLPWrapper
     @ObservedObject var transcriptionManager = TranscriptionManager.shared
     @State private var showAdvancedAuth = false
+    @State private var showResetConfirmation = false
     @State private var showWhisperKitModels = false
     @State private var openAIKey = KeychainHelper.get("openai-api-key") ?? ""
     @State private var anthropicKey = KeychainHelper.get("anthropic-api-key") ?? ""
     @State private var ollamaModels: [String] = []
     @State private var ollamaDetectFailed = false
+    @State private var openAITest: KeyTestState = .idle
+    @State private var anthropicTest: KeyTestState = .idle
 
     private func acknowledgementRow(_ name: String, _ license: String, _ url: String) -> some View {
         HStack {
@@ -36,6 +39,57 @@ struct SettingsView: View {
         }
     }
 
+    enum KeyTestState: Equatable { case idle, testing, ok, fail(String) }
+
+    private func testKey(provider: AIBackendChoice) {
+        let key = provider == .openAI ? openAIKey : anthropicKey
+        guard !key.isEmpty else {
+            if provider == .openAI { openAITest = .fail("Enter a key first") } else { anthropicTest = .fail("Enter a key first") }
+            return
+        }
+        if provider == .openAI { openAITest = .testing } else { anthropicTest = .testing }
+        Task { @MainActor in
+            var req: URLRequest
+            if provider == .openAI {
+                req = URLRequest(url: URL(string: "https://api.openai.com/v1/models")!)
+                req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            } else {
+                req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/models")!)
+                req.setValue(key, forHTTPHeaderField: "x-api-key")
+                req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+            }
+            req.timeoutInterval = 12
+            let result: KeyTestState
+            do {
+                let (_, resp) = try await URLSession.shared.data(for: req)
+                let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+                result = code == 200 ? .ok : .fail("Key rejected (HTTP \(code))")
+            } catch {
+                result = .fail("Couldn't reach the server")
+            }
+            if provider == .openAI { openAITest = result } else { anthropicTest = result }
+        }
+    }
+
+    @ViewBuilder
+    private func keyTestControl(_ state: KeyTestState, provider: AIBackendChoice) -> some View {
+        HStack(spacing: 6) {
+            Button("Test") { testKey(provider: provider) }
+                .secondaryGlassButton()
+                .controlSize(.small)
+            switch state {
+            case .idle: EmptyView()
+            case .testing: ProgressView().controlSize(.small)
+            case .ok:
+                Label("Valid", systemImage: "checkmark.circle.fill")
+                    .foregroundColor(.green).font(.caption).labelStyle(.titleAndIcon)
+            case .fail(let msg):
+                Label(msg, systemImage: "xmark.circle.fill")
+                    .foregroundColor(.orange).font(.caption).labelStyle(.titleAndIcon)
+            }
+        }
+    }
+
     private var appleSpeechAvailable: Bool {
         if #available(macOS 26.0, *) { return true }
         return false
@@ -56,7 +110,7 @@ struct SettingsView: View {
                                     Text(choice.rawValue).tag(choice)
                                 }
                             }
-                            .frame(width: 180)
+                            .frame(width: 200)
                             .help("Which speech engine transcribes your audio. Automatic picks the best one for your Mac.")
                         }
                         Text(settings.transcriptionEngine.detail)
@@ -78,8 +132,20 @@ struct SettingsView: View {
                                     Text(format.displayName).tag(format)
                                 }
                             }
-                            .frame(width: 180)
+                            .frame(width: 200)
                             .help("The file format used when a transcript is saved. SRT and VTT are subtitle formats.")
+                        }
+
+                        HStack {
+                            Text("Default language")
+                            Spacer()
+                            Picker("", selection: $settings.defaultTranscriptionLanguage) {
+                                ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
+                                    Text(lang.name).tag(lang.code)
+                                }
+                            }
+                            .frame(width: 200)
+                            .help("The language a new transcription starts with. You can still change it each time. Auto-detect works for most content.")
                         }
 
                         Toggle(isOn: $settings.enableSpeakerDiarization) {
@@ -119,7 +185,7 @@ struct SettingsView: View {
                                             .tag(model)
                                         }
                                     }
-                                    .frame(width: 220)
+                                    .frame(width: 200)
                                 }
 
                                 VStack(spacing: 0) {
@@ -173,8 +239,16 @@ struct SettingsView: View {
                         }
                         Text(settings.aiBackend.detail)
                             .font(.caption)
-                            .foregroundColor(settings.aiBackend == .openAI || settings.aiBackend == .anthropic ? .orange : .secondary)
+                            .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if (settings.aiBackend == .openAI && openAIKey.isEmpty) ||
+                           (settings.aiBackend == .anthropic && anthropicKey.isEmpty) {
+                            Label("Add an API key below to use this provider.", systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
 
                         switch settings.aiBackend {
                         case .apple:
@@ -211,10 +285,15 @@ struct SettingsView: View {
                                 Spacer()
                                 SecureField("sk-…", text: $openAIKey)
                                     .textFieldStyle(.roundedBorder)
-                                    .frame(width: 240)
+                                    .frame(width: 200)
                                     .onChange(of: openAIKey) { _, new in
                                         KeychainHelper.set(new, key: "openai-api-key")
+                                        openAITest = .idle
                                     }
+                            }
+                            HStack {
+                                Spacer()
+                                keyTestControl(openAITest, provider: .openAI)
                             }
                             HStack {
                                 Text("Model")
@@ -233,10 +312,15 @@ struct SettingsView: View {
                                 Spacer()
                                 SecureField("sk-ant-…", text: $anthropicKey)
                                     .textFieldStyle(.roundedBorder)
-                                    .frame(width: 240)
+                                    .frame(width: 200)
                                     .onChange(of: anthropicKey) { _, new in
                                         KeychainHelper.set(new, key: "anthropic-api-key")
+                                        anthropicTest = .idle
                                     }
+                            }
+                            HStack {
+                                Spacer()
+                                keyTestControl(anthropicTest, provider: .anthropic)
                             }
                             HStack {
                                 Text("Model")
@@ -262,6 +346,12 @@ struct SettingsView: View {
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                                 .frame(maxWidth: 150)
+                            Button("Show") {
+                                NSWorkspace.shared.open(URL(fileURLWithPath: settings.downloadPath))
+                            }
+                            .secondaryGlassButton()
+                            .controlSize(.small)
+                            .help("Reveal the downloads folder in Finder")
                             Button("Change…") {
                                 selectDownloadFolder()
                             }
@@ -278,7 +368,7 @@ struct SettingsView: View {
                                 Text("3").tag(3)
                                 Text("4").tag(4)
                             }
-                            .frame(width: 180)
+                            .frame(width: 200)
                             .help("How many videos download at the same time when you queue several.")
                         }
 
@@ -297,24 +387,25 @@ struct SettingsView: View {
                                     Text("German").tag("de")
                                     Text("Auto").tag("auto")
                                 }
-                                .frame(width: 180)
+                                .frame(width: 200)
                             }
                         }
                     }
 
                     // MARK: YouTube sign-in
-                    SettingsSection(title: "YouTube", icon: "person.crop.circle") {
+                    // MARK: Notifications
+                    SettingsSection(title: "Notifications", icon: "bell") {
+                        Toggle("Show a notification when a download finishes", isOn: $settings.showNotifications)
+                        Toggle("Play a sound when a download finishes", isOn: $settings.playSoundOnComplete)
+                    }
+
+                    // MARK: YouTube Sign-in (niche — kept near the bottom)
+                    SettingsSection(title: "YouTube Sign-in", icon: "play.rectangle.fill") {
                         Text("Most videos download without signing in. Sign in only if YouTube blocks a download — for example age-restricted or members-only videos, or a “confirm you're not a bot” error.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                         youtubeAuthContent
-                    }
-
-                    // MARK: Notifications
-                    SettingsSection(title: "Notifications", icon: "bell") {
-                        Toggle("Show a notification when a download finishes", isOn: $settings.showNotifications)
-                        Toggle("Play a sound when a download finishes", isOn: $settings.playSoundOnComplete)
                     }
 
                     // MARK: About
@@ -324,6 +415,11 @@ struct SettingsView: View {
                             Spacer()
                             Text("\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"))")
                                 .foregroundColor(.secondary)
+                            Button("Check for Updates") {
+                                NotificationCenter.default.post(name: .checkForUpdates, object: nil)
+                            }
+                            .secondaryGlassButton()
+                            .controlSize(.small)
                         }
                         Text("Everything runs on your Mac — no audio or video ever leaves your computer unless you choose a cloud AI provider.")
                             .font(.caption)
@@ -349,6 +445,24 @@ struct SettingsView: View {
                         }
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                        Divider().padding(.vertical, 2)
+
+                        HStack {
+                            Button("Open App Data Folder") {
+                                NSWorkspace.shared.open(appDataFolder)
+                            }
+                            .secondaryGlassButton()
+                            .controlSize(.small)
+                            .help("Where transcripts, history, and models are stored")
+
+                            Spacer()
+
+                            Button("Reset Settings…") { showResetConfirmation = true }
+                                .secondaryGlassButton()
+                                .controlSize(.small)
+                                .tint(.red)
+                        }
                     }
                 }
                 .padding()
@@ -357,6 +471,29 @@ struct SettingsView: View {
         .onAppear {
             transcriptionManager.loadDownloadedModels()
         }
+        .confirmationDialog("Reset all settings to their defaults?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
+            Button("Reset Settings", role: .destructive) { resetSettingsToDefaults() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This restores preferences like engine, language, and download options. Your downloads, transcripts, history, and API keys are not touched.")
+        }
+    }
+
+    private var appDataFolder: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("MindExtract")
+    }
+
+    private func resetSettingsToDefaults() {
+        settings.transcriptionEngine = .automatic
+        settings.transcriptionOutputFormat = .txt
+        settings.defaultTranscriptionLanguage = "auto"
+        settings.enableSpeakerDiarization = true
+        settings.parallelDownloads = 2
+        settings.downloadSubtitles = false
+        settings.aiBackend = .apple
+        settings.showNotifications = true
+        settings.playSoundOnComplete = true
     }
 
     // MARK: - YouTube Auth Content
@@ -432,6 +569,8 @@ struct SettingsView: View {
                                 }) {
                                     Image(systemName: "doc.on.doc")
                                         .font(.caption)
+                                        .frame(width: 24, height: 24)
+                                        .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                                 .help("Copy code")
@@ -533,7 +672,7 @@ struct SettingsView: View {
                                 Text(browser.displayName).tag(browser)
                             }
                         }
-                        .frame(width: 120)
+                        .frame(width: 160)
                         .controlSize(.small)
                     }
                 }
@@ -632,6 +771,8 @@ struct ModelRow: View {
                     ProgressView(value: transcriptionManager.modelDownloadProgress).frame(width: 60)
                     Button(action: { transcriptionManager.cancelModelDownload() }) {
                         Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                            .frame(width: 26, height: 26)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help("Cancel download")
@@ -646,6 +787,8 @@ struct ModelRow: View {
                     }
                     Button(action: { transcriptionManager.deleteModel(model) }) {
                         Image(systemName: "trash").foregroundColor(.red)
+                            .frame(width: 26, height: 26)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain).help("Delete model")
                 }
@@ -656,6 +799,8 @@ struct ModelRow: View {
                         .font(.system(size: 17))
                         .foregroundStyle(transcriptionManager.downloadingModel == nil
                                          ? DS.Colors.accent : Color.secondary.opacity(0.4))
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Download model")

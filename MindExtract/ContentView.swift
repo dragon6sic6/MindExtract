@@ -64,9 +64,12 @@ struct ContentView: View {
     // Transcribe state
     @State private var selectedLocalFiles: [LocalFileInfo] = []
     @State private var showTranscriptionLanguagePicker = false
-    @State private var selectedTranscriptionLanguage = "auto"
+    @State private var selectedTranscriptionLanguage = AppSettings.shared.defaultTranscriptionLanguage
     @State private var pendingTranscriptionFile: LocalFileInfo? = nil
     @State private var pendingTranscriptionFilePath: String? = nil
+    // Quality to auto-pick once formats load, for "re-download same quality".
+    @State private var pendingRedownloadFormat: String? = nil
+    @State private var thumbnailHovered = false
 
     private var detectedPlatform: Platform {
         Platform.detect(from: urlInput)
@@ -125,9 +128,19 @@ struct ContentView: View {
                 }
             }
         }
+        // Re-download "same quality": once formats arrive, auto-start the saved
+        // format if it's still offered; otherwise fall back to the quality menu.
+        .onChange(of: downloader.videoInfo) { _, info in
+            guard let info, let wantFormat = pendingRedownloadFormat else { return }
+            pendingRedownloadFormat = nil
+            if info.formats.contains(where: { $0.id == wantFormat }) {
+                downloader.download(url: info.url, formatId: wantFormat, outputPath: settings.downloadPath)
+            }
+        }
         .sheet(isPresented: $showTranscriptionLanguagePicker) {
             TranscriptionOptionsSheet(
                 selectedLanguage: $selectedTranscriptionLanguage,
+                onAppearDefault: settings.defaultTranscriptionLanguage,
                 onStart: {
                     showTranscriptionLanguagePicker = false
                     if let file = pendingTranscriptionFile {
@@ -335,6 +348,8 @@ struct ContentView: View {
                     Button(action: clearAll) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help("Clear")
@@ -343,6 +358,8 @@ struct ContentView: View {
                 Button(action: pasteFromClipboard) {
                     Image(systemName: "doc.on.clipboard")
                         .foregroundColor(.secondary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Paste (⌘V)")
@@ -382,11 +399,19 @@ struct ContentView: View {
     // MARK: - History Detail
 
     private var historyDetailView: some View {
-        RecentActivityView(onRedownload: { item in
-            urlInput = item.url
-            selectedSidebarItem = .download
-            performAction()
-        })
+        RecentActivityView(
+            onRedownload: { item in
+                urlInput = item.url
+                pendingRedownloadFormat = item.formatId   // auto-pick same quality if still available
+                selectedSidebarItem = .download
+                performAction()
+            },
+            onTranscribe: { item in
+                guard let path = item.filePath else { return }
+                pendingTranscriptionFilePath = path
+                showTranscriptionLanguagePicker = true
+            }
+        )
     }
 
     // MARK: - Transcripts Destination
@@ -518,7 +543,21 @@ struct ContentView: View {
                 .secondaryGlassButton()
                 .controlSize(.small)
 
-                if !downloader.isProcessingQueue {
+                if downloader.isProcessingQueue {
+                    if downloader.isQueuePaused {
+                        Button(action: { downloader.resumeQueue(outputPath: settings.downloadPath) }) {
+                            Label("Resume", systemImage: "play.fill").font(.caption)
+                        }
+                        .primaryGlassButton()
+                        .controlSize(.small)
+                    } else {
+                        Button(action: { downloader.pauseQueue() }) {
+                            Label("Pause", systemImage: "pause.fill").font(.caption)
+                        }
+                        .secondaryGlassButton()
+                        .controlSize(.small)
+                    }
+                } else {
                     Button(action: { downloader.startQueue(outputPath: settings.downloadPath) }) {
                         Label("Download All", systemImage: "arrow.down.circle.fill").font(.caption)
                     }
@@ -531,7 +570,8 @@ struct ContentView: View {
                 ForEach(downloader.downloadQueue) { item in
                     QueueItemRow(
                         item: item,
-                        onRemove: { downloader.removeFromQueue(id: item.id) }
+                        onRemove: { downloader.removeFromQueue(id: item.id) },
+                        onRetry: { downloader.retryQueueItem(id: item.id, outputPath: settings.downloadPath) }
                     )
                 }
             }
@@ -544,38 +584,66 @@ struct ContentView: View {
     private func videoAndFormatsSection(info: VideoInfo) -> some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 16) {
-                AsyncImage(url: URL(string: info.thumbnail ?? "")) { phase in
-                    switch phase {
-                    case .empty:
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.gray.opacity(0.2))
-                            .overlay(ProgressView().scaleEffect(0.7))
-                    case .success(let image):
-                        image.resizable().aspectRatio(contentMode: .fill).clipped()
-                    case .failure:
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.gray.opacity(0.2))
-                            .overlay(Image(systemName: "play.fill").font(.title).foregroundColor(.secondary))
-                    @unknown default:
-                        RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.2))
+                // Clickable thumbnail — opens the original in the browser so you
+                // can check it's the right video before downloading.
+                Button {
+                    if let u = URL(string: info.url) { NSWorkspace.shared.open(u) }
+                } label: {
+                    AsyncImage(url: URL(string: info.thumbnail ?? "")) { phase in
+                        switch phase {
+                        case .empty:
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.gray.opacity(0.2))
+                                .overlay(ProgressView().scaleEffect(0.7))
+                        case .success(let image):
+                            image.resizable().aspectRatio(contentMode: .fill).clipped()
+                        case .failure:
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.gray.opacity(0.2))
+                                .overlay(Image(systemName: "play.fill").font(.title).foregroundColor(.secondary))
+                        @unknown default:
+                            RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.2))
+                        }
                     }
+                    .frame(width: 180, height: 100)
+                    .cornerRadius(8)
+                    .overlay(
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 26))
+                            .foregroundStyle(.white.opacity(thumbnailHovered ? 0.95 : 0))
+                            .shadow(radius: 4)
+                    )
+                    .contentShape(Rectangle())
                 }
-                .frame(width: 180, height: 100)
-                .cornerRadius(8)
+                .buttonStyle(.plain)
+                .onHover { thumbnailHovered = $0 }
+                .help("Open the original in your browser")
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(info.title).font(.headline).lineLimit(2)
                     HStack {
                         if !info.uploader.isEmpty {
                             Label(info.uploader, systemImage: "person.fill")
+                                .chromeText(.tail, flexible: true)
                         }
                         Spacer()
                         if !info.duration.isEmpty {
-                            Label(info.duration, systemImage: "clock.fill")
+                            Label(info.duration, systemImage: "clock.fill").chromeText()
                         }
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                    // What you'll actually get — the highest quality available,
+                    // so you don't have to open the menu to find out.
+                    if let maxRes = tieredVideoFormats(info.formats).first?.resolution, !maxRes.isEmpty {
+                        Label("Up to \(maxRes)", systemImage: "video.fill")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 7).padding(.vertical, 2)
+                            .background(Capsule().fill(Color.white.opacity(0.06)))
+                            .chromeText()
+                    }
                 }
 
                 Spacer()
@@ -745,6 +813,12 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Found \(downloader.scannedVideos.count) Videos").font(.headline)
+                if !selectedVideos.isEmpty {
+                    Text("· \(selectedVideos.count) selected")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .chromeText()
+                }
                 Spacer()
                 Button(action: selectAllVideos) {
                     Text(selectedVideos.count == downloader.scannedVideos.count ? "Deselect All" : "Select All")
@@ -776,17 +850,27 @@ struct ContentView: View {
     // MARK: - Download Location
 
     private var downloadLocationSection: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "folder").foregroundColor(.secondary)
-            Text(settings.downloadPath)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer()
-            Button("Change…") { selectDownloadFolder() }
-                .secondaryGlassButton()
-                .controlSize(.small)
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: "folder").foregroundColor(.secondary)
+                Text(settings.downloadPath)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer()
+                Button("Change…") { selectDownloadFolder() }
+                    .secondaryGlassButton()
+                    .controlSize(.small)
+            }
+            // Subtitle preference is now visible right where you download, not
+            // only buried in Settings (it's the same stored setting).
+            Toggle(isOn: $settings.downloadSubtitles) {
+                Label("Also download subtitles", systemImage: "captions.bubble")
+                    .font(.caption)
+            }
+            .toggleStyle(.checkbox)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(12)
         .rowChrome()
@@ -807,17 +891,15 @@ struct ContentView: View {
                     }
                     .primaryGlassButton()
                     .controlSize(.large)
-                    .disabled(isDownloading)
+                    .disabled(downloader.isProcessingQueue)
 
-                    if isDownloading {
-                        Button(action: { downloader.cancelDownload() }) {
-                            Image(systemName: "xmark")
-                        }
-                        .secondaryGlassButton()
-                        .help("Cancel download")
-                        .tint(.red)
-                        .controlSize(.large)
+                    Button(action: downloadSelectedAsAudio) {
+                        Label("Audio", systemImage: "music.note")
                     }
+                    .secondaryGlassButton()
+                    .controlSize(.large)
+                    .disabled(downloader.isProcessingQueue)
+                    .help("Download the selected videos as audio (MP3)")
                 }
             }
 
@@ -915,6 +997,17 @@ struct ContentView: View {
         downloader.downloadAudio(url: urlInput, outputPath: settings.downloadPath)
     }
 
+    /// Clear the error and re-attempt: same quality if a video is loaded,
+    /// otherwise reload the URL from scratch.
+    private func retryDownload() {
+        downloader.retry()
+        if downloader.videoInfo != nil, selectedFormat != nil {
+            startDownload()
+        } else {
+            performAction()
+        }
+    }
+
     private func addVideoToQueue() {
         if downloader.videoInfo != nil {
             downloader.addCurrentVideoToQueue(isAudioOnly: false)
@@ -922,9 +1015,10 @@ struct ContentView: View {
             let selectedVids = downloader.scannedVideos.filter { selectedVideos.contains($0.id) }
             downloader.addSelectedVideosToQueue(videos: selectedVids, isAudioOnly: false)
         }
-        // Reset so user can immediately paste the next URL
+        // Clear the preview so the user can paste the next URL — but DON'T use
+        // the full reset(), which would terminate a running queue's downloads.
         urlInput = ""
-        downloader.reset()
+        downloader.clearCurrentSelection()
         selectedFormat = nil
         selectedVideos = []
     }
@@ -971,12 +1065,16 @@ struct ContentView: View {
                             .controlSize(.small)
                             .tint(DS.Colors.accent)
                         }
+
+                        // Closes the loop — the URL field is hidden while a video
+                        // is loaded, so give a clear way back to download the next.
+                        Button("Download Another") { clearAll() }
+                            .secondaryGlassButton()
+                            .controlSize(.small)
                     }
                     transcriptionStatusView
                 }
-                .padding()
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(8)
+                .statusBanner(.green)
 
             case .error(let message):
                 HStack {
@@ -989,15 +1087,16 @@ struct ContentView: View {
                         }
                         .primaryGlassButton()
                         .controlSize(.small)
+                    } else {
+                        Button("Try Again") { retryDownload() }
+                            .primaryGlassButton()
+                            .controlSize(.small)
                     }
                     Button("Dismiss") { downloader.retry() }
                         .secondaryGlassButton()
                         .controlSize(.small)
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.red.opacity(0.1))
-                .cornerRadius(8)
+                .statusBanner(.red)
 
             case .timeout(let message):
                 HStack {
@@ -1014,10 +1113,7 @@ struct ContentView: View {
                     .primaryGlassButton()
                     .controlSize(.small)
                 }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.1))
-                .cornerRadius(8)
+                .statusBanner(.orange)
             }
         }
     }
@@ -1046,9 +1142,7 @@ struct ContentView: View {
                         .tint(DS.Colors.accent)
                 }
             }
-            .padding(10)
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(8)
+            .statusBanner(DS.Colors.accent)
 
         case .loadingModel(let modelName):
             HStack(spacing: 8) {
@@ -1060,9 +1154,7 @@ struct ContentView: View {
                 Spacer()
                 ElapsedTimeText()
             }
-            .padding(10)
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(8)
+            .statusBanner(DS.Colors.accent)
 
         case .extractingAudio:
             HStack(spacing: 8) {
@@ -1073,9 +1165,7 @@ struct ContentView: View {
                 }
                 Spacer()
             }
-            .padding(10)
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(8)
+            .statusBanner(DS.Colors.accent)
 
         case .transcribing(let progress):
             VStack(spacing: 6) {
@@ -1088,6 +1178,8 @@ struct ContentView: View {
                     }
                     Button(action: { transcriptionManager.cancelTranscription() }) {
                         Image(systemName: "xmark.circle").foregroundColor(.secondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help("Cancel transcription")
@@ -1095,9 +1187,7 @@ struct ContentView: View {
                 ProgressView(value: max(progress, 0.02))
                     .progressViewStyle(.linear)
             }
-            .padding(10)
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(8)
+            .statusBanner(DS.Colors.accent)
 
         case .completed(let outputPath):
             HStack(spacing: 8) {
@@ -1143,10 +1233,14 @@ struct ContentView: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 10))
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(.secondary)
+                .help("Dismiss")
             }
+            .statusBanner(.green)
 
         case .error(let message):
             HStack(spacing: 8) {
@@ -1155,8 +1249,9 @@ struct ContentView: View {
                 Spacer()
                 Button("Dismiss") { transcriptionManager.resetState() }
                     .secondaryGlassButton()
-                    .controlSize(.mini)
+                    .controlSize(.small)
             }
+            .statusBanner(.red)
 
         case .modelNotDownloaded:
             VStack(alignment: .leading, spacing: 12) {
@@ -1181,9 +1276,7 @@ struct ContentView: View {
                 .primaryGlassButton()
                 .controlSize(.regular)
             }
-            .padding(14)
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(8)
+            .statusBanner(DS.Colors.accent)
         }
     }
 
@@ -1198,11 +1291,9 @@ struct ContentView: View {
                     Spacer()
                     Button("Settings") { selectedSidebarItem = .settings }
                         .secondaryGlassButton()
-                        .controlSize(.mini)
+                        .controlSize(.small)
                 }
-                .padding()
-                .background(Color.orange.opacity(0.1))
-                .cornerRadius(8)
+                .statusBanner(.orange)
             } else if transcriptionManager.needsModelDownload {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 10) {
@@ -1226,9 +1317,7 @@ struct ContentView: View {
                     .primaryGlassButton()
                     .controlSize(.regular)
                 }
-                .padding(14)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(8)
+                .statusBanner(DS.Colors.accent)
             } else {
                 VStack(spacing: 10) {
                     // Single file → one prominent, obvious primary action here.
@@ -1263,26 +1352,10 @@ struct ContentView: View {
                 }
             }
 
-        case .downloadingAudio, .loadingModel, .extractingAudio, .transcribing:
-            VStack(spacing: 8) { transcriptionStatusView }
-                .padding()
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(8)
-
-        case .completed:
-            VStack(spacing: 8) { transcriptionStatusView }
-                .padding()
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(8)
-
-        case .error:
-            VStack(spacing: 8) { transcriptionStatusView }
-                .padding()
-                .background(Color.red.opacity(0.1))
-                .cornerRadius(8)
-
-        case .modelNotDownloaded:
-            // Self-chromed (blue card) — no extra wrapper.
+        case .downloadingAudio, .loadingModel, .extractingAudio, .transcribing,
+             .completed, .error, .modelNotDownloaded:
+            // The status view chromes itself now — no extra wrapper (that caused
+            // a banner-inside-a-banner).
             transcriptionStatusView
         }
     }
@@ -1314,6 +1387,7 @@ struct ContentView: View {
                         Image(systemName: showingLog ? "chevron.down" : "chevron.right")
                         Text("Output Log").font(.caption)
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -1413,6 +1487,22 @@ struct ContentView: View {
 
     private func performAction() {
         guard !urlInput.isEmpty else { return }
+
+        // Multiple URLs pasted/dropped at once → queue them all instead of
+        // loading just one. (A single URL takes the normal auto-detect path.)
+        let urls = urlInput
+            .split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+            .map(String.init)
+            .filter { $0.hasPrefix("http") }
+        if urls.count > 1 {
+            for u in urls {
+                downloader.addToQueue(url: u, title: u, isAudioOnly: false)
+            }
+            downloader.startQueue(outputPath: settings.downloadPath)
+            urlInput = ""
+            return
+        }
+
         downloader.reset()
         selectedFormat = nil
         selectedVideos = []
@@ -1464,7 +1554,17 @@ struct ContentView: View {
     }
 
     private func downloadSingleVideo(_ video: VideoInfo) {
-        downloader.downloadBest(url: video.url, outputPath: settings.downloadPath)
+        // Route through the queue so it shows progress in the queue panel and
+        // never collides with a queue that's already running.
+        downloader.addToQueue(url: video.url, title: video.title, thumbnail: video.thumbnail, isAudioOnly: false)
+        downloader.startQueue(outputPath: settings.downloadPath)
+    }
+
+    private func downloadSelectedAsAudio() {
+        let selectedVids = downloader.scannedVideos.filter { selectedVideos.contains($0.id) }
+        guard !selectedVids.isEmpty else { return }
+        downloader.addSelectedVideosToQueue(videos: selectedVids, isAudioOnly: true)
+        downloader.startQueue(outputPath: settings.downloadPath)
     }
 
     private func startDownload() {
@@ -1496,6 +1596,8 @@ struct VideoRow: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
                     .foregroundColor(isSelected ? .primary : .secondary)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -1529,12 +1631,15 @@ struct VideoRow: View {
 
             Button(action: onDownload) {
                 Image(systemName: "arrow.down.circle").font(.title2)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .foregroundColor(.primary)
             .help("Download this video")
         }
-        .padding(10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .rowChrome(selected: isSelected)
     }
 }
@@ -1542,6 +1647,7 @@ struct VideoRow: View {
 struct QueueItemRow: View {
     let item: QueueItem
     let onRemove: () -> Void
+    var onRetry: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1610,13 +1716,26 @@ struct QueueItemRow: View {
             if case .downloading = item.status {
                 // Can't remove while downloading
             } else {
+                if case .failed = item.status, let onRetry {
+                    Button(action: onRetry) {
+                        Image(systemName: "arrow.clockwise").foregroundColor(.accentColor)
+                            .frame(width: 26, height: 26)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Try again")
+                }
                 Button(action: onRemove) {
                     Image(systemName: "xmark.circle").foregroundColor(.secondary)
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .help("Remove from queue")
             }
         }
-        .padding(8)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .rowChrome()
     }
 }
@@ -1677,11 +1796,15 @@ struct LocalFileRow: View {
 
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle").foregroundColor(.secondary)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(isTranscribing)
+            .help("Remove file")
         }
-        .padding(10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .rowChrome()
     }
 
@@ -1696,19 +1819,14 @@ struct LocalFileRow: View {
 
 struct TranscriptionOptionsSheet: View {
     @Binding var selectedLanguage: String
+    var onAppearDefault: String? = nil
     let onStart: () -> Void
     let onCancel: () -> Void
 
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var transcriptionManager = TranscriptionManager.shared
 
-    private let languages: [(name: String, code: String)] = [
-        ("Auto-detect", "auto"), ("English", "en"), ("Swedish", "sv"),
-        ("Spanish", "es"), ("French", "fr"), ("German", "de"),
-        ("Portuguese", "pt"), ("Japanese", "ja"), ("Chinese", "zh"),
-        ("Korean", "ko"), ("Italian", "it"), ("Dutch", "nl"),
-        ("Russian", "ru"), ("Arabic", "ar"), ("Hindi", "hi")
-    ]
+    private let languages = AppSettings.transcriptionLanguages
 
     private var languageName: String {
         languages.first { $0.code == selectedLanguage }?.name ?? "Auto-detect"
@@ -1717,6 +1835,11 @@ struct TranscriptionOptionsSheet: View {
     private var usingApple: Bool { transcriptionManager.useAppleSpeech() }
 
     var body: some View {
+        sheetBody
+            .onAppear { if let d = onAppearDefault { selectedLanguage = d } }
+    }
+
+    private var sheetBody: some View {
         VStack(spacing: 0) {
             // Header
             VStack(spacing: 4) {
@@ -1762,6 +1885,16 @@ struct TranscriptionOptionsSheet: View {
                         .labelsHidden()
                         .toggleStyle(.switch)
                 }
+
+                // The chosen engine needs a model that isn't downloaded yet —
+                // catch it here instead of failing after "Start".
+                if transcriptionManager.needsModelDownload {
+                    Label("This engine needs a WhisperKit model. Download one in Settings first.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding(20)
 
@@ -1781,6 +1914,7 @@ struct TranscriptionOptionsSheet: View {
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
                 .frame(maxWidth: .infinity)
+                .disabled(transcriptionManager.needsModelDownload)
             }
             .padding(16)
         }

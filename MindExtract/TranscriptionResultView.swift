@@ -5,7 +5,18 @@ import AVFoundation
 // MARK: - Speaker Colors
 
 enum SpeakerColors {
-    static let palette: [Color] = [.blue, .purple, .orange, .teal, .pink, .green, .indigo, .mint]
+    // Explicit vivid hues tuned for dark mode — several system colors
+    // (purple, indigo, teal) read as muddy/low-contrast on a near-black surface.
+    static let palette: [Color] = [
+        Color(red: 0.20, green: 0.55, blue: 1.00),  // blue
+        Color(red: 0.80, green: 0.40, blue: 1.00),  // magenta
+        Color(red: 1.00, green: 0.60, blue: 0.10),  // orange
+        Color(red: 0.15, green: 0.85, blue: 0.85),  // cyan
+        Color(red: 1.00, green: 0.45, blue: 0.68),  // pink
+        Color(red: 0.35, green: 0.88, blue: 0.42),  // green
+        Color(red: 0.55, green: 0.58, blue: 1.00),  // periwinkle
+        Color(red: 0.25, green: 0.92, blue: 0.72),  // turquoise
+    ]
 
     static func color(for speaker: String) -> Color {
         if let num = Int(speaker.replacingOccurrences(of: "Speaker ", with: "")),
@@ -106,6 +117,10 @@ struct TranscriptionResultView: View {
     @State private var selectedTab: TranscriptionTab = .text
     @State private var searchText: String = ""
     @State private var showSearch = false
+    @State private var showChat = false
+    // Index of the currently focused search match + the segment to scroll to.
+    @State private var searchMatchIndex = 0
+    @State private var searchScrollTarget: UUID?
     @State private var editingSpeaker: String?
     @State private var editingName: String = ""
     @ObservedObject private var summarizer = TranscriptSummarizer.shared
@@ -179,12 +194,35 @@ struct TranscriptionResultView: View {
         }
     }
 
+    /// Segments that match the active search, in order — drives the result
+    /// count and next/previous navigation.
+    private var searchMatches: [TranscriptionSegmentData] {
+        searchText.isEmpty ? [] : filteredSegments
+    }
+
+    /// Move to the next/previous match: wrap around, scroll the Timeline to it,
+    /// and switch to the Timeline tab (where segments have scroll anchors).
+    private func stepSearch(_ delta: Int) {
+        let matches = searchMatches
+        guard !matches.isEmpty else { return }
+        searchMatchIndex = ((searchMatchIndex + delta) % matches.count + matches.count) % matches.count
+        if selectedTab != .timeline { selectedTab = .timeline }
+        searchScrollTarget = matches[searchMatchIndex].id
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
             headerView
 
             Divider()
+
+            // Search row — a real row in the flow (pushes content down) rather
+            // than an overlay floating over the status banner + speaker legend.
+            if showSearch {
+                searchBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
 
             // Status banner (only when active)
             statusView
@@ -194,6 +232,11 @@ struct TranscriptionResultView: View {
             if !speakersInSegments.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                   HStack(spacing: 16) {
+                    // Hints that the chips are editable (rename was easy to miss).
+                    Text("^[\(speakersInSegments.count) speaker](inflect: true) · tap to rename")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary.opacity(0.6))
+                        .chromeText()
                     ForEach(speakersInSegments, id: \.self) { speaker in
                         Button {
                             editingName = transcriptionManager.speakerDisplayName(speaker)
@@ -209,9 +252,10 @@ struct TranscriptionResultView: View {
                                     .chromeText()
                                 Image(systemName: "pencil")
                                     .font(.system(size: 9))
-                                    .foregroundColor(.secondary.opacity(0.45))
+                                    .foregroundColor(.secondary.opacity(0.7))
                             }
                         }
+                        .contentShape(Rectangle())
                         .buttonStyle(.plain)
                         .help("Rename speaker")
                         .popover(isPresented: Binding(
@@ -248,20 +292,26 @@ struct TranscriptionResultView: View {
                 Divider()
             }
 
-            // Content area
+            // Content area — Chat takes over the full content when open; the AI
+            // already has the transcript, so you ask *about* it here and tap a
+            // tab (or the Chat button) to jump back to reading.
             Group {
-                switch selectedTab {
-                case .text:
-                    textView
-                case .timeline:
-                    timelineView
-                case .summary:
-                    summaryView
+                if showChat {
+                    chatFullView
+                } else {
+                    switch selectedTab {
+                    case .text:
+                        textView
+                    case .timeline:
+                        timelineView
+                    case .summary:
+                        summaryView
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Audio player bar
+            // Audio player bar (stays available even while chatting)
             if transcriptionManager.audioFilePath != nil && (isCompleted || !transcriptionManager.segments.isEmpty) {
                 Divider()
                 audioPlayerBar
@@ -282,6 +332,23 @@ struct TranscriptionResultView: View {
             if let path = transcriptionManager.audioFilePath {
                 audioPlayer.load(path: path)
             }
+            // Chat lifecycle lives at the root so it works regardless of tab.
+            chat.prepare(transcript: transcriptionManager.liveTranscriptionText)
+            restoreAISidecar()
+        }
+        .onChange(of: summarizer.state) { _, _ in persistAISidecar() }
+        .onChange(of: chat.messages) { _, _ in persistAISidecar() }
+        .onChange(of: aiBackend) { _, newValue in
+            // Switching to Ollama is only useful if a model is selected — grab
+            // the first installed one so the switch "just works".
+            if newValue == .ollama && AppSettings.shared.ollamaModel.isEmpty {
+                Task {
+                    let models = await OllamaBackend.installedModels()
+                    if let first = models.first {
+                        await MainActor.run { AppSettings.shared.ollamaModel = first }
+                    }
+                }
+            }
         }
         .onDisappear {
             audioPlayer.stop()
@@ -301,9 +368,11 @@ struct TranscriptionResultView: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(isTranscribing ? .secondary.opacity(0.4) : .accentColor)
                 .chromeText()
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(isTranscribing)
+            .help(isTranscribing ? "Available when transcription finishes" : "Back to transcripts")
             .layoutPriority(1)
 
             Text(transcriptionManager.currentTranscriptionTitle.isEmpty
@@ -324,6 +393,29 @@ struct TranscriptionResultView: View {
             // Tab switcher (pill style)
             tabPicker
 
+            // Chat toggle — talk to the transcript from any tab.
+            if isCompleted || !transcriptionManager.segments.isEmpty {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) { showChat.toggle() }
+                }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "ellipsis.bubble")
+                            .font(.system(size: 13))
+                        Text("Chat").font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundColor(showChat ? .white : .accentColor)
+                    .padding(.horizontal, 10)
+                    .frame(height: 28)
+                    .background(
+                        Capsule().fill(showChat ? DS.Colors.accent : DS.Colors.accent.opacity(0.12))
+                    )
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("l", modifiers: .command)
+                .help("Chat with transcript (⌘L)")
+            }
+
             // Search toggle
             if isCompleted || !transcriptionManager.segments.isEmpty {
                 Button(action: {
@@ -335,31 +427,70 @@ struct TranscriptionResultView: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 13))
                         .foregroundColor(showSearch ? .accentColor : .secondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Search transcript")
+                .keyboardShortcut("f", modifiers: .command)
+                .help("Search transcript (⌘F)")
             }
 
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .overlay(alignment: .bottom) {
-            if showSearch {
-                searchBar
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-        }
     }
 
     // MARK: - Search Bar
 
     private var searchBar: some View {
-        SearchField(text: $searchText)
-            .background(DS.Colors.backdrop, in: Capsule())
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .offset(y: 20)
-            .zIndex(1)
+        HStack(spacing: 8) {
+            SearchField(text: $searchText)
+                .background(DS.Colors.backdrop, in: Capsule())
+
+            if !searchText.isEmpty {
+                // Result count + next/previous navigation.
+                Text(searchMatches.isEmpty
+                     ? "No results"
+                     : "\(searchMatchIndex + 1) of \(searchMatches.count)")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .chromeText()
+
+                Button { stepSearch(-1) } label: {
+                    Image(systemName: "chevron.up").font(.system(size: 12, weight: .semibold))
+                        .frame(width: 24, height: 24).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(searchMatches.isEmpty)
+                .help("Previous match (⇧⌘G)")
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+
+                Button { stepSearch(1) } label: {
+                    Image(systemName: "chevron.down").font(.system(size: 12, weight: .semibold))
+                        .frame(width: 24, height: 24).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(searchMatches.isEmpty)
+                .help("Next match (⌘G)")
+                .keyboardShortcut("g", modifiers: .command)
+            }
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showSearch = false; searchText = "" }
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 11, weight: .semibold))
+                    .frame(width: 24, height: 24).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.secondary)
+            .keyboardShortcut(.cancelAction)
+            .help("Close search (Esc)")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(DS.Colors.backdrop)
+        .overlay(alignment: .bottom) { Divider() }
+        .onChange(of: searchText) { _, _ in searchMatchIndex = 0 }
     }
 
     // MARK: - Tab Picker (Segmented)
@@ -367,19 +498,23 @@ struct TranscriptionResultView: View {
     private var tabPicker: some View {
         HStack(spacing: 0) {
             ForEach(availableTabs, id: \.self) { tab in
-                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tab } }) {
+                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tab; showChat = false } }) {
+                    let isActiveTab = selectedTab == tab && !showChat
                     Text(tab.rawValue)
-                        .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
-                        .foregroundColor(selectedTab == tab ? .primary : .secondary)
+                        .font(.system(size: 12, weight: isActiveTab ? .semibold : .regular))
+                        .foregroundColor(isActiveTab ? .primary : .secondary)
                         .chromeText()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 5)
                         .background(
-                            selectedTab == tab
+                            isActiveTab
                                 ? Color.white.opacity(0.12)
                                 : Color.clear
                         )
                         .cornerRadius(6)
+                        // Whole padded chip is clickable, not just the glyphs —
+                        // a transparent background isn't hit-testable on its own.
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -555,7 +690,10 @@ struct TranscriptionResultView: View {
                 Group {
                     confidenceTextView
                         .padding(20)
-                        .padding(.top, showSearch ? 16 : 0)
+                        // Cap line length for comfortable reading; center the
+                        // column so it doesn't sprawl edge-to-edge on wide windows.
+                        .frame(maxWidth: 760)
+                        .frame(maxWidth: .infinity, alignment: .center)
                         .id("textBottom")
                 }
             }
@@ -627,7 +765,7 @@ struct TranscriptionResultView: View {
                             .id(segment.id)
                         }
                     }
-                    .padding(.top, showSearch ? 20 : 4)
+                    .padding(.top, 4)
                     .padding(.bottom, 4)
                     .id("timelineBottom")
                 }
@@ -647,20 +785,55 @@ struct TranscriptionResultView: View {
                     }
                 }
             }
+            .onChange(of: searchScrollTarget) { _, target in
+                // Jump to the current search match (next/previous buttons).
+                if let target {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo(target, anchor: .center)
+                    }
+                }
+            }
         }
     }
 
     // MARK: - Summary & Ask (on-device AI, macOS 26+)
 
+    // Summary tab now shows ONLY the AI summary — chat moved to a global panel
+    // (chatPanel) available from every tab.
     private var summaryView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                summarySection
+            }
+            .padding(20)
+        }
+    }
+
+    // MARK: - Chat (full content view, available from any tab)
+
+    /// A roomy, dedicated chat. The AI already has the transcript, so you ask
+    /// *about* it here and tap a tab to jump back to reading.
+    private var chatFullView: some View {
         VStack(spacing: 0) {
+            if !chat.messages.isEmpty {
+                HStack {
+                    Spacer()
+                    Button("Clear") { chat.reset() }
+                        .buttonStyle(.plain)
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                        .help("Clear this conversation")
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+            }
+
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        summarySection
-
-                        if !chat.messages.isEmpty {
-                            Divider()
+                    VStack(alignment: .leading, spacing: 14) {
+                        if chat.messages.isEmpty {
+                            chatEmptyState
+                        } else {
                             ForEach(chat.messages) { msg in
                                 chatBubble(msg)
                             }
@@ -673,7 +846,11 @@ struct TranscriptionResultView: View {
                             Color.clear.frame(height: 1).id("chatBottom")
                         }
                     }
-                    .padding(20)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    // Keep a comfortable reading column on wide windows.
+                    .frame(maxWidth: 720)
+                    .frame(maxWidth: .infinity, alignment: chat.messages.isEmpty ? .center : .leading)
                 }
                 .onChange(of: chat.messages.count) { _, _ in
                     withAnimation(.easeOut(duration: 0.2)) {
@@ -681,80 +858,123 @@ struct TranscriptionResultView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             Divider()
 
-            // Ask bar — model switcher, question in, answer out.
-            HStack(spacing: 8) {
-                // In-chat AI model switcher — swap providers without leaving the
-                // conversation (e.g. when Apple's guardrail blocks a question).
-                Menu {
-                    Picker("AI model", selection: $aiBackend) {
-                        ForEach(AIBackendChoice.allCases) { choice in
-                            Text(choice.rawValue).tag(choice)
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "cpu")
-                        Text(aiBackend.shortName)
-                            .chromeText()
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 8, weight: .bold))
-                            .opacity(0.7)
-                    }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 6)
-                    .background(DS.Colors.inputFill, in: Capsule())
-                    .overlay(Capsule().strokeBorder(DS.Colors.inputStroke, lineWidth: 1))
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help("AI model — switch provider for answers")
+            askBar
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
-                TextField("Ask about this transcript…", text: $chatInput)
-                    .textFieldStyle(.plain)
+    /// Welcoming empty state — centered, with suggestions.
+    private var chatEmptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "ellipsis.bubble")
+                .font(.system(size: 34))
+                .foregroundStyle(DS.Colors.accent.opacity(0.8))
+            VStack(spacing: 4) {
+                Text("Chat with this transcript")
+                    .font(.system(size: 16, weight: .semibold))
+                Text("Ask anything — the AI answers from the transcript.")
                     .font(.system(size: 13))
-                    .onSubmit { sendQuestion() }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(DS.Colors.inputFill, in: Capsule())
-                    .overlay(Capsule().strokeBorder(DS.Colors.inputStroke, lineWidth: 1))
-
-                Button(action: sendQuestion) {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 28, height: 28)
-                        .background(
-                            chatInput.trimmingCharacters(in: .whitespaces).isEmpty || chat.isAnswering
-                                ? Color.secondary.opacity(0.25) : DS.Colors.accent,
-                            in: Circle()
-                        )
-                }
-                .buttonStyle(.plain)
-                .disabled(chatInput.trimmingCharacters(in: .whitespaces).isEmpty || chat.isAnswering)
-                .help("Ask")
+                    .foregroundColor(.secondary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            if !transcriptionManager.segments.isEmpty && !isTranscribing {
+                suggestedQuestions
+                    .frame(maxWidth: 460)
+                    .padding(.top, 4)
+            }
         }
-        .onAppear { chat.prepare(transcript: transcriptionManager.liveTranscriptionText) }
-        .onChange(of: aiBackend) { _, newValue in
-            // Switching to Ollama is only useful if a model is selected — grab
-            // the first installed one so the switch "just works".
-            if newValue == .ollama && AppSettings.shared.ollamaModel.isEmpty {
-                Task {
-                    let models = await OllamaBackend.installedModels()
-                    if let first = models.first {
-                        await MainActor.run { AppSettings.shared.ollamaModel = first }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 40)
+    }
+
+    // MARK: - Ask bar
+
+    /// Whether a provider is usable right now (has its key / model / is on-device).
+    private func providerReady(_ choice: AIBackendChoice) -> Bool {
+        switch choice {
+        case .apple: return true   // on-device; fails gracefully if AI is off
+        case .ollama: return !AppSettings.shared.ollamaModel.isEmpty
+        case .openAI: return !(KeychainHelper.get("openai-api-key") ?? "").isEmpty
+        case .anthropic: return !(KeychainHelper.get("anthropic-api-key") ?? "").isEmpty
+        }
+    }
+
+    /// Menu label that tells the user which providers are set up.
+    private func providerMenuLabel(_ choice: AIBackendChoice) -> String {
+        if providerReady(choice) {
+            if choice == .ollama { return "Ollama · \(AppSettings.shared.ollamaModel)" }
+            return choice.shortName
+        }
+        switch choice {
+        case .ollama: return "Ollama — start Ollama / pick a model in Settings"
+        case .openAI, .anthropic: return "\(choice.shortName) — add API key in Settings"
+        case .apple: return choice.shortName
+        }
+    }
+
+    private var askBar: some View {
+        HStack(spacing: 8) {
+            // In-chat AI model switcher — swap providers without leaving the
+            // conversation. Each row shows whether it's ready to use.
+            Menu {
+                Picker("AI model", selection: $aiBackend) {
+                    ForEach(AIBackendChoice.allCases) { choice in
+                        Text(providerMenuLabel(choice)).tag(choice)
                     }
                 }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: providerReady(aiBackend) ? "cpu" : "exclamationmark.triangle.fill")
+                    Text(aiBackend.shortName)
+                        .chromeText()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .opacity(0.7)
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(providerReady(aiBackend) ? Color.secondary : Color.orange)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+                .background(DS.Colors.inputFill, in: Capsule())
+                .overlay(Capsule().strokeBorder(providerReady(aiBackend) ? DS.Colors.inputStroke : Color.orange.opacity(0.5), lineWidth: 1))
             }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(providerReady(aiBackend) ? "AI model — switch provider for answers" : "\(aiBackend.shortName) isn't set up — pick a ready model or configure it in Settings")
+
+            TextField("Ask about this transcript…", text: $chatInput)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .onSubmit { sendQuestion() }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(DS.Colors.inputFill, in: Capsule())
+                .overlay(Capsule().strokeBorder(DS.Colors.inputStroke, lineWidth: 1))
+
+            Button(action: sendQuestion) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        chatInput.trimmingCharacters(in: .whitespaces).isEmpty || chat.isAnswering
+                            ? Color.secondary.opacity(0.25) : DS.Colors.accent,
+                        in: Circle()
+                    )
+            }
+            .contentShape(Circle())
+            .buttonStyle(.plain)
+            .disabled(chatInput.trimmingCharacters(in: .whitespaces).isEmpty || chat.isAnswering)
+            .help("Ask")
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     private func sendQuestion() {
@@ -764,23 +984,111 @@ struct TranscriptionResultView: View {
         chat.ask(q)
     }
 
+    /// Load any saved summary + chat for this transcript and bind the AI
+    /// singletons to it (they're shared across transcripts).
+    private func restoreAISidecar() {
+        let saved = transcriptionManager.lastSavedPath.flatMap { TranscriptAIStore.load(for: $0) }
+        summarizer.bind(toText: transcriptionManager.liveTranscriptionText,
+                        restoredSummary: saved?.summary)
+        if let chatMessages = saved?.chat { chat.restore(messages: chatMessages) }
+    }
+
+    /// Persist the current summary + chat next to the transcript file.
+    private func persistAISidecar() {
+        guard let path = transcriptionManager.lastSavedPath else { return }
+        let summary = summarizer.currentSummary
+        guard summary != nil || !chat.messages.isEmpty else { return }
+        TranscriptAIStore.save(
+            TranscriptAISidecar(summary: summary, chat: chat.messages),
+            for: path
+        )
+    }
+
     @ViewBuilder
     private func chatBubble(_ msg: ChatMessage) -> some View {
-        HStack {
-            if msg.isUser { Spacer(minLength: 60) }
-            Text(msg.text)
-                .font(.system(size: 13))
-                .lineSpacing(4)
-                .textSelection(.enabled)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    msg.isUser ? DS.Colors.accent : Color.white.opacity(0.07),
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                )
-                .foregroundColor(msg.isUser ? .white : .primary)
-            if !msg.isUser { Spacer(minLength: 60) }
+        if msg.isError {
+            // Errors (e.g. missing API key) read as a warning, not a normal
+            // answer, and offer a one-click retry with the now-current model.
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 13))
+                    Text(msg.text)
+                        .font(.system(size: 13))
+                        .foregroundColor(.primary)
+                        .textSelection(.enabled)
+                }
+                Button {
+                    chat.retryLast()
+                } label: {
+                    Label("Try again with \(aiBackend.shortName)", systemImage: "arrow.clockwise")
+                        .font(.caption)
+                }
+                .secondaryGlassButton()
+                .controlSize(.small)
+                .disabled(chat.isAnswering)
+            }
+            .padding(12)
+            .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.orange.opacity(0.3), lineWidth: 1))
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            HStack {
+                if msg.isUser { Spacer(minLength: 60) }
+                Text(msg.text)
+                    .font(.system(size: 14))
+                    .lineSpacing(5)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 9)
+                    .background(
+                        msg.isUser ? DS.Colors.accent : Color.white.opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    )
+                    .foregroundColor(msg.isUser ? .white : .primary)
+                    .frame(maxWidth: 560, alignment: msg.isUser ? .trailing : .leading)
+                    .contextMenu {
+                        Button("Copy") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(msg.text, forType: .string)
+                        }
+                    }
+                if !msg.isUser { Spacer(minLength: 60) }
+            }
         }
+    }
+
+    private let suggestionPrompts = [
+        "Summarize the key points",
+        "What are the action items?",
+        "Who are the speakers and what did each focus on?"
+    ]
+
+    private var suggestedQuestions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Try asking")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.secondary)
+            ForEach(suggestionPrompts, id: \.self) { prompt in
+                Button {
+                    chatInput = prompt
+                    sendQuestion()
+                } label: {
+                    HStack {
+                        Image(systemName: "sparkle").font(.caption2)
+                        Text(prompt).font(.caption)
+                        Spacer()
+                    }
+                    .foregroundColor(.accentColor)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -811,11 +1119,19 @@ struct TranscriptionResultView: View {
             .padding(.vertical, 24)
 
         case .working(let message):
-            HStack(spacing: 10) {
-                ProgressView().controlSize(.small)
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text(message)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Text("Long transcripts are summarized in parts — this can take a minute.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.7))
+                Button("Cancel") { summarizer.cancel() }
+                    .secondaryGlassButton()
+                    .controlSize(.small)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 24)
@@ -882,14 +1198,17 @@ struct TranscriptionResultView: View {
                     .font(.system(size: 14))
                     .foregroundColor(.primary)
                     .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .keyboardShortcut(.space, modifiers: [])
+            .help(audioPlayer.isPlaying ? "Pause (Space)" : "Play (Space)")
 
             // Time
             Text(formatPlayerTime(audioPlayer.currentTime))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.secondary)
-                .frame(width: 50, alignment: .trailing)
+                .frame(width: 54, alignment: .trailing)
 
             // Scrubber
             Slider(
@@ -899,13 +1218,12 @@ struct TranscriptionResultView: View {
                 ),
                 in: 0...max(audioPlayer.duration, 1)
             )
-            .controlSize(.small)
 
             // Duration
             Text(formatPlayerTime(audioPlayer.duration))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.secondary)
-                .frame(width: 50, alignment: .leading)
+                .frame(width: 54, alignment: .leading)
 
             // Speed picker
             Menu {
@@ -930,6 +1248,7 @@ struct TranscriptionResultView: View {
             }
             .menuStyle(.borderlessButton)
             .frame(width: 40)
+            .help("Playback speed")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -937,9 +1256,10 @@ struct TranscriptionResultView: View {
     }
 
     private func formatPlayerTime(_ time: TimeInterval) -> String {
-        let m = Int(time) / 60
+        let h = Int(time) / 3600
+        let m = (Int(time) % 3600) / 60
         let s = Int(time) % 60
-        return String(format: "%d:%02d", m, s)
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 
     // MARK: - Bottom Bar
@@ -1048,7 +1368,9 @@ struct ConfidenceTextBlock: View {
                     .foregroundColor(.primary)
             } else {
                 let segmentText = segment.words.reduce(Text("")) { wordResult, word in
-                    let opacity = max(0.4, Double(word.probability))
+                    // Keep low-confidence words clearly readable — only a gentle
+                    // dimming, not the near-invisible 0.4 floor we had before.
+                    let opacity = max(0.62, Double(word.probability))
                     let isHighlighted = !searchText.isEmpty &&
                         word.word.localizedCaseInsensitiveContains(searchText)
                     return wordResult + Text(word.word + " ")
@@ -1061,7 +1383,8 @@ struct ConfidenceTextBlock: View {
 
         textView
             .font(.system(size: 14))
-            .lineSpacing(hasSpeakers ? 4 : 6)
+            // More breathing room when speaker labels break up the text.
+            .lineSpacing(hasSpeakers ? 7 : 5)
     }
 }
 
@@ -1133,11 +1456,29 @@ struct SegmentRow: View {
                     : (isEven ? Color.white.opacity(0.03) : Color.clear))
         )
         .animation(.easeInOut(duration: 0.2), value: isActive)
-        .onHover { isHovered = $0 }
+        .onHover { hovering in
+            isHovered = hovering
+            // Pointer cursor signals the row is clickable (tap = seek + play).
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
         .onTapGesture {
             onTap?()
         }
         .contentShape(Rectangle())
+        .help("Click to play from here")
+        .contextMenu {
+            Button("Copy text") { copyToPasteboard(segment.text) }
+            Button("Copy with timestamp") {
+                let speaker = segment.speaker.map { "\(displayName($0)): " } ?? ""
+                copyToPasteboard("[\(segment.formattedStart)] \(speaker)\(segment.text)")
+            }
+            Button("Play from here") { onTap?() }
+        }
+    }
+
+    private func copyToPasteboard(_ string: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(string, forType: .string)
     }
 
     @ViewBuilder
@@ -1245,6 +1586,17 @@ struct WaitingAnimationView: View {
                         Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true),
                         value: pulseOpacity
                     )
+
+                // Elapsed time + a reassurance if it's taking a while, so the
+                // user knows it's working and hasn't frozen.
+                Text(elapsed < 60
+                     ? "\(elapsed)s elapsed"
+                     : "\(elapsed / 60)m \(elapsed % 60)s elapsed — larger files and first-time model loading take longer")
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.5))
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
+                    .padding(.horizontal, 24)
             }
         }
         .onAppear {
@@ -1254,7 +1606,11 @@ struct WaitingAnimationView: View {
         .onDisappear {
             animating = false
         }
+        .onReceive(elapsedTimer) { _ in elapsed += 1 }
     }
+
+    @State private var elapsed = 0
+    private let elapsedTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private func randomHeight(_ index: Int) -> CGFloat {
         let heights: [CGFloat] = [0.5, 0.8, 1.0, 0.6, 0.9, 0.7, 0.4]

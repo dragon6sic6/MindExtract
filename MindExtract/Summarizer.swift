@@ -21,6 +21,7 @@ final class TranscriptSummarizer: ObservableObject {
     /// Hash of the text the current `state` belongs to, so a new transcript
     /// automatically invalidates the old summary.
     private var currentTextHash: Int = 0
+    private var task: Task<Void, Never>?
 
     private init() {}
 
@@ -34,15 +35,17 @@ final class TranscriptSummarizer: ObservableObject {
 
         let backend = AIBackends.current()
         state = .working("Summarizing…")
-        Task {
+        task = Task {
             do {
                 let summary = try await Self.generateSummary(for: trimmed, backend: backend) { [weak self] progress in
                     await MainActor.run { self?.state = .working(progress) }
                 }
+                if Task.isCancelled { return }
                 if self.currentTextHash == hash {
                     self.state = .done(summary)
                 }
             } catch {
+                if Task.isCancelled { return }
                 if self.currentTextHash == hash {
                     self.state = .failed(error.localizedDescription)
                 }
@@ -50,9 +53,40 @@ final class TranscriptSummarizer: ObservableObject {
         }
     }
 
+    /// Stop an in-progress summary (long transcripts chunk-summarize and can run
+    /// for minutes) and return to the CTA.
+    func cancel() {
+        task?.cancel()
+        task = nil
+        currentTextHash = 0
+        state = .idle
+    }
+
     func reset() {
+        task?.cancel()
+        task = nil
         state = .idle
         currentTextHash = 0
+    }
+
+    /// Bind the summarizer to a transcript: restore a saved summary if we have
+    /// one, otherwise reset to the CTA when this is a different transcript than
+    /// the one currently shown (the singleton is shared across transcripts).
+    func bind(toText text: String, restoredSummary: String?) {
+        let hash = text.trimmingCharacters(in: .whitespacesAndNewlines).hashValue
+        if let summary = restoredSummary, !summary.isEmpty {
+            currentTextHash = hash
+            state = .done(summary)
+        } else if currentTextHash != hash {
+            currentTextHash = hash
+            state = .idle
+        }
+    }
+
+    /// The finished summary text, if any (for persistence).
+    var currentSummary: String? {
+        if case .done(let s) = state { return s }
+        return nil
     }
 
     private var isFailed: Bool {
@@ -141,10 +175,32 @@ final class TranscriptSummarizer: ObservableObject {
 
 // MARK: - Ask the transcript (Q&A via the selected AI backend)
 
-struct ChatMessage: Identifiable, Equatable {
-    let id = UUID()
+struct ChatMessage: Identifiable, Equatable, Codable {
+    var id = UUID()
     let isUser: Bool
     let text: String
+    var isError: Bool = false
+}
+
+/// On-disk summary + chat saved next to a transcript, so reopening it restores
+/// the AI work instead of forcing the user to regenerate.
+struct TranscriptAISidecar: Codable {
+    var summary: String?
+    var chat: [ChatMessage]
+}
+
+enum TranscriptAIStore {
+    private static func url(for transcriptPath: String) -> URL {
+        URL(fileURLWithPath: transcriptPath).appendingPathExtension("mindex-ai.json")
+    }
+    static func load(for transcriptPath: String) -> TranscriptAISidecar? {
+        guard let data = try? Data(contentsOf: url(for: transcriptPath)) else { return nil }
+        return try? JSONDecoder().decode(TranscriptAISidecar.self, from: data)
+    }
+    static func save(_ sidecar: TranscriptAISidecar, for transcriptPath: String) {
+        guard let data = try? JSONEncoder().encode(sidecar) else { return }
+        try? data.write(to: url(for: transcriptPath))
+    }
 }
 
 /// Q&A over a transcript. Backends with small contexts (Apple) get the most
@@ -160,6 +216,7 @@ final class TranscriptChat: ObservableObject {
     private var transcriptHash: Int = 0
     private var transcript: String = ""
     private var chunks: [String] = []
+    private(set) var lastQuestion: String = ""
 
     private init() {}
 
@@ -179,10 +236,31 @@ final class TranscriptChat: ObservableObject {
         chunks = []
     }
 
+    /// Restore a saved conversation (call after `prepare`, which clears messages
+    /// for a new transcript).
+    func restore(messages: [ChatMessage]) {
+        guard !messages.isEmpty else { return }
+        self.messages = messages
+    }
+
+    /// Re-ask the previous question with the CURRENT provider — for when a
+    /// question failed (e.g. missing API key) and the user switched models.
+    func retryLast() {
+        guard !isAnswering, !lastQuestion.isEmpty else { return }
+        // Drop the trailing error bubble (and the question that produced it) so
+        // we don't duplicate them — ask() re-appends the question.
+        if messages.last?.isError == true {
+            messages.removeLast()
+            if messages.last?.isUser == true { messages.removeLast() }
+        }
+        ask(lastQuestion)
+    }
+
     func ask(_ question: String) {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty, !isAnswering else { return }
 
+        lastQuestion = q
         messages.append(ChatMessage(isUser: true, text: q))
         isAnswering = true
 
@@ -217,7 +295,7 @@ final class TranscriptChat: ObservableObject {
                 )
                 self.messages.append(ChatMessage(isUser: false, text: answer))
             } catch {
-                self.messages.append(ChatMessage(isUser: false, text: error.localizedDescription))
+                self.messages.append(ChatMessage(isUser: false, text: error.localizedDescription, isError: true))
             }
             self.isAnswering = false
         }

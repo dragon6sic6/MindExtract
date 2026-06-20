@@ -200,8 +200,12 @@ struct HistoryItem: Identifiable, Codable, Equatable {
     let downloadDate: Date
     let isAudioOnly: Bool
     let fileSize: String?
+    // Added 2.1.4 — optional so older history (saved without them) still decodes.
+    var filePath: String?
+    var formatId: String?
+    var resolution: String?
 
-    init(url: String, title: String, thumbnail: String?, platform: Platform, isAudioOnly: Bool, fileSize: String? = nil) {
+    init(url: String, title: String, thumbnail: String?, platform: Platform, isAudioOnly: Bool, fileSize: String? = nil, filePath: String? = nil, formatId: String? = nil, resolution: String? = nil) {
         self.id = UUID()
         self.url = url
         self.title = title
@@ -210,7 +214,19 @@ struct HistoryItem: Identifiable, Codable, Equatable {
         self.downloadDate = Date()
         self.isAudioOnly = isAudioOnly
         self.fileSize = fileSize
+        self.filePath = filePath
+        self.formatId = formatId
+        self.resolution = resolution
     }
+
+    /// True only when we recorded a path AND the file is still on disk. Old
+    /// items without a path return nil-ish (treated as "unknown", not missing).
+    var fileExists: Bool {
+        guard let filePath else { return true }   // unknown → don't flag as missing
+        return FileManager.default.fileExists(atPath: filePath)
+    }
+
+    var hasKnownPath: Bool { filePath != nil }
 }
 
 // MARK: - App Settings
@@ -431,6 +447,18 @@ class AppSettings: ObservableObject {
     @AppStorage("openAIModel") var openAIModel: String = "gpt-4o-mini"
     @AppStorage("anthropicModel") var anthropicModel: String = "claude-haiku-4-5-20251001"
 
+    // Default language a new transcription starts with (the picker pre-selects it).
+    @AppStorage("defaultTranscriptionLanguage") var defaultTranscriptionLanguage: String = "auto"
+
+    /// The languages offered for transcription (shared by the start sheet and Settings).
+    static let transcriptionLanguages: [(name: String, code: String)] = [
+        ("Auto-detect", "auto"), ("English", "en"), ("Swedish", "sv"),
+        ("Spanish", "es"), ("French", "fr"), ("German", "de"),
+        ("Portuguese", "pt"), ("Japanese", "ja"), ("Chinese", "zh"),
+        ("Korean", "ko"), ("Italian", "it"), ("Dutch", "nl"),
+        ("Russian", "ru"), ("Arabic", "ar"), ("Hindi", "hi")
+    ]
+
     private init() {}
 }
 
@@ -438,7 +466,7 @@ class AppSettings: ObservableObject {
 
 struct TranscriptionHistoryItem: Identifiable, Codable, Equatable {
     let id: UUID
-    let title: String
+    var title: String
     let filePath: String
     let transcriptionDate: Date
     let duration: String?
@@ -580,6 +608,13 @@ class TranscriptionHistoryManager: ObservableObject {
 
     func removeFromHistory(_ item: TranscriptionHistoryItem) {
         history.removeAll { $0.id == item.id }
+        saveHistory()
+    }
+
+    func rename(_ item: TranscriptionHistoryItem, to newTitle: String) {
+        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let idx = history.firstIndex(where: { $0.id == item.id }) else { return }
+        history[idx].title = trimmed
         saveHistory()
     }
 

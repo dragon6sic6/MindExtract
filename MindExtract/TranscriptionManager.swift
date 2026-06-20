@@ -60,6 +60,7 @@ class TranscriptionManager: ObservableObject {
     private var currentLoadedModel: WhisperModel?
     private var currentTask: Task<Void, Never>?
     private var currentProcess: Process? // for ffmpeg
+    private var activeOutputPath: String?   // where the in-flight transcript will save
     private var downloadTask: URLSessionDataTask?
 
     private let fileManager = FileManager.default
@@ -917,7 +918,23 @@ class TranscriptionManager: ObservableObject {
         currentProcess?.terminate()
         currentProcess = nil
         DispatchQueue.main.async {
-            self.transcriptionState = .idle
+            // Don't throw away work already transcribed — save the partial result
+            // so the user can still read, copy, and export it.
+            if !self.segments.isEmpty, let path = self.activeOutputPath {
+                let partialPath = path.replacingOccurrences(of: ".\(URL(fileURLWithPath: path).pathExtension)",
+                                                            with: " (partial).\(URL(fileURLWithPath: path).pathExtension)")
+                let text = self.segments.map { $0.text }.joined(separator: "\n\n")
+                try? text.write(toFile: partialPath, atomically: true, encoding: .utf8)
+                self.lastSavedPath = partialPath
+                if !self.currentTranscriptionTitle.hasSuffix("(partial)") {
+                    self.currentTranscriptionTitle += " (partial)"
+                }
+                self.saveToHistory(title: self.currentTranscriptionTitle, filePath: partialPath)
+                self.transcriptionState = .completed(outputPath: partialPath)
+            } else {
+                self.transcriptionState = .idle
+            }
+            self.activeOutputPath = nil
         }
     }
 
@@ -1124,6 +1141,9 @@ class TranscriptionManager: ObservableObject {
             self.currentTranscriptionTitle = item.title
             self.liveTranscriptionText = text
             self.lastSavedPath = item.filePath
+            // The temp audio for a past transcription is gone — clear any stale
+            // path so the player bar hides instead of trying to play the wrong file.
+            self.audioFilePath = nil
             self.segments = loadedSegments ?? []
             if let segs = loadedSegments, let last = segs.last {
                 self.audioDuration = last.end
@@ -1219,6 +1239,7 @@ extension TranscriptionManager {
 
     /// Routes an already-extracted audio file to the selected engine.
     func runTranscription(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
+        activeOutputPath = outputPath
         if useAppleSpeech(), #available(macOS 26.0, *) {
             runSpeechAnalyzer(audioPath: audioPath, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
         } else {

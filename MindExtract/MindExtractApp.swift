@@ -33,6 +33,9 @@ struct MindExtractApp: App {
                 .tint(DS.Colors.accent)
                 .preferredColorScheme(.dark)
                 .onAppear { NSApp.appearance = NSAppearance(named: .darkAqua) }
+                .onReceive(NotificationCenter.default.publisher(for: .checkForUpdates)) { _ in
+                    appDelegate.updaterController.checkForUpdates(nil)
+                }
         }
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1000, height: 740)
@@ -73,4 +76,5 @@ struct MindExtractApp: App {
 extension Notification.Name {
     static let openSettings = Notification.Name("openSettings")
     static let navigate = Notification.Name("navigate")
+    static let checkForUpdates = Notification.Name("checkForUpdates")
 }
