@@ -7,34 +7,31 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.1.5</title>
-      <pubDate>Sat, 20 Jun 2026 16:37:26 +0000</pubDate>
-      <sparkle:version>33</sparkle:version>
-      <sparkle:shortVersionString>2.1.5</sparkle:shortVersionString>
+      <title>Version 2.1.6</title>
+      <pubDate>Sat, 20 Jun 2026 21:45:23 +0000</pubDate>
+      <sparkle:version>34</sparkle:version>
+      <sparkle:shortVersionString>2.1.6</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.1.5</h2>
-<p>More choice in AI providers — pick the model that suits you.</p>
+<h2>What's New in 2.1.6</h2>
+<p>A smoother, clearer first transcription — especially the very first time.</p>
 
-<h3>More AI providers for summaries &amp; chat</h3>
+<h3>Transcribing just works</h3>
 <ul>
-  <li><strong>New cloud providers</strong> — alongside OpenAI and Anthropic you can now use <strong>Google Gemini</strong>, <strong>xAI Grok</strong>, <strong>Mistral</strong> (European, EU-hosted), <strong>Groq</strong> (fast), and <strong>OpenRouter</strong> (one key, many models).</li>
-  <li><strong>Custom endpoint</strong> — point MindExtract at any OpenAI-compatible server, including your own self-hosted one.</li>
-  <li><strong>Set up in seconds</strong> — each provider shows whether it's ready to use, links straight to where you get a key, and a Test button confirms the key works.</li>
-  <li>Local options stay front and center: Apple Intelligence and Ollama run fully on your Mac.</li>
+  <li><strong>No more detour to Settings</strong> — if a speech model is needed, MindExtract now downloads it right where you are and starts transcribing automatically when it's ready.</li>
+  <li><strong>Clear, one-time setup</strong> — before anything downloads, you see exactly what it is, how big it is, and that it runs fully offline and privately afterwards. Nothing happens out of the blue.</li>
+  <li><strong>Plain-language engine choice</strong> — the Transcribe dialog now explains your options: Apple Speech is built into macOS (instant, nothing to download), and WhisperKit is an open-source alternative that works on any Mac.</li>
 </ul>
 
 <h3>Refinements</h3>
 <ul>
-  <li>API keys are tidied automatically (a stray space or newline from pasting no longer causes sign-in errors).</li>
-  <li>Long transcripts are handled correctly for every model, regardless of its context size.</li>
-  <li>Clearer notes on where your data goes for each provider — the on-device options remain the private default.</li>
+  <li>Fixed the progress bar overlapping the first line of text while transcribing.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.5/MindExtract-2.1.5-Universal.dmg"
-        sparkle:edSignature="eXIZgiZcadMl+3dhOHLdgOlcJ5RSkTnfJu5BSTsQezVKe1DOjdqraDVQsRKp0A4fgZEaY0a9OHl+HZirA11YDQ=="
-        length="83519617"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.6/MindExtract-2.1.6-Universal.dmg"
+        sparkle:edSignature="f1shDpG/Uib/Ckny9rzPsemVi4w/O1jLdbSQggM+9bU8K1WrxoMnm8NCYBbd2EJb8kRTT737hZy2taKlJDb6Dg=="
+        length="83312004"
         type="application/octet-stream"
       />
     </item>
