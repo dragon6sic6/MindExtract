@@ -250,6 +250,17 @@ SPARKLE_TOOLS="/tmp/sparkle290/bin"
 APPCAST_PATH="$PROJECT_DIR/docs/appcast.xml"
 GITHUB_RELEASES_URL="https://github.com/dragon6sic6/MindExtract/releases/download"
 
+# /tmp gets cleared periodically — re-fetch the Sparkle tools if missing so the
+# appcast step never silently skips (which would leave users without the update).
+if [ ! -f "$SPARKLE_TOOLS/sign_update" ]; then
+    echo "▸ Sparkle tools missing — downloading Sparkle 2.9.3..."
+    curl -sL -o /tmp/sparkle290.tar.xz \
+        "https://github.com/sparkle-project/Sparkle/releases/download/2.9.3/Sparkle-2.9.3.tar.xz" \
+        && mkdir -p /tmp/sparkle290 \
+        && tar -xf /tmp/sparkle290.tar.xz -C /tmp/sparkle290 \
+        && echo "  Sparkle tools restored ✓"
+fi
+
 if [ -f "$SPARKLE_TOOLS/sign_update" ] && [ -f "$APPCAST_PATH" ]; then
     echo "▸ Signing DMG for appcast..."
     RAW_SIG=$("$SPARKLE_TOOLS/sign_update" "$DMG_PATH" 2>/dev/null)
