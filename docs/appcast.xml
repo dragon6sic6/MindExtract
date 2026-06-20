@@ -7,56 +7,34 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.1.4</title>
-      <pubDate>Sat, 20 Jun 2026 15:41:30 +0000</pubDate>
-      <sparkle:version>32</sparkle:version>
-      <sparkle:shortVersionString>2.1.4</sparkle:shortVersionString>
+      <title>Version 2.1.5</title>
+      <pubDate>Sat, 20 Jun 2026 16:37:26 +0000</pubDate>
+      <sparkle:version>33</sparkle:version>
+      <sparkle:shortVersionString>2.1.5</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.1.4</h2>
-<p>A big update — a deep pass over the whole app: transcripts, history, settings, downloads, and the AI chat.</p>
+<h2>What's New in 2.1.5</h2>
+<p>More choice in AI providers — pick the model that suits you.</p>
 
-<h3>Chat with your transcript</h3>
+<h3>More AI providers for summaries &amp; chat</h3>
 <ul>
-  <li><strong>Chat from anywhere</strong> — a dedicated, roomy Chat view you open from any tab. Ask questions and the AI answers from the transcript; tap a tab to jump back to reading.</li>
-  <li><strong>Switch AI models in the chat</strong> — each model shows whether it's ready to use, and if one fails (e.g. a missing key) you get a one-click "Try again" with a different model — no retyping.</li>
-  <li><strong>Suggested questions</strong> to get started, copy any answer, and clear the conversation.</li>
-  <li><strong>Summaries & chats are saved</strong> with the transcript and restored when you reopen it.</li>
+  <li><strong>New cloud providers</strong> — alongside OpenAI and Anthropic you can now use <strong>Google Gemini</strong>, <strong>xAI Grok</strong>, <strong>Mistral</strong> (European, EU-hosted), <strong>Groq</strong> (fast), and <strong>OpenRouter</strong> (one key, many models).</li>
+  <li><strong>Custom endpoint</strong> — point MindExtract at any OpenAI-compatible server, including your own self-hosted one.</li>
+  <li><strong>Set up in seconds</strong> — each provider shows whether it's ready to use, links straight to where you get a key, and a Test button confirms the key works.</li>
+  <li>Local options stay front and center: Apple Intelligence and Ollama run fully on your Mac.</li>
 </ul>
 
-<h3>Transcription</h3>
+<h3>Refinements</h3>
 <ul>
-  <li><strong>Cancel keeps your work</strong> — stopping a transcription now saves what was done so far instead of discarding it.</li>
-  <li><strong>Better search</strong> — match count and next/previous navigation that jumps through the transcript.</li>
-  <li><strong>Rename speakers</strong> — now clearly labelled and easy to find.</li>
-  <li><strong>Set a default language</strong> once in Settings instead of choosing it every time.</li>
-  <li>Play/pause with the Space bar, click a segment to play from there, and the elapsed time shows while transcribing.</li>
-</ul>
-
-<h3>Downloads &amp; History</h3>
-<ul>
-  <li><strong>Transcribe straight from History</strong> — past downloads now remember where the file was saved, so you can transcribe, reveal in Finder, or see when a file has been deleted.</li>
-  <li><strong>Queue control</strong> — pause/resume, retry failed downloads, and download several qualities or a whole playlist as audio.</li>
-  <li><strong>Paste several links at once</strong> to queue them all.</li>
-  <li>Filter and sort your download history; audio downloads now appear in History too.</li>
-</ul>
-
-<h3>Settings</h3>
-<ul>
-  <li><strong>Check for Updates</strong> right from Settings, test your OpenAI/Anthropic key, reveal your downloads or app-data folder, and reset settings to defaults.</li>
-</ul>
-
-<h3>Polish &amp; fixes</h3>
-<ul>
-  <li>Buttons across the app are now fully clickable (not just the icon), with consistent styling and clearer status messages.</li>
-  <li>The interface adapts cleanly at any window size — no more text breaking mid-word.</li>
-  <li>Many real bug fixes along the way, including downloads, the queue, audio history, and the transcript view.</li>
+  <li>API keys are tidied automatically (a stray space or newline from pasting no longer causes sign-in errors).</li>
+  <li>Long transcripts are handled correctly for every model, regardless of its context size.</li>
+  <li>Clearer notes on where your data goes for each provider — the on-device options remain the private default.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.4/MindExtract-2.1.4-Universal.dmg"
-        sparkle:edSignature="/+dsZ83x0Xqai4V/eAKTbfvKiQgUJsp7/xLqco40DzXd7sPkRYsIuPFxMA9BZ71/wvx3LhGDuK/xPqdeOLbYAg=="
-        length="83209162"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.5/MindExtract-2.1.5-Universal.dmg"
+        sparkle:edSignature="eXIZgiZcadMl+3dhOHLdgOlcJ5RSkTnfJu5BSTsQezVKe1DOjdqraDVQsRKp0A4fgZEaY0a9OHl+HZirA11YDQ=="
+        length="83519617"
         type="application/octet-stream"
       />
     </item>
