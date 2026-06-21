@@ -7,31 +7,50 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.1.6</title>
-      <pubDate>Sat, 20 Jun 2026 21:45:23 +0000</pubDate>
-      <sparkle:version>34</sparkle:version>
-      <sparkle:shortVersionString>2.1.6</sparkle:shortVersionString>
+      <title>Version 2.2.0</title>
+      <pubDate>Sun, 21 Jun 2026 19:50:15 +0000</pubDate>
+      <sparkle:version>35</sparkle:version>
+      <sparkle:shortVersionString>2.2.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.1.6</h2>
-<p>A smoother, clearer first transcription — especially the very first time.</p>
+<h2>What's New in 2.2.0</h2>
+<p>A big update: record meetings on‑device, translate transcripts, generate notes with AI templates, and far better Swedish.</p>
 
-<h3>Transcribing just works</h3>
+<h3>🎙️ Record meetings — fully on your Mac</h3>
 <ul>
-  <li><strong>No more detour to Settings</strong> — if a speech model is needed, MindExtract now downloads it right where you are and starts transcribing automatically when it's ready.</li>
-  <li><strong>Clear, one-time setup</strong> — before anything downloads, you see exactly what it is, how big it is, and that it runs fully offline and privately afterwards. Nothing happens out of the blue.</li>
-  <li><strong>Plain-language engine choice</strong> — the Transcribe dialog now explains your options: Apple Speech is built into macOS (instant, nothing to download), and WhisperKit is an open-source alternative that works on any Mac.</li>
+  <li><strong>Capture the meeting audio and your microphone</strong> from any video call — no bot joins the call, and nothing is uploaded. Start and stop from the <strong>menu bar</strong> while you're in the call.</li>
+  <li>When you stop, you name the recording and choose the language before it transcribes — nothing happens behind your back.</li>
+  <li>Rock‑solid: survives device changes (AirPods), sleep, low disk space, and even recovers a recording interrupted by a crash.</li>
+  <li>Requires macOS 15 or later for recording.</li>
+</ul>
+
+<h3>🇸🇪 Much better Swedish — KB‑Whisper</h3>
+<ul>
+  <li>Added <strong>KB‑Whisper</strong>, the Swedish speech model from the National Library of Sweden — markedly more accurate on Swedish than the standard models. It's recommended automatically when you transcribe Swedish.</li>
+  <li>The app now picks the right engine for the language automatically: Apple's built‑in speech where it shines, KB‑Whisper / WhisperKit for Swedish and other languages it doesn't cover.</li>
+</ul>
+
+<h3>🌍 Translate transcripts</h3>
+<ul>
+  <li>Translate a full transcript into <strong>any language</strong> with your chosen AI model. On‑device with Apple Intelligence or Ollama; clearly labelled when a cloud provider is used.</li>
+</ul>
+
+<h3>📝 AI Notes &amp; templates</h3>
+<ul>
+  <li>Turn a transcript into <strong>meeting minutes, action items, a SOAP note, show notes, an email follow‑up</strong> and more — one click. <strong>Create your own templates</strong> too, with a live preview before you save.</li>
+  <li>Summaries, translations and template results are saved with the transcript and available in the Export menu.</li>
 </ul>
 
 <h3>Refinements</h3>
 <ul>
-  <li>Fixed the progress bar overlapping the first line of text while transcribing.</li>
+  <li>Chat is now a full tab alongside Text, Timeline, Notes and Translate.</li>
+  <li>Reading‑time estimate, clearer model picker grouped by language, and many stability and polish fixes throughout.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.1.6/MindExtract-2.1.6-Universal.dmg"
-        sparkle:edSignature="f1shDpG/Uib/Ckny9rzPsemVi4w/O1jLdbSQggM+9bU8K1WrxoMnm8NCYBbd2EJb8kRTT737hZy2taKlJDb6Dg=="
-        length="83312004"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.2.0/MindExtract-2.2.0-Universal.dmg"
+        sparkle:edSignature="gWavmu/VaXe+zZTWwRVrTLPL39LCwllWUVBG3bn3sSagYpW4yQ7aKB71MB4LSB7xCjHXnzDR8gJV/jr0cThqDg=="
+        length="84379575"
         type="application/octet-stream"
       />
     </item>
