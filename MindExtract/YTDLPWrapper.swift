@@ -176,7 +176,7 @@ class YTDLPWrapper: ObservableObject {
     private func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
             if granted {
-                print("Notification permission granted")
+                appLog("Notification permission granted")
             }
         }
     }
@@ -189,7 +189,7 @@ class YTDLPWrapper: ObservableObject {
             let bundledPath = resourcePath + "/ytdlp/yt-dlp_macos"
             if FileManager.default.isExecutableFile(atPath: bundledPath) {
                 ytdlpPath = bundledPath
-                print("Found bundled yt-dlp at: \(bundledPath)")
+                appLog("Found bundled yt-dlp at: \(bundledPath)")
                 return
             }
         }
@@ -209,12 +209,12 @@ class YTDLPWrapper: ObservableObject {
         for path in paths {
             if FileManager.default.fileExists(atPath: path) {
                 ytdlpPath = path
-                print("Found system yt-dlp at: \(path)")
+                appLog("Found system yt-dlp at: \(path)")
                 return
             }
         }
 
-        print("yt-dlp not found")
+        appLog("yt-dlp not found")
     }
 
     var isYTDLPInstalled: Bool {
@@ -264,7 +264,7 @@ class YTDLPWrapper: ObservableObject {
                 let data = handle.availableData
                 guard !data.isEmpty, let line = String(data: data, encoding: .utf8) else { return }
 
-                print("yt-dlp OAuth: \(line)")
+                appLog("yt-dlp OAuth: \(line)")
 
                 // Parse device code output
                 // yt-dlp outputs something like:
@@ -312,7 +312,7 @@ class YTDLPWrapper: ObservableObject {
                             self.settings.youtubeSignedIn = true
                         } else {
                             self.youtubeSignInState = .error("Sign-in failed. Please try again.")
-                            print("OAuth error: \(errorStr)")
+                            appLog("OAuth error: \(errorStr)")
                         }
                     }
                 }

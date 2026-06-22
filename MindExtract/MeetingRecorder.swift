@@ -166,7 +166,7 @@ final class MeetingRecorder: ObservableObject {
         do {
             try await stream.updateConfiguration(config)
         } catch {
-            print("[MeetingRecorder] mic reconfigure failed: \(error)")
+            appLog("[MeetingRecorder] mic reconfigure failed: \(error)")
         }
     }
 
@@ -349,7 +349,7 @@ final class MeetingRecorder: ObservableObject {
             try await stream?.stopCapture()
         } catch {
             // Even if stopCapture errors, still finalize what we have.
-            print("[MeetingRecorder] stopCapture error: \(error)")
+            appLog("[MeetingRecorder] stopCapture error: \(error)")
         }
         stream = nil
 

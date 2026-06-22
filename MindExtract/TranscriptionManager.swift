@@ -348,7 +348,7 @@ class TranscriptionManager: ObservableObject {
         }
 
         let loadStart = CFAbsoluteTimeGetCurrent()
-        print("[MindExtract] Loading \(model.displayName) model from \(modelFolder.path)...")
+        appLog("[MindExtract] Loading \(model.displayName) model from \(modelFolder.path)...")
 
         let config = WhisperKitConfig(
             modelFolder: modelFolder.path,
@@ -364,7 +364,7 @@ class TranscriptionManager: ObservableObject {
         self.currentLoadedModel = model
 
         let elapsed = CFAbsoluteTimeGetCurrent() - loadStart
-        print("[MindExtract] \(model.displayName) model loaded in \(String(format: "%.1f", elapsed))s")
+        appLog("[MindExtract] \(model.displayName) model loaded in \(String(format: "%.1f", elapsed))s")
 
         return kit
     }
@@ -378,7 +378,7 @@ class TranscriptionManager: ObservableObject {
             await MainActor.run { self.prewarmingModel = model }
 
             let start = CFAbsoluteTimeGetCurrent()
-            print("[MindExtract] Prewarming \(model.displayName) model (CoreML compilation)...")
+            appLog("[MindExtract] Prewarming \(model.displayName) model (CoreML compilation)...")
 
             do {
                 let config = WhisperKitConfig(
@@ -399,10 +399,10 @@ class TranscriptionManager: ObservableObject {
                     self.prewarmingModel = nil
                 }
                 let elapsed = CFAbsoluteTimeGetCurrent() - start
-                print("[MindExtract] \(model.displayName) prewarm complete in \(String(format: "%.1f", elapsed))s")
+                appLog("[MindExtract] \(model.displayName) prewarm complete in \(String(format: "%.1f", elapsed))s")
             } catch {
                 await MainActor.run { self.prewarmingModel = nil }
-                print("[MindExtract] Prewarm failed: \(error.localizedDescription)")
+                appLog("[MindExtract] Prewarm failed: \(error.localizedDescription)")
             }
         }
     }
@@ -658,12 +658,12 @@ class TranscriptionManager: ObservableObject {
                     }
 
                     do {
-                        print("[MindExtract] Starting speaker diarization...")
+                        appLog("[MindExtract] Starting speaker diarization...")
                         let audioArray = try AudioProcessor.loadAudioAsFloatArray(fromPath: audioPath)
-                        print("[MindExtract] Audio loaded: \(audioArray.count) samples")
+                        appLog("[MindExtract] Audio loaded: \(audioArray.count) samples")
                         let config = PyannoteConfig(verbose: true)
                         let speakerKit = try await SpeakerKit(config)
-                        print("[MindExtract] SpeakerKit initialized, running diarization...")
+                        appLog("[MindExtract] SpeakerKit initialized, running diarization...")
 
                         // Use tuned diarization options for better speaker separation
                         let diarizationOptions = PyannoteDiarizationOptions(
@@ -671,8 +671,8 @@ class TranscriptionManager: ObservableObject {
                             useExclusiveReconciliation: true
                         )
                         let diarizationResult = try await speakerKit.diarize(audioArray: audioArray, options: diarizationOptions)
-                        print("[MindExtract] Diarization complete: \(diarizationResult.speakerCount) speakers found")
-                        print("[MindExtract] Diarization timings: \(diarizationResult.timings)")
+                        appLog("[MindExtract] Diarization complete: \(diarizationResult.speakerCount) speakers found")
+                        appLog("[MindExtract] Diarization timings: \(diarizationResult.timings)")
 
                         // Align speakers with transcription segments
                         let alignedResults = diarizationResult.addSpeakerInfo(to: results, strategy: .subsegment)
@@ -725,9 +725,9 @@ class TranscriptionManager: ObservableObject {
                         await speakerKit.unloadModels()
                     } catch {
                         // Diarization failed — continue with non-diarized segments
-                        print("[MindExtract] Speaker diarization failed: \(error)")
+                        appLog("[MindExtract] Speaker diarization failed: \(error)")
                     }
-                    print("[MindExtract] Post-diarization segments count: \(allSegments.count)")
+                    appLog("[MindExtract] Post-diarization segments count: \(allSegments.count)")
                 }
 
                 // Channel-aware "you vs them": if this came from a meeting recording
@@ -757,7 +757,7 @@ class TranscriptionManager: ObservableObject {
                 // Save to file
                 try fullText.write(toFile: outputPath, atomically: true, encoding: .utf8)
 
-                print("[MindExtract] Completing transcription: \(allSegments.count) segments, title: '\(self.currentTranscriptionTitle)', output: \(outputPath)")
+                appLog("[MindExtract] Completing transcription: \(allSegments.count) segments, title: '\(self.currentTranscriptionTitle)', output: \(outputPath)")
                 await MainActor.run {
                     self.segments = allSegments
                     self.liveTranscriptionText = allSegments.map { $0.text }.joined(separator: "\n\n")
@@ -765,7 +765,7 @@ class TranscriptionManager: ObservableObject {
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
                     self.notifyTranscriptionComplete()
-                    print("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
+                    appLog("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
                 }
 
                 cleanup()
@@ -825,7 +825,7 @@ class TranscriptionManager: ObservableObject {
         }
         merged.append(current)
 
-        print("[MindExtract] Merged \(segments.count) segments into \(merged.count) speaker turns")
+        appLog("[MindExtract] Merged \(segments.count) segments into \(merged.count) speaker turns")
         return merged
     }
 
@@ -1328,7 +1328,7 @@ extension TranscriptionManager {
                 return copy
             }
         } catch {
-            print("[MindExtract] Apple-path diarization failed: \(error)")
+            appLog("[MindExtract] Apple-path diarization failed: \(error)")
             return segments
         }
     }
@@ -1422,7 +1422,7 @@ extension TranscriptionManager {
         content.sound = .default
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request) { error in
-            if let error { print("[MindExtract] transcription notification failed: \(error)") }
+            if let error { appLog("[MindExtract] transcription notification failed: \(error)") }
         }
     }
 
