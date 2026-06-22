@@ -214,23 +214,47 @@ struct ContentView: View {
     // MARK: - Sidebar
 
     private var sidebarView: some View {
-        List(selection: $selectedSidebarItem) {
-            Section("Library") {
-                Label("Media", systemImage: "tray.and.arrow.down")
-                    .tag(SidebarItem.download)
-                Label("Record", systemImage: "record.circle")
-                    .tag(SidebarItem.record)
-                Label("Transcripts", systemImage: "text.bubble")
-                    .tag(SidebarItem.transcripts)
+        VStack(spacing: 0) {
+            // Always-visible entry to the search/ask palette (so it's discoverable
+            // without knowing the ⌘K shortcut — which it also teaches).
+            Button {
+                overlayContent = .palette
+                showOverlay = true
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 12))
+                    Text("Search & Ask").font(.system(size: 13))
+                    Spacer(minLength: 4)
+                    Text("⌘K").font(.system(size: 11)).foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 9).padding(.vertical, 7)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.hairline, lineWidth: 1))
+                .contentShape(Rectangle())
             }
-            Section {
-                Label("History", systemImage: "clock")
-                    .tag(SidebarItem.history)
-                Label("Settings", systemImage: "gearshape")
-                    .tag(SidebarItem.settings)
+            .buttonStyle(.plain)
+            .foregroundColor(.primary)
+            .padding(.horizontal, 10).padding(.top, 10).padding(.bottom, 4)
+            .help("Search inside all transcripts, or ask a question across them (⌘K)")
+
+            List(selection: $selectedSidebarItem) {
+                Section("Library") {
+                    Label("Media", systemImage: "tray.and.arrow.down")
+                        .tag(SidebarItem.download)
+                    Label("Record", systemImage: "record.circle")
+                        .tag(SidebarItem.record)
+                    Label("Transcripts", systemImage: "text.bubble")
+                        .tag(SidebarItem.transcripts)
+                }
+                Section {
+                    Label("History", systemImage: "clock")
+                        .tag(SidebarItem.history)
+                    Label("Settings", systemImage: "gearshape")
+                        .tag(SidebarItem.settings)
+                }
             }
+            .listStyle(.sidebar)
         }
-        .listStyle(.sidebar)
         .navigationTitle("")
     }
 
