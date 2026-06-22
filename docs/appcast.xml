@@ -7,50 +7,55 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.2.0</title>
-      <pubDate>Sun, 21 Jun 2026 19:50:15 +0000</pubDate>
-      <sparkle:version>35</sparkle:version>
-      <sparkle:shortVersionString>2.2.0</sparkle:shortVersionString>
+      <title>Version 2.3.0</title>
+      <pubDate>Mon, 22 Jun 2026 09:38:46 +0000</pubDate>
+      <sparkle:version>36</sparkle:version>
+      <sparkle:shortVersionString>2.3.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.2.0</h2>
-<p>A big update: record meetings on‑device, translate transcripts, generate notes with AI templates, and far better Swedish.</p>
+<h2>What's New in 2.3.0</h2>
+<p>The biggest update yet: a complete meeting suite, a private searchable memory of everything you've recorded, and a redesigned Settings — all still fully on your Mac.</p>
 
-<h3>🎙️ Record meetings — fully on your Mac</h3>
+<h3>🎙️ The world's-best meeting recorder</h3>
 <ul>
-  <li><strong>Capture the meeting audio and your microphone</strong> from any video call — no bot joins the call, and nothing is uploaded. Start and stop from the <strong>menu bar</strong> while you're in the call.</li>
-  <li>When you stop, you name the recording and choose the language before it transcribes — nothing happens behind your back.</li>
-  <li>Rock‑solid: survives device changes (AirPods), sleep, low disk space, and even recovers a recording interrupted by a crash.</li>
-  <li>Requires macOS 15 or later for recording.</li>
+  <li><strong>Calendar detection</strong> — MindExtract sees the meeting you're in and offers to record it with one tap, attendees pre-filled. Add your Google or Microsoft account in System Settings and those meetings show up too.</li>
+  <li><strong>Live-call detection</strong> — even without a calendar event, it notices when you're in a Zoom, Teams, Webex or browser call and offers to record.</li>
+  <li><strong>“You vs. them” speaker labelling</strong> — your voice and the remote participants are told apart automatically.</li>
+  <li><strong>Floating live captions</strong> that stay on top of Zoom/Teams while you record.</li>
+  <li><strong>Talk-time insights</strong> — see who spoke how much, turns taken, questions asked, and the longest monologue.</li>
+  <li><strong>Automatic notes</strong> — Meeting Minutes and Action Items are generated the moment a recording finishes transcribing.</li>
 </ul>
 
-<h3>🇸🇪 Much better Swedish — KB‑Whisper</h3>
+<h3>🧠 Your private second brain</h3>
 <ul>
-  <li>Added <strong>KB‑Whisper</strong>, the Swedish speech model from the National Library of Sweden — markedly more accurate on Swedish than the standard models. It's recommended automatically when you transcribe Swedish.</li>
-  <li>The app now picks the right engine for the language automatically: Apple's built‑in speech where it shines, KB‑Whisper / WhisperKit for Swedish and other languages it doesn't cover.</li>
+  <li><strong>Search inside every transcript at once</strong> — find any word across everything you've ever recorded.</li>
+  <li><strong>Ask across everything</strong> — “What did we decide about X?” answered from all your transcripts, with sources cited.</li>
+  <li><strong>⌘K command palette</strong> — search and ask from anywhere in the app.</li>
 </ul>
 
-<h3>🌍 Translate transcripts</h3>
+<h3>🎯 Accuracy, output &amp; privacy</h3>
 <ul>
-  <li>Translate a full transcript into <strong>any language</strong> with your chosen AI model. On‑device with Apple Intelligence or Ollama; clearly labelled when a cloud provider is used.</li>
+  <li><strong>Custom vocabulary</strong> — add names and domain terms so they're spelled correctly every time.</li>
+  <li><strong>PDF export</strong> and <strong>one-tap PII redaction</strong> — mask names, emails and phone numbers before sharing.</li>
+  <li>The full <strong>KB-Whisper</strong> range for Swedish (Base, Small, Medium, Large), with a clearer model list.</li>
+  <li><strong>Send action items to Reminders</strong> in one click.</li>
 </ul>
 
-<h3>📝 AI Notes &amp; templates</h3>
+<h3>🔌 Connect to Claude &amp; ChatGPT (MCP)</h3>
 <ul>
-  <li>Turn a transcript into <strong>meeting minutes, action items, a SOAP note, show notes, an email follow‑up</strong> and more — one click. <strong>Create your own templates</strong> too, with a live preview before you save.</li>
-  <li>Summaries, translations and template results are saved with the transcript and available in the Export menu.</li>
+  <li>Expose your transcripts to Claude Desktop (or any MCP client) as a local tool — ask your favourite AI to search and pull from your recordings. Runs on your Mac; nothing is uploaded by MindExtract.</li>
 </ul>
 
-<h3>Refinements</h3>
+<h3>⚙️ Redesigned Settings &amp; organization</h3>
 <ul>
-  <li>Chat is now a full tab alongside Text, Timeline, Notes and Translate.</li>
-  <li>Reading‑time estimate, clearer model picker grouped by language, and many stability and polish fixes throughout.</li>
+  <li>A clean category layout, full <strong>calendar management</strong>, a <strong>microphone picker</strong>, download quality, auto-transcribe on download, and transcription-complete notifications.</li>
+  <li><strong>Type markers</strong> (Meeting / Download / File) and <strong>favorites</strong> to find things fast, plus a quick first-run welcome.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.2.0/MindExtract-2.2.0-Universal.dmg"
-        sparkle:edSignature="gWavmu/VaXe+zZTWwRVrTLPL39LCwllWUVBG3bn3sSagYpW4yQ7aKB71MB4LSB7xCjHXnzDR8gJV/jr0cThqDg=="
-        length="84379575"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.3.0/MindExtract-2.3.0-Universal.dmg"
+        sparkle:edSignature="tH1iBrAJ+EZWJYS4AogVqCDMUPwtMaotXFQqMwoG8NLX9UGZwmpkeOxLolpGzr0EEj6vO4qZVVcLjfXwD/Q/DA=="
+        length="85492891"
         type="application/octet-stream"
       />
     </item>
