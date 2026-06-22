@@ -572,6 +572,17 @@ class AppSettings: ObservableObject {
     /// Require Touch ID / device password to open the app.
     @AppStorage("appLockEnabled") var appLockEnabled: Bool = false
 
+    // MARK: Today / commitments ("who am I" powers mine-vs-theirs ownership)
+    /// Your name as it appears in meetings — used to tell which action items are
+    /// yours vs. ones you're waiting on others for.
+    @AppStorage("myName") var myName: String = ""
+    /// Your work email — its local part also helps match you as an owner.
+    @AppStorage("myEmail") var myEmail: String = ""
+    /// How many days ahead the Today screen looks for meetings (0 = today only).
+    @AppStorage("todayLookaheadDays") var todayLookaheadDays: Int = 0
+    /// Show the one-line "plan my day" summary at the top of Today.
+    @AppStorage("todayShowDailyBrief") var todayShowDailyBrief: Bool = true
+
     // AI summaries & chat
     @AppStorage("aiBackend") var aiBackend: AIBackendChoice = .apple
     @AppStorage("ollamaModel") var ollamaModel: String = ""

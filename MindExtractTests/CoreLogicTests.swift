@@ -192,22 +192,62 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertNotEqual(a, MeetingMemory.topicKey("Budget review"))
     }
 
-    func testParseActionItemsStripsMarkersAndSkipsNone() {
-        let text = """
-        - Anna — send the spec by Friday
-        * Bertil to book the room
-        1. Follow up with the vendor
+    func testParseCommitmentLineSplitsOwnerTaskAndDue() {
+        // The brief format: "- Owner — task (due if stated)".
+        let p = MeetingMemory.parseCommitmentLine("- Anna — Send the spec (due Friday)")
+        XCTAssertEqual(p?.owner, "Anna")
+        XCTAssertEqual(p?.task, "Send the spec")
+        XCTAssertEqual(p?.dueText?.lowercased(), "friday")
+        // No owner dash → owner nil, whole thing is the task.
+        let p2 = MeetingMemory.parseCommitmentLine("1. Follow up with the vendor")
+        XCTAssertNil(p2?.owner)
+        XCTAssertEqual(p2?.task, "Follow up with the vendor")
+        // "No owner mentioned" is noise, not an owner.
+        let p3 = MeetingMemory.parseCommitmentLine("- No owner mentioned — Test the app")
+        XCTAssertNil(p3?.owner)
+        XCTAssertEqual(p3?.task, "Test the app")
+        // "- None" and prose are dropped.
+        XCTAssertNil(MeetingMemory.parseCommitmentLine("- None"))
+        XCTAssertNil(MeetingMemory.parseCommitmentLine("Here are the next steps:"))
+    }
+
+    func testDeriveCommitmentsFromBriefStructuresAndDedupes() {
+        let brief = """
+        ## TL;DR
+        We agreed to ship the beta.
+
+        ## Decisions
+        - Ship Friday
+
+        ## Action items
+        - Mathias — Send the spec (due 2026-06-25)
+        - Anna — Book the room
+        - Mathias — Send the spec
         - None
-        Just some prose, not a task
         """
-        let items = MeetingMemory.parseActionItems(text)
-        XCTAssertEqual(items.count, 3)
-        XCTAssertTrue(items.contains("Anna — send the spec by Friday"))
-        XCTAssertTrue(items.contains("Bertil to book the room"))
-        XCTAssertTrue(items.contains("Follow up with the vendor"))
-        XCTAssertFalse(items.contains(where: { $0.caseInsensitiveCompare("none") == .orderedSame }))
-        // Prose without a list marker is not turned into a junk task.
-        XCTAssertFalse(items.contains(where: { $0.contains("prose") }))
+        let me = Set(["mathias"])
+        let cs = MeetingMemory.deriveCommitments(fromBrief: brief, meetingDate: Date())
+        XCTAssertEqual(cs.count, 2, "duplicate 'Send the spec' collapses; 'None' dropped")
+        let spec = cs.first { $0.task == "Send the spec" }
+        XCTAssertEqual(spec?.dueISO, "2026-06-25")
+        XCTAssertTrue(MeetingMemory.isMine(owner: spec?.owner, me: me))
+        XCTAssertFalse(MeetingMemory.isMine(owner: cs.first { $0.task == "Book the room" }?.owner, me: me))
+    }
+
+    func testResolveDueParsesISOAndRelative() {
+        let base = MeetingMemory.dateFromISO("2026-06-22")!   // a Monday
+        XCTAssertEqual(MeetingMemory.resolveDue("2026-06-25", relativeTo: base).map(MeetingMemory.isoFromDate), "2026-06-25")
+        XCTAssertEqual(MeetingMemory.resolveDue("tomorrow", relativeTo: base).map(MeetingMemory.isoFromDate), "2026-06-23")
+        // Next Friday after Monday the 22nd is the 26th.
+        XCTAssertEqual(MeetingMemory.resolveDue("Friday", relativeTo: base).map(MeetingMemory.isoFromDate), "2026-06-26")
+        XCTAssertNil(MeetingMemory.resolveDue("whenever", relativeTo: base))
+    }
+
+    func testGenericTitleDetectionAndSuggestion() {
+        XCTAssertTrue(MeetingMemory.isGenericTitle("Meeting 2026-06-22 15.30"))
+        XCTAssertFalse(MeetingMemory.isGenericTitle("Aspia GO - Bokföring"))
+        let brief = "## TL;DR\nBudget review for Q3 with the finance team.\n## Action items\n- None"
+        XCTAssertEqual(MeetingMemory.suggestedTitle(fromBrief: brief), "Budget review for Q3")
     }
 
     func testActionItemKeyIsStableAndCaseInsensitive() {

@@ -221,6 +221,10 @@ struct TranscriptAISidecar: Codable {
     // Moments (seconds from start) bookmarked live during the meeting, shown as
     // jump-to chips in the Brief.
     var markedMoments: [Double]?
+    // Structured commitments parsed once from the brief's "## Action items" section
+    // (task + owner + due), then user-owned (editable/deletable). Persisted so the
+    // Today view's commitment list is stable and curation survives reopen.
+    var commitments: [MeetingCommitment]?
 }
 
 enum TranscriptAIStore {
