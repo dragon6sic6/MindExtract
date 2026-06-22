@@ -2,10 +2,11 @@ import SwiftUI
 import Sparkle
 import AppKit
 import Combine
+import UserNotifications
 
 // MARK: - App Delegate (Sparkle + menu bar)
 
-final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UNUserNotificationCenterDelegate {
     let updaterController: SPUStandardUpdaterController
     private var menuBar: MenuBarController?
 
@@ -20,10 +21,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         updaterController.startUpdater()
+        // Register the notification delegate + category FIRST, so the very first
+        // nudge (a call already in progress at launch) carries its "Record" action.
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        let record = UNNotificationAction(identifier: "RECORD", title: "Record", options: [.foreground])
+        center.setNotificationCategories([
+            UNNotificationCategory(identifier: "MEETING_DETECTED", actions: [record],
+                                   intentIdentifiers: [], options: [])
+        ])
         // Menu-bar control so you can start/stop a recording mid-call from any app.
         if MeetingRecorder.isSupported {
             menuBar = MenuBarController()
+            // Run call detection app-wide (not just on the Record tab) so the
+            // nudge can fire whenever you're in a call.
+            ActiveMeetingDetector.shared.startMonitoring()
         }
+    }
+
+    // postNudge already only fires when backgrounded, so a banner is always the
+    // right call here. (Kept simple — completionHandler isn't Sendable, so no hop.)
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        // Pull Sendable values out before hopping to the main actor (the response
+        // object itself isn't Sendable).
+        let app = response.notification.request.content.userInfo["app"] as? String
+        let isRecordAction = response.actionIdentifier == "RECORD"
+        Task { @MainActor in
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.windows.first?.makeKeyAndOrderFront(nil)
+            if isRecordAction, !MeetingRecorder.shared.isBusy {
+                MeetingRecorder.shared.start(meetingTitle: app.map { "\($0) call" })
+            } else {
+                NotificationCenter.default.post(name: .navigate, object: SidebarItem.record)
+            }
+        }
+        completionHandler()   // macOS keeps the app alive; safe to ack now
     }
 
     // Don't let a recording die silently on quit — offer to stop & transcribe.

@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import AppKit
 import CoreAudio
+import UserNotifications
 
 // MARK: - Active call detection (provider-agnostic, per-process precise)
 //
@@ -23,38 +24,33 @@ final class ActiveMeetingDetector: ObservableObject {
     /// True when the call is happening in a web browser (Meet/Zoom web/Teams web…).
     @Published private(set) var activeIsBrowser = false
 
-    /// Native conferencing apps → display name.
-    private static let conferencingApps: [String: String] = [
-        "us.zoom.xos": "Zoom",
-        "com.microsoft.teams": "Microsoft Teams",
-        "com.microsoft.teams2": "Microsoft Teams",
-        "com.microsoftedge.msteams": "Microsoft Teams",
-        "com.cisco.webexmeetingsapp": "Webex",
-        "com.webex.meetingmanager": "Webex",
-        "Cisco-Systems.Spark": "Webex",
-        "com.logmein.GoToMeeting": "GoToMeeting",
-        "com.ringcentral.glip": "RingCentral",
-        "com.skype.skype": "Skype",
-        "com.hnc.Discord": "Discord"
+    // Matched as case-insensitive PREFIXES against the bundle ID of whatever
+    // process is actually capturing the mic — so helper/renderer processes count
+    // too (new Teams captures via "com.microsoft.teams2.helper"; Google Meet via a
+    // Chrome renderer helper). Order = display priority.
+    private static let conferencingPrefixes: [(String, String)] = [
+        ("us.zoom", "Zoom"),
+        ("com.microsoft.teams", "Microsoft Teams"),
+        ("com.microsoftedge.msteams", "Microsoft Teams"),
+        ("com.cisco.webex", "Webex"), ("com.webex", "Webex"), ("cisco-systems.spark", "Webex"),
+        ("com.logmein.gotomeeting", "GoToMeeting"),
+        ("com.ringcentral", "RingCentral"),
+        ("com.skype", "Skype"),
+        ("com.hnc.discord", "Discord")
     ]
 
-    /// Browsers — a browser process capturing the mic means a web call (Google
-    /// Meet, Zoom/Teams web, Whereby, …). Now reliable thanks to per-process
-    /// attribution: we only flag the browser if *it* is the one holding the mic.
-    private static let browsers: [String: String] = [
-        "com.google.Chrome": "Chrome",
-        "com.apple.Safari": "Safari",
-        "com.microsoft.edgemac": "Edge",
-        "company.thebrowser.Browser": "Arc",
-        "com.brave.Browser": "Brave",
-        "org.mozilla.firefox": "Firefox",
-        "com.vivaldi.Vivaldi": "Vivaldi",
-        "com.operasoftware.Opera": "Opera"
+    /// A browser process capturing the mic = a web call (Google Meet, Zoom/Teams
+    /// web, Whereby…). Prefixes catch the renderer helpers too.
+    private static let browserPrefixes: [(String, String)] = [
+        ("com.google.chrome", "Chrome"), ("org.chromium", "Chromium"),
+        ("com.apple.safari", "Safari"), ("com.apple.webkit", "Safari"),
+        ("com.microsoft.edgemac", "Edge"),
+        ("company.thebrowser", "Arc"),
+        ("com.brave.browser", "Brave"),
+        ("org.mozilla.firefox", "Firefox"), ("org.mozilla.nightly", "Firefox"),
+        ("com.vivaldi", "Vivaldi"),
+        ("com.operasoftware", "Opera")
     ]
-
-    /// Deterministic display order when several native call apps run at once.
-    private static let priority = ["Zoom", "Microsoft Teams", "Webex", "GoToMeeting",
-                                   "RingCentral", "Skype", "Discord"]
 
     private var timer: Timer?
 
@@ -64,8 +60,20 @@ final class ActiveMeetingDetector: ObservableObject {
         timer?.invalidate(); timer = nil
         guard AppSettings.shared.detectActiveMeetings else { activeApp = nil; activeIsBrowser = false; return }
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+        scheduleNext()
+    }
+
+    /// Self-rescheduling tick: poll briskly (5s) while a call is active or the app
+    /// is frontmost, but back off to 20s when idle in the background to save power.
+    private func scheduleNext() {
+        timer?.invalidate()
+        let interval: TimeInterval = (activeApp != nil || NSApp.isActive) ? 5 : 20
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, AppSettings.shared.detectActiveMeetings else { return }
+                self.refresh()
+                self.scheduleNext()
+            }
         }
     }
 
@@ -77,38 +85,63 @@ final class ActiveMeetingDetector: ObservableObject {
         else { stopMonitoring(); activeApp = nil; activeIsBrowser = false }
     }
 
+    /// App last nudged about, so we notify once per continuous call.
+    private var nudgedApp: String?
+
     func refresh() {
-        guard AppSettings.shared.detectActiveMeetings else { activeApp = nil; activeIsBrowser = false; return }
+        let previous = activeApp
+        let result = detect()
+        activeApp = result?.name
+        activeIsBrowser = result?.isBrowser ?? false
+
+        // App-wide nudge: when a NEW call appears and MindExtract is in the
+        // background, surface a notification so the user doesn't have to be looking.
+        if let app = result?.name {
+            if app != nudgedApp, !NSApp.isActive, AppSettings.shared.meetingNudge, !MeetingRecorder.shared.isBusy {
+                nudgedApp = app
+                postNudge(app)
+            }
+        } else if previous != nil {
+            nudgedApp = nil   // call ended — allow a fresh nudge next time
+        }
+    }
+
+    private func detect() -> (name: String, isBrowser: Bool)? {
+        guard AppSettings.shared.detectActiveMeetings else { return nil }
         // Don't suggest while we're already recording (our own capture holds the mic).
-        guard !MeetingRecorder.shared.isBusy else { activeApp = nil; activeIsBrowser = false; return }
-
-        let capturing = Self.inputCapturingPIDs()
-        guard !capturing.isEmpty else { activeApp = nil; activeIsBrowser = false; return }
-
-        var natives = Set<String>()
-        var browserCalls = Set<String>()
-        for app in NSWorkspace.shared.runningApplications {
-            guard let bid = app.bundleIdentifier, capturing.contains(app.processIdentifier) else { continue }
-            if let n = Self.conferencingApps[bid] { natives.insert(n) }
-            else if let b = Self.browsers[bid] { browserCalls.insert(b) }
-        }
-
+        guard !MeetingRecorder.shared.isBusy else { return nil }
+        let bundles = Self.capturingBundleIDs()
+            .map { $0.lowercased() }
+            .filter { !$0.hasPrefix("com.mindact.mindextract") }
+        guard !bundles.isEmpty else { return nil }
         // Native call apps win over browser tabs when both are capturing.
-        if let n = Self.priority.first(where: natives.contains) ?? natives.sorted().first {
-            activeApp = n; activeIsBrowser = false
-        } else if let b = browserCalls.sorted().first {
-            activeApp = b; activeIsBrowser = true
-        } else {
-            activeApp = nil; activeIsBrowser = false
+        for (prefix, name) in Self.conferencingPrefixes where bundles.contains(where: { $0.hasPrefix(prefix) }) {
+            return (name, false)
         }
+        for (prefix, name) in Self.browserPrefixes where bundles.contains(where: { $0.hasPrefix(prefix) }) {
+            return (name, true)
+        }
+        return nil
+    }
+
+    private func postNudge(_ app: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "In a \(app) call"
+        content.body = "Tap to record it in MindExtract."
+        content.sound = .default
+        content.categoryIdentifier = "MEETING_DETECTED"
+        content.userInfo = ["app": app]
+        let request = UNNotificationRequest(identifier: "meeting-nudge", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
     }
 
     // MARK: Core Audio per-process input detection (macOS 14+)
 
-    /// PIDs of every process currently capturing the microphone, via the public
-    /// Core Audio process-object API. This is the precise signal that replaces the
-    /// old "is *any* process using the mic" heuristic.
-    static func inputCapturingPIDs() -> Set<pid_t> {
+    /// Bundle IDs of every process currently capturing the microphone — read
+    /// straight from the audio process object, so helper/renderer processes (which
+    /// aren't NSRunningApplications) are still identified. This is what makes new
+    /// Teams (a WebView helper) and browser-based Meet detectable.
+    static func capturingBundleIDs() -> [String] {
         let system = AudioObjectID(kAudioObjectSystemObject)
         var listAddr = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyProcessObjectList,
@@ -124,24 +157,25 @@ final class ActiveMeetingDetector: ObservableObject {
 
         var inAddr = AudioObjectPropertyAddress(
             mSelector: kAudioProcessPropertyIsRunningInput,
-            mScope: kAudioObjectPropertyScopeGlobal,
+            mScope: kAudioObjectPropertyScopeInput,
             mElement: kAudioObjectPropertyElementMain)
-        var pidAddr = AudioObjectPropertyAddress(
-            mSelector: kAudioProcessPropertyPID,
+        var bidAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioProcessPropertyBundleID,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain)
 
-        var result = Set<pid_t>()
+        var result: [String] = []
         for proc in procs {
             var running: UInt32 = 0
             var rSize = UInt32(MemoryLayout<UInt32>.stride)
             guard AudioObjectGetPropertyData(proc, &inAddr, 0, nil, &rSize, &running) == noErr,
                   running != 0 else { continue }
-            var pid: pid_t = -1
-            var pSize = UInt32(MemoryLayout<pid_t>.stride)
-            guard AudioObjectGetPropertyData(proc, &pidAddr, 0, nil, &pSize, &pid) == noErr,
-                  pid > 0 else { continue }
-            result.insert(pid)
+            var cf: Unmanaged<CFString>? = nil
+            var cs = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+            if AudioObjectGetPropertyData(proc, &bidAddr, 0, nil, &cs, &cf) == noErr,
+               let bid = cf?.takeRetainedValue() as String?, !bid.isEmpty {
+                result.append(bid)
+            }
         }
         return result
     }

@@ -123,6 +123,7 @@ struct RecordingView: View {
         VStack(spacing: 18) {
             activeCallCard
             calendarCard
+            meetingLinkCard
             permissionRows
 
             if !recorder.screenGranted {
@@ -170,12 +171,60 @@ struct RecordingView: View {
         .onAppear { if startLanguage.isEmpty { startLanguage = resolvedStartLanguage() } }
     }
 
+    @State private var meetingLinkInput = ""
+
+    /// Recognize a meeting link (Teams/Zoom/Meet/Webex/…) for one-tap recording —
+    /// handy before you've joined the call audio (so detection hasn't fired yet).
+    private func meetingProvider(from s: String) -> String? {
+        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard URL(string: trimmed)?.scheme?.hasPrefix("http") == true else { return nil }
+        let l = trimmed.lowercased()
+        if l.contains("teams.microsoft.com") || l.contains("teams.live.com") { return "Teams" }
+        if l.contains("zoom.us") || l.contains("zoom.com") { return "Zoom" }
+        if l.contains("meet.google.com") { return "Google Meet" }
+        if l.contains("webex.com") { return "Webex" }
+        if l.contains("whereby.com") { return "Whereby" }
+        if l.contains("gotomeeting") || l.contains("gotomeet.me") { return "GoToMeeting" }
+        return nil
+    }
+
+    @ViewBuilder
+    private var meetingLinkCard: some View {
+        // Only as a manual fallback — hide while a meeting/call is already surfaced.
+        if calendar.currentMeeting == nil && activeMeeting.activeApp == nil {
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "link").foregroundColor(.secondary)
+                    TextField("Paste a meeting link (Teams, Zoom, Meet…)", text: $meetingLinkInput)
+                        .textFieldStyle(.plain).font(.system(size: 13))
+                    if !meetingLinkInput.isEmpty {
+                        Button { meetingLinkInput = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
+                            .buttonStyle(.plain)
+                    }
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.hairline, lineWidth: 1))
+                if let provider = meetingProvider(from: meetingLinkInput) {
+                    Button {
+                        recorder.start(language: startLanguage, liveModel: liveModel, meetingTitle: "\(provider) meeting")
+                        meetingLinkInput = ""
+                    } label: {
+                        Label("Record this \(provider) meeting", systemImage: "record.circle").frame(maxWidth: .infinity)
+                    }
+                    .primaryGlassButton().controlSize(.large).disabled(recorder.isBusy)
+                }
+            }
+            .frame(maxWidth: 460)
+        }
+    }
+
     /// Shown when a call app (Zoom/Teams/…) is detected in an active call — works
     /// regardless of calendar provider, and even with no calendar event at all.
     @ViewBuilder
     private var activeCallCard: some View {
         if let app = activeMeeting.activeApp, calendar.currentMeeting == nil {
-            let headline = activeMeeting.activeIsBrowser ? "Call active in \(app)" : "\(app) is in a call"
+            let headline = activeMeeting.activeIsBrowser ? "\(app) is using your microphone" : "\(app) is in a call"
             VStack(spacing: 10) {
                 HStack(spacing: 10) {
                     Image(systemName: "dot.radiowaves.left.and.right")
