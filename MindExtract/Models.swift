@@ -544,6 +544,9 @@ class AppSettings: ObservableObject {
     /// Auto-start recording when a meeting/call is detected (opt-in; thoughtless
     /// capture). The user can stop with one tap.
     @AppStorage("autoRecordMeetings") var autoRecordMeetings: Bool = false
+    /// Notify "in a call — record it?" when a meeting is detected and MindExtract
+    /// is in the background, so you don't have to be looking at the app.
+    @AppStorage("meetingNudge") var meetingNudge: Bool = true
     /// Preferred microphone uniqueID for meeting recording. Empty = follow the
     /// macOS system default (auto-switches to AirPods etc.).
     @AppStorage("preferredMicrophoneID") var preferredMicrophoneID: String = ""

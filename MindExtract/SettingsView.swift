@@ -521,10 +521,19 @@ struct SettingsView: View {
                     }
                 }
                 Divider().padding(.vertical, 2)
+                Toggle(isOn: $settings.meetingNudge) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Notify me when I'm in a call")
+                        Text("Shows a notification — even when MindExtract is in the background — when a meeting or call is detected, so you can record it with one tap.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                .disabled(!MeetingRecorder.isSupported)
+                Divider().padding(.vertical, 2)
                 Toggle(isOn: $settings.autoRecordMeetings) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Start recording automatically")
-                        Text("When a meeting or call is detected (while the Record tab is open), start recording without a tap. Stop any time with one tap.")
+                        Text("When a meeting or call is detected, start recording without a tap. Stop any time with one tap.")
                             .font(.caption).foregroundColor(.secondary)
                     }
                 }
@@ -959,6 +968,7 @@ struct SettingsView: View {
         settings.preferredMicrophoneID = ""
         activeMeeting.setEnabled(true)
         settings.autoRecordMeetings = false
+        settings.meetingNudge = true
         settings.downloadQuality = .best
         settings.autoTranscribeOnDownload = false
         settings.notifyOnTranscriptionComplete = true
