@@ -31,6 +31,7 @@
 		B1000E17 /* ExportTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E18 /* ExportTools.swift */; };
 		B1000E19 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1A /* WelcomeView.swift */; };
 		B1000E1B /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1C /* MCPServer.swift */; };
+		B1000E1D /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1E /* AppLock.swift */; };
 		TST00011 /* CoreLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00010 /* CoreLogicTests.swift */; };
 		B1000D05 /* AIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D06 /* AIBackend.swift */; };
 		B1000007 /* ytdlp in Resources */ = {isa = PBXBuildFile; fileRef = B1000023 /* ytdlp */; };
@@ -83,6 +84,7 @@
 		B1000E18 /* ExportTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportTools.swift; sourceTree = "<group>"; };
 		B1000E1A /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		B1000E1C /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
+		B1000E1E /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		TST00010 /* CoreLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreLogicTests.swift; sourceTree = "<group>"; };
 		TST00020 /* MindExtractTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MindExtractTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000D06 /* AIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackend.swift; sourceTree = "<group>"; };
@@ -162,6 +164,7 @@
 				B1000E18 /* ExportTools.swift */,
 				B1000E1A /* WelcomeView.swift */,
 				B1000E1C /* MCPServer.swift */,
+				B1000E1E /* AppLock.swift */,
 				B1000D06 /* AIBackend.swift */,
 				B1000024 /* SettingsView.swift */,
 				B1000026 /* TranscriptionManager.swift */,
@@ -313,6 +316,7 @@
 				B1000E17 /* ExportTools.swift in Sources */,
 				B1000E19 /* WelcomeView.swift in Sources */,
 				B1000E1B /* MCPServer.swift in Sources */,
+				B1000E1D /* AppLock.swift in Sources */,
 				B1000D05 /* AIBackend.swift in Sources */,
 				B1000031 /* SettingsView.swift in Sources */,
 				B1000033 /* TranscriptionManager.swift in Sources */,
@@ -461,7 +465,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -474,7 +478,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.3.1;
+				MARKETING_VERSION = 2.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -488,10 +492,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.3.1;
+				MARKETING_VERSION = 2.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextractTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
@@ -505,10 +509,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.3.1;
+				MARKETING_VERSION = 2.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextractTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
@@ -527,7 +531,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -539,7 +543,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.3.1;
+				MARKETING_VERSION = 2.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
