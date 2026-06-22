@@ -394,7 +394,7 @@ struct TranscriptionSegmentData: Identifiable {
     let id = UUID()
     let start: Float
     let end: Float
-    let text: String
+    var text: String          // editable in the transcript editor
     var speaker: String?
     let words: [WordTimingData]
     let avgLogprob: Float
@@ -555,6 +555,16 @@ class AppSettings: ObservableObject {
     // MARK: Notifications
     /// Post a notification when a transcription finishes.
     @AppStorage("notifyOnTranscriptionComplete") var notifyOnTranscriptionComplete: Bool = true
+
+    // MARK: Branding (professional PDF deliverables)
+    /// Business/practice name printed as the PDF letterhead.
+    @AppStorage("brandName") var brandName: String = ""
+    /// Path to a logo image (PNG/JPG) shown in the PDF letterhead.
+    @AppStorage("brandLogoPath") var brandLogoPath: String = ""
+
+    // MARK: Privacy & security
+    /// Require Touch ID / device password to open the app.
+    @AppStorage("appLockEnabled") var appLockEnabled: Bool = false
 
     // AI summaries & chat
     @AppStorage("aiBackend") var aiBackend: AIBackendChoice = .apple

@@ -33,6 +33,9 @@ struct ContentView: View {
     @State private var showOverlay = false
     @State private var overlayContent: AppOverlay = .palette
 
+    // App lock (Touch ID / password gate)
+    @ObservedObject private var appLock = AppLock.shared
+
     // Download state
     @State private var urlInput: String = ""
     @State private var selectedFormat: VideoFormat?
@@ -115,7 +118,25 @@ struct ContentView: View {
         }
         .frame(minWidth: 820, minHeight: 580)
         .background(WindowConfigurator())
-        .onAppear { checkPendingURL() }
+        // App-lock gate: cover everything until the user authenticates.
+        .overlay {
+            if appLock.isLocked { LockView() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            appLock.lockIfEnabled()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            // Small debounce: the Touch ID / password panel itself fires a spurious
+            // resign/become pair — without this the prompt can flicker twice.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                if appLock.isLocked { appLock.authenticate() }
+            }
+        }
+        .onAppear {
+            checkPendingURL()
+            appLock.lockIfEnabled()
+            if appLock.isLocked { appLock.authenticate() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
             selectedSidebarItem = .settings
         }
@@ -571,21 +592,23 @@ struct ContentView: View {
     private func selectLocalFiles() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = true   // pick a folder to batch all its media
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [
             UTType.movie, UTType.video, UTType.mpeg4Movie, UTType.quickTimeMovie, UTType.avi,
             UTType(filenameExtension: "mkv") ?? UTType.movie,
             UTType(filenameExtension: "webm") ?? UTType.movie,
-            UTType.mp3, UTType.audio, UTType.wav
+            UTType.mp3, UTType.audio, UTType.wav, UTType.folder
         ].compactMap { $0 }
-        panel.prompt = "Select Video Files"
+        panel.prompt = "Select Files or a Folder"
 
         if panel.runModal() == .OK {
-            let newFiles = panel.urls.map { LocalFileInfo(url: $0) }
-            for file in newFiles {
-                if !selectedLocalFiles.contains(where: { $0.url == file.url }) {
-                    selectedLocalFiles.append(file)
+            for url in panel.urls {
+                var isDir: ObjCBool = false
+                FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+                let urls = isDir.boolValue ? mediaFiles(inFolder: url) : [url]
+                for u in urls where !selectedLocalFiles.contains(where: { $0.url == u }) {
+                    selectedLocalFiles.append(LocalFileInfo(url: u))
                 }
             }
         }
@@ -1382,8 +1405,16 @@ struct ContentView: View {
                 .statusBanner(DS.Colors.accent)
             } else {
                 VStack(spacing: 10) {
-                    // Single file → one prominent, obvious primary action here.
-                    if selectedLocalFiles.count <= 1 {
+                    if transcriptionManager.batchActive {
+                        // Batch in progress — show how far along.
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("Transcribing \(min(transcriptionManager.batchDone + 1, transcriptionManager.batchTotal)) of \(transcriptionManager.batchTotal)…")
+                                .font(.system(size: 13)).foregroundColor(.secondary)
+                            Spacer()
+                        }
+                    } else if selectedLocalFiles.count <= 1 {
+                        // Single file → one prominent, obvious primary action here.
                         Button {
                             pendingTranscriptionFile = selectedLocalFiles.first
                             pendingTranscriptionFilePath = nil
@@ -1395,15 +1426,30 @@ struct ContentView: View {
                         .primaryGlassButton()
                         .controlSize(.large)
                         .disabled(selectedLocalFiles.isEmpty)
+                    } else {
+                        // Multiple files → batch them all in one go.
+                        Button {
+                            transcriptionManager.startBatch(
+                                files: selectedLocalFiles.map { $0.url },
+                                model: AppSettings.shared.defaultWhisperModel,
+                                language: settings.defaultTranscriptionLanguage)
+                        } label: {
+                            Label("Transcribe all \(selectedLocalFiles.count) files", systemImage: "text.badge.checkmark")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .primaryGlassButton()
+                        .controlSize(.large)
                     }
 
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.caption)
                             .foregroundColor(.green)
-                        Text(selectedLocalFiles.count > 1
-                             ? "Click Transcribe on each file above"
-                             : "Ready")
+                        Text(transcriptionManager.batchActive
+                             ? "Saving each to Transcripts as it finishes"
+                             : (selectedLocalFiles.count > 1
+                                ? "Transcribes one after another, using your default language"
+                                : "Ready"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Spacer()
@@ -1522,18 +1568,34 @@ struct ContentView: View {
         }
     }
 
+    static let mediaExtensions: Set<String> = ["mp4", "mkv", "webm", "avi", "mov", "m4v", "wmv", "flv", "mp3", "m4a", "wav", "flac", "aac", "ogg", "opus", "aiff"]
+
+    private func addLocalFile(_ url: URL) {
+        guard self.selectedSidebarItem == .download else { return }
+        if !self.selectedLocalFiles.contains(where: { $0.url == url }) {
+            self.selectedLocalFiles.append(LocalFileInfo(url: url))
+        }
+    }
+
+    /// Media files directly inside a folder (one level — no deep recursion so a
+    /// huge tree can't flood the list unexpectedly).
+    private func mediaFiles(inFolder folder: URL) -> [URL] {
+        let items = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        return items
+            .filter { Self.mediaExtensions.contains($0.pathExtension.lowercased()) }
+            .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+    }
+
     private func handleDroppedURL(_ url: URL) {
         DispatchQueue.main.async {
             if url.isFileURL {
-                let videoExtensions = ["mp4", "mkv", "webm", "avi", "mov", "m4v", "wmv", "flv", "mp3", "m4a", "wav", "flac"]
-                if videoExtensions.contains(url.pathExtension.lowercased()) {
-                    // Add to local files when on the media surface.
-                    if self.selectedSidebarItem == .download {
-                        let fileInfo = LocalFileInfo(url: url)
-                        if !self.selectedLocalFiles.contains(where: { $0.url == url }) {
-                            self.selectedLocalFiles.append(fileInfo)
-                        }
-                    }
+                var isDir: ObjCBool = false
+                FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+                if isDir.boolValue {
+                    // Folder dropped → add every media file inside (batch).
+                    for f in self.mediaFiles(inFolder: url) { self.addLocalFile(f) }
+                } else if Self.mediaExtensions.contains(url.pathExtension.lowercased()) {
+                    self.addLocalFile(url)
                 }
             } else {
                 self.urlInput = url.absoluteString

@@ -192,6 +192,7 @@ struct TranscriptionResultView: View {
     @State private var searchScrollTarget: UUID?
     @State private var editingSpeaker: String?
     @State private var editingName: String = ""
+    @State private var isEditingTranscript = false
     // Reminders export feedback, keyed per template-output toolbar.
     @State private var remindersStatus: String?
     @State private var remindersExporting = false
@@ -306,10 +307,14 @@ struct TranscriptionResultView: View {
         var extras: [(String, String)] = []
         if !redacted, let s = summarizer.currentSummary { extras.append(("Summary", s)) }
         let notice = redacted ? "Automatically redacted on-device. Name detection can miss names — especially in non-English text. Review before sharing." : nil
+        let brand = AppSettings.shared.brandName
+        let logo = PDFExporter.logoDataURI(path: AppSettings.shared.brandLogoPath)
         let html = PDFExporter.transcriptHTML(title: title,
                                               paragraphs: transcriptParagraphs(redacted: redacted),
                                               extraSections: extras,
-                                              notice: notice)
+                                              notice: notice,
+                                              brandName: brand.isEmpty ? nil : brand,
+                                              logoDataURI: logo)
         PDFExporter.shared.makePDF(html: html) { @MainActor data in
             guard let data else { return }
             let panel = NSSavePanel()
@@ -1005,9 +1010,29 @@ struct TranscriptionResultView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 40)
                 } else {
+                    // Edit-transcript toggle (correct mis-transcriptions inline).
+                    if isCompleted && !transcriptionManager.segments.isEmpty {
+                        HStack {
+                            if isEditingTranscript {
+                                Text("Editing — tap a line to fix it, press Return to save")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Button {
+                                isEditingTranscript.toggle()
+                            } label: {
+                                Label(isEditingTranscript ? "Done" : "Edit transcript",
+                                      systemImage: isEditingTranscript ? "checkmark" : "pencil")
+                                    .font(.caption)
+                            }
+                            .secondaryGlassButton().controlSize(.small)
+                            .disabled(!searchText.isEmpty)   // editing a filtered subset is confusing
+                        }
+                        .padding(.horizontal, 16).padding(.top, 10)
+                    }
                     // Talk-time insights (shown when 2+ speakers are present and
                     // we're not mid-search), from the memoized computation.
-                    if searchText.isEmpty, !isTranscribing, let insights = cachedInsights {
+                    if searchText.isEmpty, !isTranscribing, !isEditingTranscript, let insights = cachedInsights {
                         MeetingInsightsCard(insights: insights)
                             .padding(.horizontal, 16)
                             .padding(.top, 12)
@@ -1026,7 +1051,9 @@ struct TranscriptionResultView: View {
                                     if !audioPlayer.isPlaying {
                                         audioPlayer.togglePlayPause()
                                     }
-                                }
+                                },
+                                isEditing: isEditingTranscript,
+                                onCommitEdit: { transcriptionManager.updateSegmentText(id: segment.id, to: $0) }
                             )
                             .id(segment.id)
                         }
@@ -2278,8 +2305,19 @@ struct SegmentRow: View {
     var speakerNames: [String: String] = [:]
     var isActive: Bool = false
     var onTap: (() -> Void)?
+    var isEditing: Bool = false
+    var onCommitEdit: ((String) -> Void)? = nil
 
     @State private var isHovered = false
+    @State private var draft = ""
+
+    /// Only write when the text actually changed — prevents a "Done" tap from
+    /// fanning out N file writes across every visible row (and guards against a
+    /// recycled row committing the wrong segment's stale draft).
+    private func commitIfChanged() {
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed != segment.text { onCommitEdit?(trimmed) }
+    }
 
     private func displayName(_ s: String) -> String {
         let t = speakerNames[s]?.trimmingCharacters(in: .whitespaces)
@@ -2312,11 +2350,28 @@ struct SegmentRow: View {
                         .foregroundColor(SpeakerColors.color(for: speaker))
                 }
 
-                // Segment text
-                highlightedText
-                    .font(.system(size: 14))
-                    .lineSpacing(4)
-                    .textSelection(.enabled)
+                // Segment text — editable in edit mode, else highlighted display.
+                if isEditing {
+                    TextField("", text: $draft, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14))
+                        .lineSpacing(4)
+                        .padding(6)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(DS.Colors.accent.opacity(0.4), lineWidth: 1))
+                        // Reseed on first show AND when a recycled LazyVStack row is
+                        // reused for a different segment (else draft would be stale).
+                        .onChange(of: segment.id, initial: true) { draft = segment.text }
+                        .onSubmit { commitIfChanged() }
+                        .onChange(of: isEditing) { _, editing in
+                            if !editing { commitIfChanged() }   // commit when leaving edit mode
+                        }
+                } else {
+                    highlightedText
+                        .font(.system(size: 14))
+                        .lineSpacing(4)
+                        .textSelection(.enabled)
+                }
 
                 // Timestamp
                 Text(segment.formattedStart)
@@ -2343,10 +2398,10 @@ struct SegmentRow: View {
             if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .onTapGesture {
-            onTap?()
+            if !isEditing { onTap?() }   // don't seek while editing text
         }
         .contentShape(Rectangle())
-        .help("Click to play from here")
+        .help(isEditing ? "Editing — press Return to save" : "Click to play from here")
         .contextMenu {
             Button("Copy text") { copyToPasteboard(segment.text) }
             Button("Copy with timestamp") {

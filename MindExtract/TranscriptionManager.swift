@@ -418,6 +418,7 @@ class TranscriptionManager: ObservableObject {
         guard let ffmpegPath = ffmpegBinaryPath else {
             DispatchQueue.main.async {
                 self.transcriptionState = .error("FFmpeg binary not found")
+                self.advanceBatchIfNeeded()
             }
             return
         }
@@ -427,6 +428,7 @@ class TranscriptionManager: ObservableObject {
             guard isModelDownloaded(model) else {
                 DispatchQueue.main.async {
                     self.transcriptionState = .modelNotDownloaded
+                    self.advanceBatchIfNeeded()
                 }
                 return
             }
@@ -449,6 +451,7 @@ class TranscriptionManager: ObservableObject {
             if !success {
                 DispatchQueue.main.async {
                     self.transcriptionState = .error(error ?? "Failed to extract audio")
+                    self.advanceBatchIfNeeded()
                 }
                 try? self.fileManager.removeItem(atPath: tempAudioPath)
                 return
@@ -542,7 +545,7 @@ class TranscriptionManager: ObservableObject {
             self.speakerNameOverrides = [:]
             self.audioDuration = probedDuration
             self.audioFilePath = playbackAudioPath
-            self.showTranscriptionView = true
+            if !self.suppressAutoShow { self.showTranscriptionView = true }
         }
 
         currentTask = Task {
@@ -765,6 +768,7 @@ class TranscriptionManager: ObservableObject {
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
                     self.notifyTranscriptionComplete()
+                    self.advanceBatchIfNeeded()
                     appLog("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
                 }
 
@@ -785,7 +789,7 @@ class TranscriptionManager: ObservableObject {
                         }
                     }
                 }
-                await MainActor.run { self.discardPendingChannelSources() }
+                await MainActor.run { self.discardPendingChannelSources(); self.advanceBatchIfNeeded() }
                 cleanup()
             }
         }
@@ -995,6 +999,10 @@ class TranscriptionManager: ObservableObject {
                 self.transcriptionState = .idle
             }
             self.activeOutputPath = nil
+            // Cancelling stops the whole batch (and frees the navigation suppression).
+            self.batchActive = false
+            self.batchQueue.removeAll()
+            self.suppressAutoShow = false
         }
     }
 
@@ -1124,6 +1132,55 @@ class TranscriptionManager: ObservableObject {
     /// Source category for the next transcript's history entry (meeting/download/file).
     var currentTranscriptSource: TranscriptSource = .file
 
+    // MARK: Batch transcription (folder / many files)
+    @Published var batchActive = false
+    @Published var batchTotal = 0
+    @Published var batchDone = 0
+    private var batchQueue: [URL] = []
+    private var batchModel: WhisperModel = .small
+    private var batchLanguage = "auto"
+    /// While true, completing a transcription does NOT navigate to its result
+    /// (batch runs in the background; the user stays where they are).
+    private var suppressAutoShow = false
+
+    /// Transcribe a list of media files one at a time, saving each to history.
+    func startBatch(files: [URL], model: WhisperModel, language: String) {
+        guard !files.isEmpty, !batchActive, !isTranscribing else { return }
+        batchQueue = files
+        batchTotal = files.count
+        batchDone = 0
+        batchModel = model
+        batchLanguage = language
+        batchActive = true
+        suppressAutoShow = true
+        processNextBatch()
+    }
+
+    private func processNextBatch() {
+        guard !batchQueue.isEmpty else {
+            batchActive = false
+            suppressAutoShow = false
+            return
+        }
+        let url = batchQueue.removeFirst()
+        startNewTranscription(title: url.deletingPathExtension().lastPathComponent, model: batchModel, source: .file)
+        transcribe(videoPath: url.path, model: batchModel,
+                   outputFormat: AppSettings.shared.transcriptionOutputFormat, language: batchLanguage)
+    }
+
+    /// Called when a transcription finishes (success or failure) — advances the
+    /// batch to the next file, or ends the batch.
+    private func advanceBatchIfNeeded() {
+        guard batchActive else { return }
+        batchDone += 1
+        if batchQueue.isEmpty {
+            batchActive = false
+            suppressAutoShow = false
+        } else {
+            processNextBatch()
+        }
+    }
+
     func startNewTranscription(title: String, model: WhisperModel? = nil, source: TranscriptSource = .file) {
         currentTranscriptSource = source
         DispatchQueue.main.async {
@@ -1131,6 +1188,9 @@ class TranscriptionManager: ObservableObject {
             self.liveTranscriptionText = ""
             self.lastSavedPath = nil
             self.currentModelUsed = model
+            // During a batch we transcribe in the background — don't yank the user
+            // into each result view.
+            guard !self.suppressAutoShow else { return }
             // Force re-trigger .onChange even if already true
             if self.showTranscriptionView {
                 self.showTranscriptionView = false
@@ -1139,6 +1199,21 @@ class TranscriptionManager: ObservableObject {
                 self.showTranscriptionView = true
             }
         }
+    }
+
+    /// Edit a segment's text (transcript editor): update in memory, refresh the
+    /// plain-text mirror, and re-persist both the saved transcript file and its
+    /// segments sidecar so the change survives reopen.
+    func updateSegmentText(id: UUID, to newText: String) {
+        guard let idx = segments.firstIndex(where: { $0.id == id }) else { return }
+        let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard segments[idx].text != trimmed else { return }
+        segments[idx].text = trimmed
+        liveTranscriptionText = segments.map { $0.text }.joined(separator: "\n\n")
+        guard let path = lastSavedPath else { return }
+        let format = TranscriptionOutputFormat(rawValue: URL(fileURLWithPath: path).pathExtension) ?? .txt
+        try? buildTranscriptText(segments, format: format).write(toFile: path, atomically: true, encoding: .utf8)
+        saveSegmentData(to: path + ".segments.json")
     }
 
     private func saveToHistory(title: String, filePath: String) {
@@ -1475,6 +1550,7 @@ extension TranscriptionManager {
                     let name = AppSettings.transcriptionLanguages.first { $0.code == language }?.name ?? language
                     self.transcriptionState = .error("Apple Speech doesn’t support \(name) yet. Download a WhisperKit model in Settings to transcribe \(name) on your Mac, then try again.")
                     cleanup()
+                    self.advanceBatchIfNeeded()
                 }
             }
         } else {
@@ -1518,7 +1594,7 @@ extension TranscriptionManager {
         speakerNameOverrides = [:]
         audioDuration = 0
         audioFilePath = playbackAudioPath
-        showTranscriptionView = true
+        if !suppressAutoShow { showTranscriptionView = true }
 
         currentTask = Task {
             do {
@@ -1597,6 +1673,7 @@ extension TranscriptionManager {
                 transcriptionState = .completed(outputPath: outputPath)
                 saveToHistory(title: currentTranscriptionTitle, filePath: outputPath)
                 notifyTranscriptionComplete()
+                advanceBatchIfNeeded()
                 cleanup()
             } catch {
                 if Task.isCancelled {
@@ -1605,6 +1682,7 @@ extension TranscriptionManager {
                     transcriptionState = .error("Transcription failed: \(error.localizedDescription)")
                 }
                 discardPendingChannelSources()
+                advanceBatchIfNeeded()
                 cleanup()
             }
         }

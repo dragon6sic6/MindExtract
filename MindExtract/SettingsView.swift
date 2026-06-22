@@ -870,6 +870,46 @@ struct SettingsView: View {
             .font(.caption).foregroundColor(.secondary)
         }
 
+        SettingsSection(title: "Privacy & Security", icon: "lock.shield") {
+            Toggle(isOn: $settings.appLockEnabled) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Require Touch ID or password to open")
+                    Text("Locks MindExtract when it's not frontmost, so transcripts (client, patient or case material) aren't visible to anyone at an unlocked Mac.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+            }
+            Divider().padding(.vertical, 2)
+            Text("Everything already stays on your Mac. For full at-rest encryption of the files on disk, turn on macOS FileVault (System Settings → Privacy & Security → FileVault) — it encrypts your whole drive, including MindExtract's transcripts.")
+                .font(.caption).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+
+        SettingsSection(title: "Branding (PDF deliverables)", icon: "signature") {
+            Text("Add your practice/business name and logo to exported PDFs — a letterhead for transcripts and notes you hand to clients.")
+                .font(.caption).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Text("Business name")
+                Spacer()
+                TextField("e.g. Mindact Solutions AB", text: $settings.brandName)
+                    .textFieldStyle(.roundedBorder).frame(width: 240)
+            }
+            HStack {
+                Text("Logo")
+                Spacer()
+                if !settings.brandLogoPath.isEmpty {
+                    Text(URL(fileURLWithPath: settings.brandLogoPath).lastPathComponent)
+                        .font(.caption).foregroundColor(.secondary).lineLimit(1).frame(maxWidth: 140)
+                    Button("Clear") { settings.brandLogoPath = "" }
+                        .secondaryGlassButton().controlSize(.small)
+                }
+                Button(settings.brandLogoPath.isEmpty ? "Choose…" : "Change…") { selectLogo() }
+                    .secondaryGlassButton().controlSize(.small)
+            }
+            Text("PNG or JPG. Appears at the top of branded PDF exports.")
+                .font(.caption2).foregroundColor(.secondary)
+        }
+
         // Destructive action — isolated at the very bottom.
         SettingsSection(title: "Reset", icon: "arrow.counterclockwise") {
             HStack {
@@ -912,6 +952,9 @@ struct SettingsView: View {
         settings.downloadQuality = .best
         settings.autoTranscribeOnDownload = false
         settings.notifyOnTranscriptionComplete = true
+        settings.brandName = ""
+        settings.brandLogoPath = ""
+        settings.appLockEnabled = false
         // Re-sync the live calendar monitor with the restored setting.
         calendar.setSuggestionsEnabled(settings.calendarSuggestionsEnabled)
     }
@@ -1115,6 +1158,18 @@ struct SettingsView: View {
         panel.message = "Export cookies.txt from your browser using a browser extension like \"Get cookies.txt LOCALLY\""
         if panel.runModal() == .OK, let url = panel.url {
             settings.cookiesFilePath = url.path
+        }
+    }
+
+    private func selectLogo() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.png, .jpeg, .image]
+        panel.title = "Choose a logo image"
+        if panel.runModal() == .OK, let url = panel.url {
+            settings.brandLogoPath = url.path
         }
     }
 
