@@ -56,6 +56,9 @@ struct RecordingView: View {
             calendar.stopMonitoring()
             if !settings.detectActiveMeetings { activeMeeting.stopMonitoring() }
         }
+        // Auto-record (opt-in): start when a meeting/call is detected, once each.
+        .onChange(of: calendar.currentMeeting) { _, _ in autoRecordIfNeeded() }
+        .onChange(of: activeMeeting.activeApp) { _, _ in autoRecordIfNeeded() }
         // Floating captions follow the recording lifecycle: auto-show on start if
         // the user enabled it, and always hide when the live transcriber stops
         // (Stop button, menu bar, sleep, error, …).
@@ -235,9 +238,27 @@ struct RecordingView: View {
         }
     }
 
+    @State private var lastAutoRecordKey: String?
+
+    /// Auto-start recording when a meeting/call is detected (opt-in). Triggers at
+    /// most once per distinct detection, and never while already busy.
+    private func autoRecordIfNeeded() {
+        guard settings.autoRecordMeetings, !recorder.isBusy else { return }
+        if let m = calendar.currentMeeting {
+            guard lastAutoRecordKey != m.id else { return }
+            lastAutoRecordKey = m.id
+            startMeeting(m)
+        } else if let app = activeMeeting.activeApp {
+            let key = "call:\(app)"
+            guard lastAutoRecordKey != key else { return }
+            lastAutoRecordKey = key
+            recorder.start(language: startLanguage, liveModel: liveModel, meetingTitle: "\(app) call")
+        }
+    }
+
     private func startMeeting(_ m: MeetingCalendar.CalEvent) {
         let prefill = m.attendees.isEmpty ? "" : "Attendees: " + m.attendees.joined(separator: ", ") + "\n\n"
-        recorder.start(language: startLanguage, liveModel: liveModel, meetingTitle: m.title, notesPrefill: prefill, attendees: m.attendees)
+        recorder.start(language: startLanguage, liveModel: liveModel, meetingTitle: m.title, notesPrefill: prefill, attendees: m.attendees, attendeeEmails: m.attendeeEmails)
     }
 
     private var finalizingPanel: some View {
@@ -284,6 +305,18 @@ struct RecordingView: View {
                 .controlSize(.small)
                 .help("Show live captions in a floating window that stays on top of Zoom/Teams")
             }
+
+            // Bookmark "this matters" → jumps appear in the Brief afterwards.
+            Button {
+                recorder.markMoment()
+            } label: {
+                Label(recorder.markedMoments.isEmpty ? "Mark moment  ⌘M" : "Mark moment  ⌘M  ·  \(recorder.markedMoments.count)",
+                      systemImage: "flag.fill")
+                    .font(.caption)
+            }
+            .secondaryGlassButton()
+            .controlSize(.small)
+            .help("Bookmark this moment — you can jump back to it in the Brief")
 
             liveNotesView
 

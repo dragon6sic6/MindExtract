@@ -65,6 +65,10 @@ class TranscriptionManager: ObservableObject {
     /// Speaker-name suggestions for the next transcript ("You" + calendar
     /// attendees), shown in the rename popover. Set when a meeting is confirmed.
     var pendingSpeakerSuggestions: [String] = []
+    /// Marked moments (seconds from start) bookmarked during recording, and the
+    /// meeting's attendee emails — handed to the result view for the Brief + recap.
+    var pendingMarkedMoments: [TimeInterval] = []
+    var pendingAttendeeEmails: [String] = []
     /// True when the next transcript comes from a meeting recording, so the result
     /// view can auto-generate notes once. Consumed on first open.
     private(set) var pendingIsMeeting = false

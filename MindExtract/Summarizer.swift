@@ -218,6 +218,9 @@ struct TranscriptAISidecar: Codable {
     // Speaker-name suggestions captured at record time ("You" + calendar
     // attendees), persisted so reopening the transcript still offers them.
     var speakerSuggestions: [String]?
+    // Moments (seconds from start) bookmarked live during the meeting, shown as
+    // jump-to chips in the Brief.
+    var markedMoments: [Double]?
 }
 
 enum TranscriptAIStore {

@@ -54,6 +54,7 @@ final class MeetingRecorder: ObservableObject {
     private var liveModel: WhisperModel?
     private var sessionTitle: String?   // from a calendar event, if started that way
     private var sessionAttendees: [String] = []   // calendar attendees → speaker-name suggestions
+    private var sessionAttendeeEmails: [String] = []   // calendar attendee emails → recap email recipients
     /// Notes the user jots during the meeting — merged with the transcript by AI.
     @Published var liveNotes = ""
 
@@ -223,7 +224,7 @@ final class MeetingRecorder: ObservableObject {
 
     /// `language`/`liveModel` drive the live preview. If liveModel is nil or not
     /// downloaded, recording still works — there's just no live transcript.
-    func start(language: String = "auto", liveModel: WhisperModel? = nil, meetingTitle: String? = nil, notesPrefill: String = "", attendees: [String] = []) {
+    func start(language: String = "auto", liveModel: WhisperModel? = nil, meetingTitle: String? = nil, notesPrefill: String = "", attendees: [String] = [], attendeeEmails: [String] = []) {
         guard !isBusy else { return }
         guard #available(macOS 15.0, *) else {
             state = .error("Meeting recording requires macOS 15 or later.", .capture)
@@ -233,10 +234,19 @@ final class MeetingRecorder: ObservableObject {
         self.liveModel = liveModel
         self.sessionTitle = meetingTitle
         self.sessionAttendees = attendees
+        self.sessionAttendeeEmails = attendeeEmails
+        markedMoments = []
         liveNotes = notesPrefill
         state = .starting
         level = 0
         Task { await startCapture() }
+    }
+
+    // MARK: Marked moments (bookmark "this matters" live → jump-to in the Brief)
+    @Published private(set) var markedMoments: [TimeInterval] = []
+    func markMoment() {
+        guard isRecording else { return }
+        markedMoments.append(elapsed)
     }
 
     @available(macOS 15.0, *)
@@ -402,6 +412,10 @@ final class MeetingRecorder: ObservableObject {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
         TranscriptionManager.shared.pendingSpeakerSuggestions = Array(NSOrderedSet(array: suggestions)) as? [String] ?? suggestions
+        // Marked moments (relative to recording start = audio playback time) and
+        // attendee emails for the one-tap recap, handed to the result view.
+        TranscriptionManager.shared.pendingMarkedMoments = markedMoments
+        TranscriptionManager.shared.pendingAttendeeEmails = sessionAttendeeEmails
         TranscriptionManager.shared.markPendingMeeting()
         TranscriptionManager.shared.startNewTranscription(title: name, source: .meeting)
         TranscriptionManager.shared.transcribe(

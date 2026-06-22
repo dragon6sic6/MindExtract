@@ -520,6 +520,15 @@ struct SettingsView: View {
                             .font(.caption).foregroundColor(.secondary)
                     }
                 }
+                Divider().padding(.vertical, 2)
+                Toggle(isOn: $settings.autoRecordMeetings) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Start recording automatically")
+                        Text("When a meeting or call is detected (while the Record tab is open), start recording without a tap. Stop any time with one tap.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                .disabled(!MeetingRecorder.isSupported)
             }
 
             SettingsSection(title: "Live Captions", icon: "captions.bubble") {
@@ -949,6 +958,7 @@ struct SettingsView: View {
         settings.autoShowCaptions = false
         settings.preferredMicrophoneID = ""
         activeMeeting.setEnabled(true)
+        settings.autoRecordMeetings = false
         settings.downloadQuality = .best
         settings.autoTranscribeOnDownload = false
         settings.notifyOnTranscriptionComplete = true
