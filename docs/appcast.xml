@@ -7,39 +7,31 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.5.0</title>
-      <pubDate>Mon, 22 Jun 2026 16:03:07 +0000</pubDate>
-      <sparkle:version>39</sparkle:version>
-      <sparkle:shortVersionString>2.5.0</sparkle:shortVersionString>
+      <title>Version 2.5.1</title>
+      <pubDate>Mon, 22 Jun 2026 16:52:30 +0000</pubDate>
+      <sparkle:version>40</sparkle:version>
+      <sparkle:shortVersionString>2.5.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.5.0</h2>
-<p>Meetings, made effortless. Capture without thinking, mark what matters, and walk away with a brief you can act on and share in one tap — all still fully on your Mac.</p>
-
-<h3>✨ The Meeting Brief</h3>
+<h2>What's New in 2.5.1</h2>
+<p>Meeting detection that just works — and finds you wherever you are.</p>
+<h3>🎯 Detects Teams, Meet & more — reliably</h3>
 <ul>
-  <li>When a meeting finishes, MindExtract writes one clear brief automatically: a <strong>TL;DR</strong>, the <strong>decisions</strong>, and the <strong>action items</strong> — the first thing you see, ready to use.</li>
+  <li>Fixed detection for <strong>new Microsoft Teams</strong> and <strong>browser calls</strong> (Google Meet, Zoom/Teams web). MindExtract now identifies the app actually capturing your microphone — including helper processes — so it recognizes the call regardless of how the app is built.</li>
 </ul>
-
-<h3>🚩 Mark the moments that matter</h3>
+<h3>🔔 A nudge wherever you are</h3>
 <ul>
-  <li>Press <strong>⌘M</strong> (or tap <strong>Mark moment</strong>) any time during a recording. Your bookmarks appear in the brief as <strong>clickable key moments</strong> that jump straight to that point in the audio.</li>
+  <li>When you're in a call and MindExtract is in the background, it sends a gentle notification — tap <strong>Record</strong> to capture it. No need to have the app open. (Turn off in Settings → Recording.)</li>
 </ul>
-
-<h3>📧 One-tap recap to attendees</h3>
+<h3>🔗 Paste a meeting link</h3>
 <ul>
-  <li>Send a follow-up email with the recap — pre-addressed to the meeting's attendees and pre-filled with the brief. Closes the loop in seconds.</li>
-</ul>
-
-<h3>🎙️ Thoughtless capture</h3>
-<ul>
-  <li>Turn on <strong>Start recording automatically</strong> and MindExtract begins the moment a meeting or call is detected — no need to remember to hit record. Stop any time with one tap.</li>
+  <li>Have a Teams/Zoom/Meet link but haven't joined yet? Paste it on the Record screen for one-tap recording.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.5.0/MindExtract-2.5.0-Universal.dmg"
-        sparkle:edSignature="aHXXlNfEvOLNi60+Eb0tu222mpEOmgB2zhmp4TqWyaNJIVMFBqRokq1h8dRKS9dHvoJDPUJa7M8n7IyFhqo2CQ=="
-        length="85596744"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.5.1/MindExtract-2.5.1-Universal.dmg"
+        sparkle:edSignature="z7F3nATz+5mIC32KoajzXRUk18p2u7t5DuMKqBAb+zf4BPJvwZ96Qpp7BYZIo1mHd+aw9DgySpd4Tp6+5FAbDw=="
+        length="85735497"
         type="application/octet-stream"
       />
     </item>
