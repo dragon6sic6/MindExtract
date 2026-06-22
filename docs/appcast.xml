@@ -7,31 +7,24 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.5.1</title>
-      <pubDate>Mon, 22 Jun 2026 16:52:30 +0000</pubDate>
-      <sparkle:version>40</sparkle:version>
-      <sparkle:shortVersionString>2.5.1</sparkle:shortVersionString>
+      <title>Version 2.5.2</title>
+      <pubDate>Mon, 22 Jun 2026 17:25:23 +0000</pubDate>
+      <sparkle:version>41</sparkle:version>
+      <sparkle:shortVersionString>2.5.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.5.1</h2>
-<p>Meeting detection that just works — and finds you wherever you are.</p>
-<h3>🎯 Detects Teams, Meet & more — reliably</h3>
+<h2>What's New in 2.5.2</h2>
+<p>MindExtract now nudges you the moment a scheduled meeting starts — even when it's in the background.</p>
+<h3>📅 Records find you on time</h3>
 <ul>
-  <li>Fixed detection for <strong>new Microsoft Teams</strong> and <strong>browser calls</strong> (Google Meet, Zoom/Teams web). MindExtract now identifies the app actually capturing your microphone — including helper processes — so it recognizes the call regardless of how the app is built.</li>
-</ul>
-<h3>🔔 A nudge wherever you are</h3>
-<ul>
-  <li>When you're in a call and MindExtract is in the background, it sends a gentle notification — tap <strong>Record</strong> to capture it. No need to have the app open. (Turn off in Settings → Recording.)</li>
-</ul>
-<h3>🔗 Paste a meeting link</h3>
-<ul>
-  <li>Have a Teams/Zoom/Meet link but haven't joined yet? Paste it on the Record screen for one-tap recording.</li>
+  <li>When a meeting on your calendar begins, MindExtract sends a notification — tap <strong>Record</strong> to capture it with the title and attendees already filled in. Combined with live-call detection, you'll never miss the start of a meeting again.</li>
+  <li>Detection now runs app-wide (no need to have the Record screen open). Turn nudges off any time in Settings → Recording.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.5.1/MindExtract-2.5.1-Universal.dmg"
-        sparkle:edSignature="z7F3nATz+5mIC32KoajzXRUk18p2u7t5DuMKqBAb+zf4BPJvwZ96Qpp7BYZIo1mHd+aw9DgySpd4Tp6+5FAbDw=="
-        length="85735497"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.5.2/MindExtract-2.5.2-Universal.dmg"
+        sparkle:edSignature="2ZbAMC6gY3aCafz18fb4VkUigDGgMW8xPSek1dv8TNcP3gcAnGQi12Jot2Xf+1NFkbK+Y0K2fZeeUd/11eXRDQ=="
+        length="86517883"
         type="application/octet-stream"
       />
     </item>
