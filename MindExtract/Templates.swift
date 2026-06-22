@@ -167,7 +167,7 @@ final class TemplateStore: ObservableObject {
         } catch {
             // Corrupt file: keep it for manual recovery, don't reset to empty
             // (which would then be persisted over the user's templates).
-            print("[TemplateStore] Failed to decode templates.json: \(error)")
+            appLog("[TemplateStore] Failed to decode templates.json: \(error)")
         }
     }
 
@@ -176,7 +176,7 @@ final class TemplateStore: ObservableObject {
             let data = try JSONEncoder().encode(userTemplates)
             try data.write(to: Self.fileURL, options: .atomic)
         } catch {
-            print("[TemplateStore] Failed to save templates: \(error)")
+            appLog("[TemplateStore] Failed to save templates: \(error)")
         }
     }
 }

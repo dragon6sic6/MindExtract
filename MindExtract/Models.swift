@@ -2,6 +2,15 @@ import Foundation
 import UserNotifications
 import SwiftUI
 import AVFoundation
+import os
+
+// MARK: - Diagnostic logging
+//
+// Routes diagnostics to the unified log (Console.app / `log stream`) instead of
+// scattered print(). Debug level → not persisted to disk, so transcript-adjacent
+// details never linger in system logs.
+private let appLogger = Logger(subsystem: "com.mindact.mindextract", category: "app")
+func appLog(_ message: String) { appLogger.debug("\(message, privacy: .public)") }
 
 // MARK: - Video Format
 

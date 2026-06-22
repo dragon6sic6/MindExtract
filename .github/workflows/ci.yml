@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Builds and runs the unit-test suite on every push/PR so a regression can't
+# reach a release. NOTE: the app references macOS 26 SDK symbols (SpeechAnalyzer,
+# guarded with @available) — the runner's Xcode must be new enough to provide
+# that SDK. Bump the runner image / Xcode if the build fails to find those APIs.
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version && xcrun --show-sdk-version
+
+      - name: Build & test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project MindExtract.xcodeproj \
+            -scheme MindExtract \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | tail -200

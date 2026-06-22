@@ -31,6 +31,7 @@
 		B1000E17 /* ExportTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E18 /* ExportTools.swift */; };
 		B1000E19 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1A /* WelcomeView.swift */; };
 		B1000E1B /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1C /* MCPServer.swift */; };
+		TST00011 /* CoreLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00010 /* CoreLogicTests.swift */; };
 		B1000D05 /* AIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D06 /* AIBackend.swift */; };
 		B1000007 /* ytdlp in Resources */ = {isa = PBXBuildFile; fileRef = B1000023 /* ytdlp */; };
 		B1000031 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000024 /* SettingsView.swift */; };
@@ -39,6 +40,24 @@
 		B1000036 /* RecentActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000029 /* RecentActivityView.swift */; };
 		B1000061 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = B1000051 /* ffmpeg */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		TST00006 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B1000008 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B100000A;
+			remoteInfo = MindExtract;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		TST00005 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B100000A /* MindExtract */;
+			targetProxy = TST00006 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXFileReference section */
 		B1000010 /* MindExtract.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MindExtract.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -64,6 +83,8 @@
 		B1000E18 /* ExportTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportTools.swift; sourceTree = "<group>"; };
 		B1000E1A /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		B1000E1C /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
+		TST00010 /* CoreLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreLogicTests.swift; sourceTree = "<group>"; };
+		TST00020 /* MindExtractTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MindExtractTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000D06 /* AIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackend.swift; sourceTree = "<group>"; };
 		B1000023 /* ytdlp */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ytdlp; sourceTree = "<group>"; };
 		B1000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -84,6 +105,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		TST00003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -91,14 +119,24 @@
 			isa = PBXGroup;
 			children = (
 				B1000020 /* MindExtract */,
+				TST00030 /* MindExtractTests */,
 				B100000F /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		TST00030 /* MindExtractTests */ = {
+			isa = PBXGroup;
+			children = (
+				TST00010 /* CoreLogicTests.swift */,
+			);
+			path = MindExtractTests;
 			sourceTree = "<group>";
 		};
 		B100000F /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				B1000010 /* MindExtract.app */,
+				TST00020 /* MindExtractTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -172,6 +210,24 @@
 			productReference = B1000010 /* MindExtract.app */;
 			productType = "com.apple.product-type.application";
 		};
+		TST00001 /* MindExtractTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = TST00040 /* Build configuration list for PBXNativeTarget "MindExtractTests" */;
+			buildPhases = (
+				TST00002 /* Sources */,
+				TST00003 /* Frameworks */,
+				TST00004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				TST00005 /* PBXTargetDependency */,
+			);
+			name = MindExtractTests;
+			productName = MindExtractTests;
+			productReference = TST00020 /* MindExtractTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +240,10 @@
 				TargetAttributes = {
 					B100000A = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					TST00001 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = B100000A;
 					};
 				};
 			};
@@ -205,6 +265,7 @@
 			);
 			targets = (
 				B100000A /* MindExtract */,
+				TST00001 /* MindExtractTests */,
 			);
 		};
 /* End PBXProject section */
@@ -217,6 +278,13 @@
 				B1000005 /* Assets.xcassets in Resources */,
 				B1000007 /* ytdlp in Resources */,
 				B1000061 /* ffmpeg in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		TST00004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -252,6 +320,14 @@
 				B1000036 /* RecentActivityView.swift in Sources */,
 				B1000003 /* Models.swift in Sources */,
 				B1000004 /* YTDLPWrapper.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		TST00002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				TST00011 /* CoreLogicTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -389,6 +465,7 @@
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = MindExtract;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -404,6 +481,40 @@
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
+		};
+		TST00041 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 37;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 2.3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextractTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MindExtract.app/Contents/MacOS/MindExtract";
+			};
+			name = Debug;
+		};
+		TST00042 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 37;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 2.3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextractTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MindExtract.app/Contents/MacOS/MindExtract";
+			};
+			name = Release;
 		};
 		B1000043 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -453,6 +564,15 @@
 			buildConfigurations = (
 				B1000042 /* Debug */,
 				B1000043 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		TST00040 /* Build configuration list for PBXNativeTarget "MindExtractTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				TST00041 /* Debug */,
+				TST00042 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

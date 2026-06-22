@@ -341,7 +341,7 @@ struct TranscriptionResultView: View {
                 remindersStatus = "Added \(n)"
             } catch {
                 remindersStatus = "Failed"
-                print("[MindExtract] Reminders export failed: \(error.localizedDescription)")
+                appLog("[MindExtract] Reminders export failed: \(error.localizedDescription)")
             }
             remindersExporting = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { remindersStatus = nil }
