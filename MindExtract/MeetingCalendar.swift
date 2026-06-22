@@ -123,11 +123,14 @@ final class MeetingCalendar: ObservableObject {
     /// All of today's meetings (non-all-day, not canceled, not in excluded
     /// calendars), sorted by start. Powers the "Today" home — including ones that
     /// have already ended (shown dimmed) so the day reads as a timeline.
-    func todaysEvents() -> [CalEvent] {
+    func todaysEvents() -> [CalEvent] { upcomingEvents(daysAhead: 0) }
+
+    /// Today's meetings plus the next `daysAhead` days (0 = today only).
+    func upcomingEvents(daysAhead: Int) -> [CalEvent] {
         guard accessGranted, settings.calendarSuggestionsEnabled else { return [] }
         let cal = Calendar.current
         let start = cal.startOfDay(for: Date())
-        guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return [] }
+        guard let end = cal.date(byAdding: .day, value: max(0, daysAhead) + 1, to: start) else { return [] }
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
         let excluded = settings.excludedCalendarIDSet
         let now = Date()

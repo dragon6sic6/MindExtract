@@ -48,6 +48,7 @@ enum MCPSetup {
 /// Top-level Settings categories, shown as an in-pane navigator (the app already
 /// owns the main window sidebar, so this is a lightweight second column).
 enum SettingsCategory: String, CaseIterable, Identifiable {
+    case today = "Today"
     case transcription = "Transcription"
     case recording = "Recording"
     case calendar = "Calendar"
@@ -59,6 +60,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var icon: String {
         switch self {
+        case .today: return "sun.max"
         case .transcription: return "text.bubble"
         case .recording: return "record.circle"
         case .calendar: return "calendar"
@@ -302,6 +304,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var categoryContent: some View {
         switch category {
+        case .today: todayPane
         case .transcription: transcriptionPane
         case .recording: recordingPane
         case .calendar: calendarPane
@@ -831,7 +834,38 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Notifications pane
+    // MARK: - Today pane
+
+    @ViewBuilder
+    private var todayPane: some View {
+        SettingsSection(title: "Who you are", icon: "person.crop.circle") {
+            Text("So Today can tell which commitments are yours versus ones you're waiting on others for. Matched against speaker names in your meetings — stays on your Mac.")
+                .font(.caption).foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Text("Your name").frame(width: 110, alignment: .leading)
+                TextField("e.g. Mathias Karlsson", text: $settings.myName).textFieldStyle(.roundedBorder)
+            }
+            HStack {
+                Text("Your email").frame(width: 110, alignment: .leading)
+                TextField("e.g. mathias@mindact.ai", text: $settings.myEmail).textFieldStyle(.roundedBorder)
+            }
+        }
+
+        SettingsSection(title: "Today screen", icon: "sun.max") {
+            Toggle("Show the daily summary at the top", isOn: $settings.todayShowDailyBrief)
+            Divider().padding(.vertical, 2)
+            Picker("Meetings shown", selection: $settings.todayLookaheadDays) {
+                Text("Today only").tag(0)
+                Text("Today + tomorrow").tag(1)
+                Text("Next 3 days").tag(3)
+                Text("Next 7 days").tag(7)
+            }
+            Text("Commitments come from the Action items in each meeting's AI Brief — task, owner and due date are read from there. Edit or remove any that aren't real from the Today list (right-click a commitment).")
+                .font(.caption).foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 
     @ViewBuilder
     private var notificationsPane: some View {
