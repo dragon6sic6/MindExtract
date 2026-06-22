@@ -120,6 +120,36 @@ final class MeetingCalendar: ObservableObject {
         }
     }
 
+    /// All of today's meetings (non-all-day, not canceled, not in excluded
+    /// calendars), sorted by start. Powers the "Today" home — including ones that
+    /// have already ended (shown dimmed) so the day reads as a timeline.
+    func todaysEvents() -> [CalEvent] {
+        guard accessGranted, settings.calendarSuggestionsEnabled else { return [] }
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: Date())
+        guard let end = cal.date(byAdding: .day, value: 1, to: start) else { return [] }
+        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
+        let excluded = settings.excludedCalendarIDSet
+        let now = Date()
+        return store.events(matching: predicate)
+            .filter { !$0.isAllDay && $0.status != .canceled }
+            .filter { excluded.isEmpty || !excluded.contains($0.calendar?.calendarIdentifier ?? "") }
+            .sorted { $0.startDate < $1.startDate }
+            .map { e in
+                CalEvent(
+                    id: e.eventIdentifier ?? UUID().uuidString,
+                    title: e.title ?? "Meeting",
+                    start: e.startDate,
+                    end: e.endDate,
+                    attendees: (e.attendees ?? []).compactMap { $0.name }.filter { !$0.isEmpty },
+                    attendeeEmails: (e.attendees ?? []).compactMap { p in
+                        let s = p.url.absoluteString
+                        return s.hasPrefix("mailto:") ? String(s.dropFirst("mailto:".count)) : nil
+                    }.filter { $0.contains("@") },
+                    isLive: e.startDate <= now && e.endDate > now)
+            }
+    }
+
     func refresh() {
         guard accessGranted, settings.calendarSuggestionsEnabled else { currentMeeting = nil; return }
         let now = Date()

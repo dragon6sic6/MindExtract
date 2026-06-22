@@ -177,4 +177,44 @@ final class CoreLogicTests: XCTestCase {
         let names = Set(DownloadQuality.allCases.map(\.displayName))
         XCTAssertEqual(names.count, DownloadQuality.allCases.count)
     }
+
+    // MARK: Meeting Memory (daily-love layer)
+
+    func testTopicKeyClustersRecurringTitles() {
+        // Same recurring meeting on different dates → same clustering key.
+        let a = MeetingMemory.topicKey("Weekly sync — 2026-06-22")
+        let b = MeetingMemory.topicKey("Weekly Sync #12")
+        let c = MeetingMemory.topicKey("Weekly sync (Monday)")
+        XCTAssertEqual(a, b)
+        XCTAssertEqual(b, c)
+        XCTAssertEqual(a, "weekly sync")
+        // A different meeting must NOT collide.
+        XCTAssertNotEqual(a, MeetingMemory.topicKey("Budget review"))
+    }
+
+    func testParseActionItemsStripsMarkersAndSkipsNone() {
+        let text = """
+        - Anna — send the spec by Friday
+        * Bertil to book the room
+        1. Follow up with the vendor
+        - None
+        Just some prose, not a task
+        """
+        let items = MeetingMemory.parseActionItems(text)
+        XCTAssertEqual(items.count, 3)
+        XCTAssertTrue(items.contains("Anna — send the spec by Friday"))
+        XCTAssertTrue(items.contains("Bertil to book the room"))
+        XCTAssertTrue(items.contains("Follow up with the vendor"))
+        XCTAssertFalse(items.contains(where: { $0.caseInsensitiveCompare("none") == .orderedSame }))
+        // Prose without a list marker is not turned into a junk task.
+        XCTAssertFalse(items.contains(where: { $0.contains("prose") }))
+    }
+
+    func testActionItemKeyIsStableAndCaseInsensitive() {
+        let id = UUID()
+        let k1 = actionItemKey(id, "Send the report")
+        let k2 = actionItemKey(id, "  send the report  ")
+        XCTAssertEqual(k1, k2, "key normalizes case + surrounding whitespace")
+        XCTAssertNotEqual(k1, actionItemKey(UUID(), "Send the report"))
+    }
 }
