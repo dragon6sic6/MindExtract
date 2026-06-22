@@ -19,6 +19,7 @@ final class MeetingCalendar: ObservableObject {
         let start: Date
         let end: Date
         let attendees: [String]
+        let attendeeEmails: [String]
         var isLive: Bool          // happening right now (vs. starting soon)
     }
 
@@ -144,6 +145,11 @@ final class MeetingCalendar: ObservableObject {
                 start: e.startDate,
                 end: e.endDate,
                 attendees: (e.attendees ?? []).compactMap { $0.name }.filter { !$0.isEmpty },
+                // EKParticipant.url is a mailto: URL — pull the email for recap recipients.
+                attendeeEmails: (e.attendees ?? []).compactMap { p in
+                    let s = p.url.absoluteString
+                    return s.hasPrefix("mailto:") ? String(s.dropFirst("mailto:".count)) : nil
+                }.filter { $0.contains("@") },
                 isLive: e.startDate <= now
             )
         }

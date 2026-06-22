@@ -41,9 +41,18 @@ enum PromptTemplateLibrary {
         instructions: "You turn a person's rough live meeting notes into polished, well-structured notes, using the transcript to fill gaps, correct names/terms and add missed details. Keep the user's intent and structure; never invent facts not supported by the transcript. Answer in the same language as the notes/transcript.",
         task: "Below are the user's rough notes followed by the full transcript. Produce clean, well-structured meeting notes that expand and correct the user's notes using the transcript.")
 
-    /// Stable IDs for the two templates auto-generated after a meeting.
+    /// Stable IDs for the templates auto-generated after a meeting.
     static let meetingMinutesID = UUID(uuidString: "11111111-0000-0000-0000-000000000001")!
     static let actionItemsID    = UUID(uuidString: "11111111-0000-0000-0000-000000000002")!
+    static let meetingBriefID   = UUID(uuidString: "11111111-0000-0000-0000-0000000000B1")!
+
+    /// The Meeting Brief — the one beautiful after-meeting output. Strict section
+    /// markers so the UI can split TL;DR / Decisions / Action items reliably.
+    static let meetingBrief = PromptTemplate(
+        id: meetingBriefID,
+        name: "Meeting Brief", icon: "sparkles.rectangle.stack",
+        instructions: "You produce a concise, decision-focused brief of a meeting transcript. Be factual, never invent content, and write the CONTENT in the same language as the transcript. Use EXACTLY these markdown section headers, in this order, and nothing before the first one: \"## TL;DR\", \"## Decisions\", \"## Action items\". Keep these three header strings in English EXACTLY as written even when the rest of the brief is in another language. Under TL;DR write 2–3 sentences. Under Decisions, a bullet per decision (or \"- None\" if none). Under Action items, one bullet per task as \"- Owner — task (due if stated)\".",
+        task: "Write the meeting brief for this transcript.")
 
     /// Fixed UUIDs so persisted outputs keep matching their template across launches.
     static let builtIns: [PromptTemplate] = [

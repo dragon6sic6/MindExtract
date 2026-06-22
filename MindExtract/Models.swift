@@ -541,6 +541,9 @@ class AppSettings: ObservableObject {
     /// Detect when a call app (Zoom, Teams, …) is in an active call and offer to
     /// record it — provider-agnostic, complements calendar detection.
     @AppStorage("detectActiveMeetings") var detectActiveMeetings: Bool = true
+    /// Auto-start recording when a meeting/call is detected (opt-in; thoughtless
+    /// capture). The user can stop with one tap.
+    @AppStorage("autoRecordMeetings") var autoRecordMeetings: Bool = false
     /// Preferred microphone uniqueID for meeting recording. Empty = follow the
     /// macOS system default (auto-switches to AirPods etc.).
     @AppStorage("preferredMicrophoneID") var preferredMicrophoneID: String = ""

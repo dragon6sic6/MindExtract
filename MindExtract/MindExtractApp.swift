@@ -163,6 +163,11 @@ struct MindExtractApp: App {
             CommandMenu("Go") {
                 Button("Search & Ask…") { NotificationCenter.default.post(name: .openSearch, object: nil) }
                     .keyboardShortcut("k", modifiers: .command)
+                // No .disabled — SwiftUI Commands aren't re-evaluated on @Published
+                // changes, so a disabled binding would be stuck. markMoment() itself
+                // no-ops unless recording, which is the correct HIG behavior.
+                Button("Mark Moment") { MeetingRecorder.shared.markMoment() }
+                    .keyboardShortcut("m", modifiers: .command)
                 Divider()
                 Button("Media") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.download) }
                     .keyboardShortcut("1", modifiers: .command)
