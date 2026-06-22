@@ -33,9 +33,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         // Menu-bar control so you can start/stop a recording mid-call from any app.
         if MeetingRecorder.isSupported {
             menuBar = MenuBarController()
-            // Run call detection app-wide (not just on the Record tab) so the
-            // nudge can fire whenever you're in a call.
+            // Run call + calendar detection app-wide (not just on the Record tab)
+            // so the nudge can fire whenever you're in / about to be in a meeting.
             ActiveMeetingDetector.shared.startMonitoring()
+            MeetingCalendar.shared.startMonitoring()
         }
     }
 
@@ -52,13 +53,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         // Pull Sendable values out before hopping to the main actor (the response
         // object itself isn't Sendable).
-        let app = response.notification.request.content.userInfo["app"] as? String
+        let info = response.notification.request.content.userInfo
+        let app = info["app"] as? String
+        let isCalendar = info["calendar"] as? Bool == true
         let isRecordAction = response.actionIdentifier == "RECORD"
         Task { @MainActor in
             NSApp.activate(ignoringOtherApps: true)
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
             if isRecordAction, !MeetingRecorder.shared.isBusy {
-                MeetingRecorder.shared.start(meetingTitle: app.map { "\($0) call" })
+                if isCalendar, let m = MeetingCalendar.shared.currentMeeting {
+                    // Record the scheduled meeting with its title + attendees (for the recap).
+                    let prefill = m.attendees.isEmpty ? "" : "Attendees: " + m.attendees.joined(separator: ", ") + "\n\n"
+                    MeetingRecorder.shared.start(meetingTitle: m.title, notesPrefill: prefill,
+                                                 attendees: m.attendees, attendeeEmails: m.attendeeEmails)
+                } else {
+                    MeetingRecorder.shared.start(meetingTitle: app.map { "\($0) call" })
+                }
             } else {
                 NotificationCenter.default.post(name: .navigate, object: SidebarItem.record)
             }

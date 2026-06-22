@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import EventKit
 import AppKit
+import UserNotifications
 
 // MARK: - Calendar-aware meeting detection
 //
@@ -138,6 +139,7 @@ final class MeetingCalendar: ObservableObject {
             .sorted { $0.startDate < $1.startDate }
             .first
 
+        let previousID = currentMeeting?.id
         currentMeeting = candidate.map { e in
             CalEvent(
                 id: e.eventIdentifier ?? UUID().uuidString,
@@ -153,5 +155,28 @@ final class MeetingCalendar: ObservableObject {
                 isLive: e.startDate <= now
             )
         }
+
+        // Calendar nudge (Granola-style): when a NEW meeting surfaces and MindExtract
+        // is in the background, notify so you can record it the moment it starts.
+        if let m = currentMeeting, m.id != previousID, m.id != nudgedMeetingID,
+           !NSApp.isActive, settings.meetingNudge, !MeetingRecorder.shared.isBusy {
+            nudgedMeetingID = m.id
+            postMeetingNudge(m)
+        } else if currentMeeting == nil {
+            nudgedMeetingID = nil
+        }
+    }
+
+    private var nudgedMeetingID: String?
+
+    private func postMeetingNudge(_ m: CalEvent) {
+        let content = UNMutableNotificationContent()
+        content.title = m.isLive ? "“\(m.title)” is starting" : "“\(m.title)” starts soon"
+        content.body = "Tap to record it in MindExtract."
+        content.sound = .default
+        content.categoryIdentifier = "MEETING_DETECTED"
+        content.userInfo = ["calendar": true]
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: "calendar-nudge", content: content, trigger: nil))
     }
 }
