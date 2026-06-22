@@ -23,6 +23,9 @@
 		B1000E07 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E08 /* RecordingView.swift */; };
 		B1000E09 /* LiveTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0A /* LiveTranscriber.swift */; };
 		B1000E0B /* MeetingCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0C /* MeetingCalendar.swift */; };
+		B1000E1F /* MeetingMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E20 /* MeetingMemory.swift */; };
+		B1000E21 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E22 /* TodayView.swift */; };
+		B1000E23 /* PeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E24 /* PeopleView.swift */; };
 		B1000E0D /* RemindersExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0E /* RemindersExporter.swift */; };
 		B1000E0F /* CaptionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E10 /* CaptionOverlay.swift */; };
 		B1000E11 /* MeetingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E12 /* MeetingInsights.swift */; };
@@ -76,6 +79,9 @@
 		B1000E08 /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		B1000E0A /* LiveTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscriber.swift; sourceTree = "<group>"; };
 		B1000E0C /* MeetingCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingCalendar.swift; sourceTree = "<group>"; };
+		B1000E20 /* MeetingMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingMemory.swift; sourceTree = "<group>"; };
+		B1000E22 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		B1000E24 /* PeopleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleView.swift; sourceTree = "<group>"; };
 		B1000E0E /* RemindersExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersExporter.swift; sourceTree = "<group>"; };
 		B1000E10 /* CaptionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptionOverlay.swift; sourceTree = "<group>"; };
 		B1000E12 /* MeetingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingInsights.swift; sourceTree = "<group>"; };
@@ -156,6 +162,9 @@
 				B1000E08 /* RecordingView.swift */,
 				B1000E0A /* LiveTranscriber.swift */,
 				B1000E0C /* MeetingCalendar.swift */,
+				B1000E20 /* MeetingMemory.swift */,
+				B1000E22 /* TodayView.swift */,
+				B1000E24 /* PeopleView.swift */,
 				B1000E0E /* RemindersExporter.swift */,
 				B1000E10 /* CaptionOverlay.swift */,
 				B1000E12 /* MeetingInsights.swift */,
@@ -308,6 +317,9 @@
 				B1000E07 /* RecordingView.swift in Sources */,
 				B1000E09 /* LiveTranscriber.swift in Sources */,
 				B1000E0B /* MeetingCalendar.swift in Sources */,
+				B1000E1F /* MeetingMemory.swift in Sources */,
+				B1000E21 /* TodayView.swift in Sources */,
+				B1000E23 /* PeopleView.swift in Sources */,
 				B1000E0D /* RemindersExporter.swift in Sources */,
 				B1000E0F /* CaptionOverlay.swift in Sources */,
 				B1000E11 /* MeetingInsights.swift in Sources */,
@@ -465,7 +477,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 41;
+				CURRENT_PROJECT_VERSION = 42;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -478,7 +490,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.5.2;
+				MARKETING_VERSION = 2.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -492,10 +504,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 41;
+				CURRENT_PROJECT_VERSION = 42;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.5.2;
+				MARKETING_VERSION = 2.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextractTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
@@ -509,10 +521,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 41;
+				CURRENT_PROJECT_VERSION = 42;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.5.2;
+				MARKETING_VERSION = 2.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextractTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
@@ -531,7 +543,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 41;
+				CURRENT_PROJECT_VERSION = 42;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -543,7 +555,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.5.2;
+				MARKETING_VERSION = 2.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;

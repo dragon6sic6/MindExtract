@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 // MARK: - Sidebar Navigation
 
 enum SidebarItem: String, Hashable {
+    case today = "Today"
+    case people = "People"
     case download = "Download"
     case record = "Record"
     case transcripts = "Transcripts"
@@ -21,7 +23,7 @@ struct ContentView: View {
     @StateObject private var transcriptionHistory = TranscriptionHistoryManager.shared
 
     // Navigation
-    @State private var selectedSidebarItem: SidebarItem? = .download
+    @State private var selectedSidebarItem: SidebarItem? = .today
 
     // First-run welcome
     @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
@@ -259,6 +261,12 @@ struct ContentView: View {
             .help("Search inside all transcripts, or ask a question across them (⌘K)")
 
             List(selection: $selectedSidebarItem) {
+                Section {
+                    Label("Today", systemImage: "sun.max")
+                        .tag(SidebarItem.today)
+                    Label("People", systemImage: "person.2")
+                        .tag(SidebarItem.people)
+                }
                 Section("Library") {
                     Label("Media", systemImage: "tray.and.arrow.down")
                         .tag(SidebarItem.download)
@@ -283,7 +291,20 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detailView: some View {
-        switch selectedSidebarItem ?? .download {
+        switch selectedSidebarItem ?? .today {
+        case .today:
+            TodayView(
+                onOpenTranscript: { item in
+                    selectedSidebarItem = .transcripts
+                    if item.fileExists { transcriptionManager.openTranscriptionFromHistory(item) }
+                },
+                onGoToRecord: { selectedSidebarItem = .record }
+            )
+        case .people:
+            PeopleView(onOpenTranscript: { item in
+                selectedSidebarItem = .transcripts
+                if item.fileExists { transcriptionManager.openTranscriptionFromHistory(item) }
+            })
         case .download:
             downloadDetailView
         case .record:
