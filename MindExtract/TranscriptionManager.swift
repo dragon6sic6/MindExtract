@@ -4,6 +4,7 @@ import WhisperKit
 import SpeakerKit
 import Speech
 import AVFoundation
+import UserNotifications
 
 // MARK: - Transcription Manager (WhisperKit)
 
@@ -55,6 +56,26 @@ class TranscriptionManager: ObservableObject {
     @Published var segments: [TranscriptionSegmentData] = []
     @Published var audioDuration: Float = 0
     @Published var audioFilePath: String?  // Keep audio for playback
+    /// Notes the user typed during a meeting recording, handed to the next
+    /// transcript so the result view can save + AI-merge them. Consumed once.
+    var pendingMeetingNotes: String?
+    /// Separate mic/system tracks from a meeting recording, for channel-aware
+    /// "you vs them" speaker attribution. Consumed (and the files deleted) once.
+    var pendingChannelSources: (mic: String, system: String)?
+    /// Speaker-name suggestions for the next transcript ("You" + calendar
+    /// attendees), shown in the rename popover. Set when a meeting is confirmed.
+    var pendingSpeakerSuggestions: [String] = []
+    /// True when the next transcript comes from a meeting recording, so the result
+    /// view can auto-generate notes once. Consumed on first open.
+    private(set) var pendingIsMeeting = false
+    func markPendingMeeting() { pendingIsMeeting = true }
+    /// Reads and clears the flag atomically so only the first result view to open
+    /// after a recording auto-generates notes.
+    func consumePendingIsMeeting() -> Bool {
+        let v = pendingIsMeeting
+        pendingIsMeeting = false
+        return v
+    }
 
     private var whisperKit: WhisperKit?
     private var currentLoadedModel: WhisperModel?
@@ -128,6 +149,12 @@ class TranscriptionManager: ObservableObject {
         downloadedModels.contains(model)
     }
 
+    /// On-disk folder for a downloaded model (used by the live transcriber to load
+    /// its own WhisperKit instance). Nil if not present.
+    func resolvedModelFolder(for model: WhisperModel) -> String? {
+        findModelFolder(model)?.path
+    }
+
     /// Refresh `downloadedModels` from the file system.
     /// When `synchronous` is true (default), updates `downloadedModels` immediately on the current thread
     /// so callers can rely on `isModelDownloaded()` right after calling this.
@@ -150,11 +177,13 @@ class TranscriptionManager: ObservableObject {
     /// Locate a downloaded model inside the Hub cache structure.
     /// Hub stores files at: downloadBase/models/argmaxinc/whisperkit-coreml/<variant>/
     private func findModelFolder(_ model: WhisperModel) -> URL? {
-        let modelDir = modelsDirectory
-            .appendingPathComponent("models")
-            .appendingPathComponent("argmaxinc")
-            .appendingPathComponent("whisperkit-coreml")
-            .appendingPathComponent(model.whisperKitModelId)
+        // Hub stores at downloadBase/models/<repo-owner>/<repo-name>/<variant>/ —
+        // build from the model's repo so custom repos (KB-Whisper) resolve too.
+        var modelDir = modelsDirectory.appendingPathComponent("models")
+        for part in model.repo.split(separator: "/") {
+            modelDir = modelDir.appendingPathComponent(String(part))
+        }
+        modelDir = modelDir.appendingPathComponent(model.variant)
 
         guard fileManager.fileExists(atPath: modelDir.path),
               let contents = try? fileManager.contentsOfDirectory(atPath: modelDir.path),
@@ -226,10 +255,12 @@ class TranscriptionManager: ObservableObject {
             do {
                 try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
 
-                // Use the static download method with downloadBase pointing to our models dir
+                // Use the static download method with downloadBase pointing to our
+                // models dir; `from:` lets KB-Whisper come from its own repo.
                 let _ = try await WhisperKit.download(
-                    variant: model.whisperKitModelId,
-                    downloadBase: modelsDirectory
+                    variant: model.variant,
+                    downloadBase: modelsDirectory,
+                    from: model.repo
                 ) { progress in
                     Task { @MainActor in
                         self.modelDownloadProgress = progress.fractionCompleted
@@ -243,8 +274,11 @@ class TranscriptionManager: ObservableObject {
                     self.modelDownloadProgress = 1.0
 
                     if self.isModelDownloaded(model) {
-                        // Always set newly downloaded model as default — user chose to download it
-                        AppSettings.shared.defaultWhisperModel = model
+                        // Make it the default — but NOT a Swedish-only model, which
+                        // would then wrongly be used for English/other-language audio.
+                        if !model.isSwedishOnly {
+                            AppSettings.shared.defaultWhisperModel = model
+                        }
                     } else {
                         // Download completed but model not valid on disk
                         self.transcriptionState = .error("Model download completed but files are invalid. Please try again.")
@@ -525,6 +559,24 @@ class TranscriptionManager: ObservableObject {
                     options.language = language
                 }
                 options.wordTimestamps = true
+                // Whisper's built-in translate task: transcribe foreign speech
+                // straight into English, on-device. UserDefaults read is
+                // thread-safe (we're off the main actor here). It's a one-shot
+                // per-transcription choice — reset it so it can't silently keep
+                // translating later files the user expected in their own language.
+                if UserDefaults.standard.bool(forKey: "translateToEnglish") {
+                    options.task = .translate
+                    UserDefaults.standard.set(false, forKey: "translateToEnglish")
+                }
+                // Custom vocabulary: bias the decoder toward the user's names/terms
+                // by feeding them as a conditioning prompt. WhisperKit trims and
+                // strips special tokens itself; we just encode the cleaned list.
+                let vocab = Self.vocabularyPrompt(UserDefaults.standard.string(forKey: "customVocabulary") ?? "")
+                if !vocab.isEmpty, let tokenizer = kit.tokenizer {
+                    let tokens = tokenizer.encode(text: " " + vocab)
+                        .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
+                    if !tokens.isEmpty { options.promptTokens = tokens }
+                }
 
                 // Set up segment discovery callback for real-time streaming
                 kit.segmentDiscoveryCallback = { [weak self] discoveredSegments in
@@ -678,6 +730,11 @@ class TranscriptionManager: ObservableObject {
                     print("[MindExtract] Post-diarization segments count: \(allSegments.count)")
                 }
 
+                // Channel-aware "you vs them": if this came from a meeting recording
+                // with separate mic/system tracks, relabel who's speaking. Runs even
+                // when diarization is off (degrades to You / Others).
+                allSegments = await applyChannelAttribution(allSegments)
+
                 // Build output text based on format
                 let fullText: String
                 switch outputFormat {
@@ -707,6 +764,7 @@ class TranscriptionManager: ObservableObject {
                     self.lastSavedPath = outputPath
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
+                    self.notifyTranscriptionComplete()
                     print("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
                 }
 
@@ -727,6 +785,7 @@ class TranscriptionManager: ObservableObject {
                         }
                     }
                 }
+                await MainActor.run { self.discardPendingChannelSources() }
                 cleanup()
             }
         }
@@ -917,6 +976,7 @@ class TranscriptionManager: ObservableObject {
         currentTask = nil
         currentProcess?.terminate()
         currentProcess = nil
+        discardPendingChannelSources()
         DispatchQueue.main.async {
             // Don't throw away work already transcribed — save the partial result
             // so the user can still read, copy, and export it.
@@ -963,7 +1023,35 @@ class TranscriptionManager: ObservableObject {
                 try liveTranscriptionText.write(to: url, atomically: true, encoding: .utf8)
                 lastSavedPath = url.path
             } catch {
-                print("Failed to save transcription: \(error)")
+                Self.presentExportError(error)
+            }
+        }
+    }
+
+    /// Tell the user when a save fails (disk full, permissions) instead of
+    /// silently doing nothing after they picked a destination.
+    private static func presentExportError(_ error: Error) {
+        let alert = NSAlert()
+        alert.messageText = "Couldn’t save the file"
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    /// Save an arbitrary plain-text artifact (e.g. a translation) to a .txt file,
+    /// pre-naming it after the transcript with a suffix like " (Spanish)".
+    func exportPlainText(_ text: String, filenameSuffix: String = "") {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.plainText]
+        let baseName = currentTranscriptionTitle.isEmpty ? "transcription" : currentTranscriptionTitle
+        savePanel.nameFieldStringValue = "\(baseName)\(filenameSuffix).txt"
+        savePanel.canCreateDirectories = true
+        if savePanel.runModal() == .OK, let url = savePanel.url {
+            do {
+                try text.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                Self.presentExportError(error)
             }
         }
     }
@@ -996,7 +1084,7 @@ class TranscriptionManager: ObservableObject {
             do {
                 try content.write(to: url, atomically: true, encoding: .utf8)
             } catch {
-                print("Failed to export transcription: \(error)")
+                Self.presentExportError(error)
             }
         }
     }
@@ -1033,7 +1121,11 @@ class TranscriptionManager: ObservableObject {
         }
     }
 
-    func startNewTranscription(title: String, model: WhisperModel? = nil) {
+    /// Source category for the next transcript's history entry (meeting/download/file).
+    var currentTranscriptSource: TranscriptSource = .file
+
+    func startNewTranscription(title: String, model: WhisperModel? = nil, source: TranscriptSource = .file) {
+        currentTranscriptSource = source
         DispatchQueue.main.async {
             self.currentTranscriptionTitle = title
             self.liveTranscriptionText = ""
@@ -1062,12 +1154,13 @@ class TranscriptionManager: ObservableObject {
         }
 
         let duration = audioDuration > 0 ? formatDurationForHistory(audioDuration) : nil
-        let historyItem = TranscriptionHistoryItem(
+        var historyItem = TranscriptionHistoryItem(
             title: resolvedTitle,
             filePath: filePath,
             duration: duration,
             modelUsed: currentModelUsed?.displayName ?? "Unknown"
         )
+        historyItem.source = currentTranscriptSource.rawValue
         transcriptionHistory.addToHistory(historyItem)
     }
 
@@ -1141,6 +1234,9 @@ class TranscriptionManager: ObservableObject {
             self.currentTranscriptionTitle = item.title
             self.liveTranscriptionText = text
             self.lastSavedPath = item.filePath
+            // Clear any prior transcript's custom speaker names; restoreAISidecar
+            // repopulates them from this item's sidecar.
+            self.speakerNameOverrides = [:]
             // The temp audio for a past transcription is gone — clear any stale
             // path so the player bar hides instead of trying to play the wrong file.
             self.audioFilePath = nil
@@ -1178,6 +1274,17 @@ extension TranscriptionManager {
         if let langMatch = supported.first(where: { $0.language.languageCode?.identifier == desiredLang }) { return langMatch }
         if let english = supported.first(where: { norm($0.identifier).hasPrefix("en") }) { return english }
         return supported.first ?? Locale(identifier: "en-US")
+    }
+
+    /// Whether Apple's SpeechTranscriber supports a given language code. Apple
+    /// only covers ~30 locales (no Swedish, Dutch, Russian, Arabic, Hindi, …), so
+    /// for those we must route to WhisperKit instead of silently using English.
+    @available(macOS 26.0, *)
+    static func appleSpeechSupports(_ language: String) async -> Bool {
+        if language == "auto" { return true }   // auto uses the system locale
+        let want = Locale(identifier: language).language.languageCode?.identifier ?? language
+        let supported = await SpeechTranscriber.supportedLocales
+        return supported.contains { $0.language.languageCode?.identifier == want }
     }
 
     /// Runs SpeakerKit diarization and assigns a speaker label to each transcript
@@ -1226,6 +1333,110 @@ extension TranscriptionManager {
         }
     }
 
+    /// Channel-aware "you vs them" attribution. When a meeting was recorded with
+    /// separate mic and system tracks (set via `pendingChannelSources`), this
+    /// compares per-segment loudness across the two channels: a segment where the
+    /// microphone dominates is *you* speaking; where system audio dominates it's a
+    /// remote participant. Overlays on top of any existing SpeakerKit labels:
+    ///   • mic-dominant  → relabel as "You"
+    ///   • system-dominant → keep the diarized "Speaker N" label, or "Others" if none
+    /// Works even with diarization off (degrades to You / Others). Consumes (deletes)
+    /// the source files. Returns the input unchanged when no channel sources are set.
+    func applyChannelAttribution(_ segments: [TranscriptionSegmentData]) async -> [TranscriptionSegmentData] {
+        guard let sources = pendingChannelSources else { return segments }
+        pendingChannelSources = nil   // consumed on the main actor before the I/O hop
+        // Decode both source files and compute per-segment energy off the main
+        // thread — on a long meeting these files are large and would otherwise
+        // freeze the UI.
+        return await Task.detached(priority: .userInitiated) {
+            let fm = FileManager.default
+            defer {
+                try? fm.removeItem(atPath: sources.mic)
+                try? fm.removeItem(atPath: sources.system)
+            }
+            guard let mic = try? AudioProcessor.loadAudioAsFloatArray(fromPath: sources.mic),
+                  let sys = try? AudioProcessor.loadAudioAsFloatArray(fromPath: sources.system),
+                  !mic.isEmpty, !sys.isEmpty else { return segments }
+
+            // loadAudioAsFloatArray returns 16 kHz mono Float32 (WhisperKit's rate).
+            let sr = 16000.0
+            func rms(_ a: [Float], _ start: Float, _ end: Float) -> Float {
+                // Double math for the index — Float loses sample precision past ~30 min.
+                let s = max(0, Int(Double(start) * sr))
+                let e = min(a.count, Int(Double(end) * sr))
+                guard e > s else { return 0 }
+                // Subsample long windows so per-segment energy is cheap.
+                let step = max(1, (e - s) / 1024)
+                var sum: Float = 0
+                var n = 0
+                var i = s
+                while i < e { sum += a[i] * a[i]; i += step; n += 1 }
+                return n > 0 ? (sum / Float(n)).squareRoot() : 0
+            }
+
+            return segments.map { seg in
+                var copy = seg
+                let micE = rms(mic, seg.start, seg.end)
+                let sysE = rms(sys, seg.start, seg.end)
+                // Require a clear margin so cross-talk/echo doesn't flip the label.
+                if micE > 0.003 && micE > sysE * 1.3 {
+                    copy.speaker = "You"
+                } else if sysE > 0.003 && sysE > micE * 1.3 {
+                    copy.speaker = copy.speaker ?? "Others"
+                }
+                return copy
+            }
+        }.value
+    }
+
+    /// Normalize the user's custom-vocabulary text (lines and/or commas) into a
+    /// single comma-separated prompt string. Caps length so the conditioning
+    /// prompt stays short (WhisperKit also trims to its own max).
+    static func vocabularyPrompt(_ raw: String) -> String {
+        let terms = raw
+            .split(whereSeparator: { $0 == "\n" || $0 == "," })
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard !terms.isEmpty else { return "" }
+        // Dedupe (case-insensitive) preserving order.
+        var seen = Set<String>()
+        let unique = terms.filter { seen.insert($0.lowercased()).inserted }
+        // Pack whole terms up to a budget — never slice mid-word (a partial token
+        // is worse than omitting the term).
+        var result = ""
+        for term in unique {
+            let candidate = result.isEmpty ? term : result + ", " + term
+            if candidate.count > 800 { break }
+            result = candidate
+        }
+        return result
+    }
+
+    /// Post a "transcription complete" notification (if enabled). Useful for long
+    /// files or auto-transcribed downloads finishing while the user is elsewhere.
+    private func notifyTranscriptionComplete() {
+        guard AppSettings.shared.notifyOnTranscriptionComplete else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Transcription complete"
+        content.body = currentTranscriptionTitle.isEmpty ? "Your transcript is ready." : currentTranscriptionTitle
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error { print("[MindExtract] transcription notification failed: \(error)") }
+        }
+    }
+
+    /// Drop unconsumed channel sources (delete the temp mic/system files) so a
+    /// failed/cancelled meeting transcription can't leak files or mis-attribute a
+    /// later, unrelated transcript.
+    func discardPendingChannelSources() {
+        guard let sources = pendingChannelSources else { return }
+        pendingChannelSources = nil
+        let fm = FileManager.default
+        try? fm.removeItem(atPath: sources.mic)
+        try? fm.removeItem(atPath: sources.system)
+    }
+
     /// Whether to use Apple's SpeechAnalyzer for the next transcription.
     /// Falls back to WhisperKit when SpeechAnalyzer isn't available (macOS < 26).
     func useAppleSpeech() -> Bool {
@@ -1238,12 +1449,36 @@ extension TranscriptionManager {
     }
 
     /// Routes an already-extracted audio file to the selected engine.
+    /// Never use a Swedish-only model (KB-Whisper) for non-Swedish audio, and
+    /// never use a multilingual model for Swedish when KB is available isn't forced
+    /// here — we only *prevent the harmful mismatch*, not override user choice.
+    func effectiveWhisperModel(_ model: WhisperModel, language: String) -> WhisperModel {
+        if model.isSwedishOnly && language != "sv" {
+            return downloadedModels.first { !$0.isSwedishOnly } ?? .small
+        }
+        return model
+    }
+
     func runTranscription(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
         activeOutputPath = outputPath
         if useAppleSpeech(), #available(macOS 26.0, *) {
-            runSpeechAnalyzer(audioPath: audioPath, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
+            // Apple Speech can't do every language. If it can't do this one, route
+            // to WhisperKit (which can) so e.g. Swedish isn't transcribed as English.
+            currentTask = Task { @MainActor in
+                if await Self.appleSpeechSupports(language) {
+                    self.runSpeechAnalyzer(audioPath: audioPath, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
+                } else if self.isModelDownloaded(model) || !self.downloadedModels.isEmpty {
+                    let picked = self.isModelDownloaded(model) ? model : (self.downloadedModels.first ?? model)
+                    let useModel = self.effectiveWhisperModel(picked, language: language)
+                    self.runWhisperKit(audioPath: audioPath, model: useModel, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
+                } else {
+                    let name = AppSettings.transcriptionLanguages.first { $0.code == language }?.name ?? language
+                    self.transcriptionState = .error("Apple Speech doesn’t support \(name) yet. Download a WhisperKit model in Settings to transcribe \(name) on your Mac, then try again.")
+                    cleanup()
+                }
+            }
         } else {
-            runWhisperKit(audioPath: audioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
+            runWhisperKit(audioPath: audioPath, model: effectiveWhisperModel(model, language: language), outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
         }
     }
 
@@ -1350,6 +1585,9 @@ extension TranscriptionManager {
                     finalSegments = await assignSpeakersByOverlap(to: collected, audioPath: audioPath)
                 }
 
+                // Channel-aware "you vs them" overlay (meeting recordings only).
+                finalSegments = await applyChannelAttribution(finalSegments)
+
                 let fullText = buildTranscriptText(finalSegments, format: outputFormat)
                 try fullText.write(toFile: outputPath, atomically: true, encoding: .utf8)
 
@@ -1358,6 +1596,7 @@ extension TranscriptionManager {
                 lastSavedPath = outputPath
                 transcriptionState = .completed(outputPath: outputPath)
                 saveToHistory(title: currentTranscriptionTitle, filePath: outputPath)
+                notifyTranscriptionComplete()
                 cleanup()
             } catch {
                 if Task.isCancelled {
@@ -1365,6 +1604,7 @@ extension TranscriptionManager {
                 } else {
                     transcriptionState = .error("Transcription failed: \(error.localizedDescription)")
                 }
+                discardPendingChannelSources()
                 cleanup()
             }
         }

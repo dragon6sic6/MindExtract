@@ -18,6 +18,10 @@ final class TranscriptSummarizer: ObservableObject {
 
     @Published var state: State = .idle
 
+    /// Backend that actually produced the current summary (captured at completion)
+    /// so switching providers afterwards can't mislabel an existing result.
+    @Published private(set) var resultBadge: String = ""
+
     /// Hash of the text the current `state` belongs to, so a new transcript
     /// automatically invalidates the old summary.
     private var currentTextHash: Int = 0
@@ -34,6 +38,7 @@ final class TranscriptSummarizer: ObservableObject {
         currentTextHash = hash
 
         let backend = AIBackends.current()
+        let badge = backend.badge
         state = .working("Summarizing…")
         task = Task {
             do {
@@ -42,6 +47,7 @@ final class TranscriptSummarizer: ObservableObject {
                 }
                 if Task.isCancelled { return }
                 if self.currentTextHash == hash {
+                    self.resultBadge = badge
                     self.state = .done(summary)
                 }
             } catch {
@@ -164,9 +170,16 @@ final class TranscriptSummarizer: ObservableObject {
             // Prefer breaking on a paragraph/sentence boundary near the limit.
             let hardEnd = remaining.index(remaining.startIndex, offsetBy: size)
             let window = remaining[..<hardEnd]
-            let breakIndex = window.lastIndex(of: "\n") ?? window.lastIndex(of: ".") ?? hardEnd
-            chunks.append(String(remaining[..<breakIndex]))
-            remaining = remaining[breakIndex...]
+            if let br = window.lastIndex(of: "\n") ?? window.lastIndex(of: ".") {
+                // Keep the boundary char (e.g. ".") with the CURRENT chunk; the
+                // next chunk starts cleanly after it instead of with a stray ".".
+                let after = remaining.index(after: br)
+                chunks.append(String(remaining[..<after]))
+                remaining = remaining[after...]
+            } else {
+                chunks.append(String(remaining[..<hardEnd]))
+                remaining = remaining[hardEnd...]
+            }
         }
         if !remaining.isEmpty { chunks.append(String(remaining)) }
         return chunks
@@ -187,6 +200,24 @@ struct ChatMessage: Identifiable, Equatable, Codable {
 struct TranscriptAISidecar: Codable {
     var summary: String?
     var chat: [ChatMessage]
+    // Saved translation + the target language code it was made into, so reopening
+    // a transcript restores the translation (optional for backward compatibility).
+    var translation: String?
+    var translationLanguageCode: String?
+    // Saved AI-template outputs, keyed by template UUID string (Meeting Minutes,
+    // SOAP Note, …) so they persist across reopen like the summary. Each carries
+    // the text plus the backend badge that produced it.
+    var templateOutputs: [String: TemplateOutput]?
+    // Raw notes the user jotted live during a meeting recording.
+    var userNotes: String?
+    // Custom speaker names, keyed by the original diarization label
+    // ("Speaker 1", "Others", …) → the name the user assigned ("Anna").
+    // "You" stays as-is unless the user renames it too. Persisted per transcript
+    // so renaming a speaker survives reopen.
+    var speakerNames: [String: String]?
+    // Speaker-name suggestions captured at record time ("You" + calendar
+    // attendees), persisted so reopening the transcript still offers them.
+    var speakerSuggestions: [String]?
 }
 
 enum TranscriptAIStore {

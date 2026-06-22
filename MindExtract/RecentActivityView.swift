@@ -381,23 +381,91 @@ struct TranscriptsListView: View {
 
     @State private var searchText = ""
     @State private var showClearConfirmation = false
+    @State private var showAsk = false
 
-    private var filteredTranscripts: [TranscriptionHistoryItem] {
-        guard !searchText.isEmpty else { return transcriptionHistory.history }
-        return transcriptionHistory.history.filter {
-            $0.title.localizedCaseInsensitiveContains(searchText)
-        }
+    @State private var favoritesOnly = false
+    @State private var typeFilter: TranscriptSource? = nil
+
+    private var visibleTranscripts: [TranscriptionHistoryItem] {
+        var items = transcriptionHistory.history
+        if favoritesOnly { items = items.filter { $0.isFavorite ?? false } }
+        if let t = typeFilter { items = items.filter { $0.sourceType == t } }
+        return items
     }
 
+    /// Source types actually present in the history (for the filter menu).
+    private var availableTypes: [TranscriptSource] {
+        let present = Set(transcriptionHistory.history.compactMap { $0.sourceType })
+        return TranscriptSource.allCases.filter { present.contains($0) }
+    }
+
+    private var hasFavorites: Bool {
+        transcriptionHistory.history.contains { $0.isFavorite ?? false }
+    }
+
+    /// Favorites pinned to their own group at the top, the rest grouped by date.
     private var groupedTranscripts: [(label: String, items: [TranscriptionHistoryItem])] {
-        groupHistoryByDate(filteredTranscripts, date: { $0.transcriptionDate })
+        let items = visibleTranscripts
+        let favs = items.filter { $0.isFavorite ?? false }
+        if favoritesOnly || favs.isEmpty {
+            return groupHistoryByDate(items, date: { $0.transcriptionDate })
+        }
+        let rest = items.filter { !($0.isFavorite ?? false) }
+        return [("★ Favorites", favs)] + groupHistoryByDate(rest, date: { $0.transcriptionDate })
     }
+
+    /// Corpus-wide content search results (debounced; not recomputed every frame).
+    @State private var searchHits: [TranscriptLibrary.SearchHit] = []
 
     var body: some View {
         VStack(spacing: 0) {
             if !transcriptionHistory.history.isEmpty {
                 HStack(spacing: 8) {
-                    SearchField(text: $searchText)
+                    SearchField(text: $searchText, placeholder: "Search inside all transcripts… (⌘K)")
+
+                    if hasFavorites {
+                        Button { favoritesOnly.toggle() } label: {
+                            Image(systemName: favoritesOnly ? "star.fill" : "star")
+                                .font(.caption)
+                                .foregroundColor(favoritesOnly ? .yellow : .secondary)
+                                .frame(width: 26, height: 26)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(favoritesOnly ? "Show all transcripts" : "Show favorites only")
+                    }
+
+                    if availableTypes.count > 1 {
+                        Menu {
+                            Button("All types") { typeFilter = nil }
+                            Divider()
+                            ForEach(availableTypes, id: \.self) { t in
+                                Button { typeFilter = t } label: {
+                                    Label(t.displayName, systemImage: t.icon)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: typeFilter == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                                .font(.caption)
+                                .foregroundColor(typeFilter == nil ? .secondary : .accentColor)
+                                .frame(width: 26, height: 26)
+                                .contentShape(Rectangle())
+                        }
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .frame(width: 26)
+                        .help("Filter by type")
+                    }
+
+                    Button { showAsk = true } label: {
+                        Image(systemName: "sparkles")
+                            .font(.caption)
+                            .foregroundColor(.accentColor)
+                            .frame(width: 26, height: 26)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Ask a question across all transcripts")
 
                     Button(action: { showClearConfirmation = true }) {
                         Image(systemName: "trash")
@@ -416,6 +484,18 @@ struct TranscriptsListView: View {
             }
 
             content
+        }
+        .sheet(isPresented: $showAsk) { CorpusChatView() }
+        .onChange(of: availableTypes) { _, types in
+            // Don't strand the user on a filter whose type no longer exists.
+            if let t = typeFilter, !types.contains(t) { typeFilter = nil }
+        }
+        .task(id: searchText) {
+            // Debounce keystrokes; search reads files so we don't run it per frame.
+            guard !searchText.isEmpty else { searchHits = []; return }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard !Task.isCancelled else { return }
+            searchHits = TranscriptLibrary.shared.search(searchText)
         }
         .confirmationDialog("Clear all transcripts?", isPresented: $showClearConfirmation, titleVisibility: .visible) {
             Button("Clear All", role: .destructive) { transcriptionHistory.clearHistory() }
@@ -449,17 +529,39 @@ struct TranscriptsListView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding()
-        } else if filteredTranscripts.isEmpty {
-            VStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 28))
-                    .foregroundColor(.secondary.opacity(0.35))
-                Text("No results for \"\(searchText)\"")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+        } else if !searchText.isEmpty {
+            // Corpus-wide content search results with context snippets.
+            let hits = searchHits
+            if hits.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 28))
+                        .foregroundColor(.secondary.opacity(0.35))
+                    Text("No transcripts mention \"\(searchText)\"")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 6) {
+                        Text("^[\(hits.count) transcript](inflect: true) match")
+                            .font(.caption).foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14).padding(.top, 8)
+                        ForEach(hits) { hit in
+                            SearchHitRow(hit: hit) {
+                                if hit.item.fileExists {
+                                    transcriptionManager.openTranscriptionFromHistory(hit.item)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding()
         } else {
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
@@ -475,7 +577,8 @@ struct TranscriptsListView: View {
                                             }
                                         },
                                         onRemove: { transcriptionHistory.removeFromHistory(item) },
-                                        onRename: { transcriptionHistory.rename(item, to: $0) }
+                                        onRename: { transcriptionHistory.rename(item, to: $0) },
+                                        onToggleFavorite: { transcriptionHistory.toggleFavorite(item) }
                                     )
                                 }
                             }
@@ -492,6 +595,39 @@ struct TranscriptsListView: View {
     }
 }
 
+// MARK: - Search Hit Row (corpus content search)
+
+struct SearchHitRow: View {
+    let hit: TranscriptLibrary.SearchHit
+    let onOpen: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: onOpen) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Image(systemName: "text.bubble").font(.caption2).foregroundStyle(DS.Colors.accent)
+                    Text(hit.item.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    Spacer()
+                    if hit.matchCount > 0 {
+                        Text("\(hit.matchCount)×").font(.caption2).foregroundColor(.secondary)
+                    }
+                }
+                Text(hit.snippet)
+                    .font(.caption).foregroundColor(.secondary)
+                    .lineLimit(2).multilineTextAlignment(.leading)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(hovering ? 0.06 : 0.03)))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(DS.Colors.hairline, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+    }
+}
+
 // MARK: - Transcript Row (mirrors DownloadHistoryRowImproved)
 
 struct TranscriptHistoryRow: View {
@@ -499,6 +635,7 @@ struct TranscriptHistoryRow: View {
     let onOpen: () -> Void
     let onRemove: () -> Void
     var onRename: (String) -> Void = { _ in }
+    var onToggleFavorite: () -> Void = {}
 
     @State private var isRenaming = false
     @State private var draftTitle = ""
@@ -534,6 +671,15 @@ struct TranscriptHistoryRow: View {
                 }
 
                 HStack(spacing: 4) {
+                    if let src = item.sourceType {
+                        Label(src.displayName, systemImage: src.icon)
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption2.weight(.medium))
+                            .foregroundColor(src.tint)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Capsule().fill(src.tint.opacity(0.12)))
+                        Text("·").font(.caption)
+                    }
                     Image(systemName: "clock")
                         .font(.caption2)
                         .foregroundColor(.secondary)
@@ -555,6 +701,15 @@ struct TranscriptHistoryRow: View {
 
             // Actions (always visible — same pattern as download rows)
             HStack(spacing: 2) {
+                Button(action: onToggleFavorite) {
+                    Image(systemName: (item.isFavorite ?? false) ? "star.fill" : "star")
+                        .font(.caption)
+                        .foregroundColor((item.isFavorite ?? false) ? .yellow : .secondary)
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help((item.isFavorite ?? false) ? "Remove from favorites" : "Add to favorites")
                 HistoryActionButton(icon: "pencil", help: "Rename") { beginRename() }
                     .popover(isPresented: $isRenaming) {
                         VStack(alignment: .leading, spacing: 8) {

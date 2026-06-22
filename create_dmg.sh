@@ -13,9 +13,12 @@ echo ""
 
 # Configuration
 APP_NAME="MindExtract"
-DMG_NAME="MindExtract-2.1.5-Universal"
 VOLUME_NAME="MindExtract"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Derive the version from the project so the DMG name always matches the build
+# (was hardcoded to 2.1.5 — caused every release to ship a mis-named DMG).
+MARKETING_VERSION=$(grep -m1 'MARKETING_VERSION = ' "$PROJECT_DIR/MindExtract.xcodeproj/project.pbxproj" | sed 's/.*= //; s/;.*//' | tr -d ' ')
+DMG_NAME="MindExtract-${MARKETING_VERSION}-Universal"
 BUILD_DIR="$PROJECT_DIR/build"
 DMG_DIR="$PROJECT_DIR/dmg_temp"
 OUTPUT_DIR="$PROJECT_DIR/dist"
