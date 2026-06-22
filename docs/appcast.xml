@@ -7,14 +7,15 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.3.0</title>
-      <pubDate>Mon, 22 Jun 2026 09:38:46 +0000</pubDate>
-      <sparkle:version>36</sparkle:version>
-      <sparkle:shortVersionString>2.3.0</sparkle:shortVersionString>
+      <title>Version 2.3.1</title>
+      <pubDate>Mon, 22 Jun 2026 10:24:42 +0000</pubDate>
+      <sparkle:version>37</sparkle:version>
+      <sparkle:shortVersionString>2.3.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.3.0</h2>
+<h2>What's New in 2.3</h2>
 <p>The biggest update yet: a complete meeting suite, a private searchable memory of everything you've recorded, and a redesigned Settings — all still fully on your Mac.</p>
+<p><strong>New in 2.3.1:</strong> an always-visible <strong>Search &amp; Ask</strong> button in the sidebar — search inside every transcript or ask across all of them from anywhere (also ⌘K).</p>
 
 <h3>🎙️ The world's-best meeting recorder</h3>
 <ul>
@@ -53,9 +54,9 @@
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.3.0/MindExtract-2.3.0-Universal.dmg"
-        sparkle:edSignature="tH1iBrAJ+EZWJYS4AogVqCDMUPwtMaotXFQqMwoG8NLX9UGZwmpkeOxLolpGzr0EEj6vO4qZVVcLjfXwD/Q/DA=="
-        length="85492891"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.3.1/MindExtract-2.3.1-Universal.dmg"
+        sparkle:edSignature="3h0AitsueteSfLByTWlGX8JuNn9VbdFpHpnGuuocZAds0rr6sJOYsQl6hTV3VLxYtFd+tuFBI9jnGsHh+tatCQ=="
+        length="85402554"
         type="application/octet-stream"
       />
     </item>
