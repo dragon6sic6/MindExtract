@@ -30,8 +30,11 @@ fi
 BUNDLE_ID="com.mindact.mindextract"
 
 APP_NAME="MindExtract"
-DMG_NAME="MindExtract-2.1.5-Universal"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Derive the version straight from the project so the DMG filename always
+# matches the build (previously hardcoded — caused a 2.1.5/2.1.6 mismatch).
+MARKETING_VERSION=$(grep -m1 'MARKETING_VERSION = ' "$PROJECT_DIR/MindExtract.xcodeproj/project.pbxproj" | sed 's/.*= //; s/;.*//' | tr -d ' ')
+DMG_NAME="MindExtract-${MARKETING_VERSION}-Universal"
 BUILD_DIR="$PROJECT_DIR/build"
 OUTPUT_DIR="$PROJECT_DIR/dist"
 ENTITLEMENTS="$PROJECT_DIR/entitlements.plist"

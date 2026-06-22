@@ -262,6 +262,13 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
     case medium = "openai_whisper-medium"
     case largev3 = "openai_whisper-large-v3"
     case largev3turbo = "openai_whisper-large-v3_turbo"
+    // KB-Whisper (KBLab / National Library of Sweden) — Swedish-optimized, beats
+    // OpenAI Whisper on Swedish. Distributed as WhisperKit Core ML by mickekringai
+    // (repo ships base/small/medium/large variants).
+    case kbWhisperBase = "kb_whisper-base"
+    case kbWhisperSmall = "kb_whisper-small"
+    case kbWhisperMedium = "kb_whisper-medium"
+    case kbWhisperLarge = "kb_whisper-large"
 
     var id: String { rawValue }
 
@@ -273,6 +280,10 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return "Medium"
         case .largev3: return "Large v3"
         case .largev3turbo: return "Large v3 Turbo"
+        case .kbWhisperBase: return "KB-Whisper Base (Swedish)"
+        case .kbWhisperSmall: return "KB-Whisper Small (Swedish)"
+        case .kbWhisperMedium: return "KB-Whisper Medium (Swedish)"
+        case .kbWhisperLarge: return "KB-Whisper Large (Swedish)"
         }
     }
 
@@ -284,6 +295,10 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return "~1.5 GB"
         case .largev3: return "~3 GB"
         case .largev3turbo: return "~1.6 GB"
+        case .kbWhisperBase: return "~150 MB"
+        case .kbWhisperSmall: return "~500 MB"
+        case .kbWhisperMedium: return "~1.5 GB"
+        case .kbWhisperLarge: return "~3 GB"
         }
     }
 
@@ -295,6 +310,10 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return 1_500_000_000
         case .largev3: return 3_000_000_000
         case .largev3turbo: return 1_600_000_000
+        case .kbWhisperBase: return 150_000_000
+        case .kbWhisperSmall: return 500_000_000
+        case .kbWhisperMedium: return 1_500_000_000
+        case .kbWhisperLarge: return 3_000_000_000
         }
     }
 
@@ -306,6 +325,10 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return "High accuracy, slower"
         case .largev3: return "Best accuracy, requires more RAM"
         case .largev3turbo: return "Near-best accuracy, optimized speed"
+        case .kbWhisperBase: return "Fast Swedish, small download"
+        case .kbWhisperSmall: return "Best Swedish accuracy at this size — beats OpenAI Large on Swedish"
+        case .kbWhisperMedium: return "Higher Swedish accuracy, slower"
+        case .kbWhisperLarge: return "Highest Swedish accuracy, requires more RAM"
         }
     }
 
@@ -313,9 +336,30 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         self == .small
     }
 
+    /// Swedish-only fine-tunes — should only be offered when transcribing Swedish.
+    var isSwedishOnly: Bool {
+        rawValue.hasPrefix("kb_whisper-")
+    }
+
+    /// HuggingFace repo the WhisperKit Core ML files come from.
+    var repo: String {
+        isSwedishOnly ? "mickekringai/kb-whisper-coreml" : "argmaxinc/whisperkit-coreml"
+    }
+
+    /// Variant folder name inside `repo` (KB folders are "base"/"small"/… — the
+    /// rawValue without the "kb_whisper-" prefix).
+    var variant: String {
+        isSwedishOnly ? String(rawValue.dropFirst("kb_whisper-".count)) : rawValue
+    }
+
+    /// The best default model for a given spoken language — KB-Whisper for Swedish.
+    static func recommended(for language: String) -> WhisperModel {
+        language == "sv" ? .kbWhisperSmall : .small
+    }
+
     /// The WhisperKit model identifier used for download/init
     var whisperKitModelId: String {
-        rawValue
+        variant
     }
 }
 
@@ -417,6 +461,20 @@ enum TranscriptionState: Equatable {
     case modelNotDownloaded
 }
 
+/// Preferred quality for the "best" download path.
+enum DownloadQuality: String, CaseIterable, Identifiable, Codable {
+    case best, hd1080, hd720, audioOnly
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .best: return "Best available"
+        case .hd1080: return "1080p max"
+        case .hd720: return "720p max"
+        case .audioOnly: return "Audio only"
+        }
+    }
+}
+
 @MainActor
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
@@ -440,6 +498,54 @@ class AppSettings: ObservableObject {
     @AppStorage("transcriptionOutputFormat") var transcriptionOutputFormat: TranscriptionOutputFormat = .txt
     @AppStorage("enableSpeakerDiarization") var enableSpeakerDiarization: Bool = true
     @AppStorage("transcriptionEngine") var transcriptionEngine: TranscriptionEngineChoice = .automatic
+    /// After a meeting recording finishes transcribing, auto-generate Meeting
+    /// Minutes + Action Items so the user gets finished notes with no extra click.
+    @AppStorage("autoGenerateMeetingNotes") var autoGenerateMeetingNotes: Bool = true
+    /// WhisperKit-only: translate speech directly to English while transcribing
+    /// (Whisper's built-in translate task — runs on-device, English target only).
+    @AppStorage("translateToEnglish") var translateToEnglish: Bool = false
+    /// Custom vocabulary — names and domain terms (one per line or comma-separated)
+    /// fed to WhisperKit as a conditioning prompt so it spells them correctly.
+    @AppStorage("customVocabulary") var customVocabulary: String = ""
+
+    // MARK: Calendar (meeting auto-detection)
+    /// The app's own on/off switch — lets the user stop MindExtract from using
+    /// the calendar without revoking the macOS permission (only System Settings
+    /// can revoke TCC). Off = no meeting suggestions anywhere in the app.
+    @AppStorage("calendarSuggestionsEnabled") var calendarSuggestionsEnabled: Bool = true
+    /// How many minutes ahead of a meeting's start we begin suggesting it.
+    @AppStorage("calendarLeadMinutes") var calendarLeadMinutes: Int = 5
+    /// Comma-separated EKCalendar identifiers to NOT scan. Empty = scan all.
+    @AppStorage("excludedCalendarIDs") var excludedCalendarIDs: String = ""
+    var excludedCalendarIDSet: Set<String> {
+        Set(excludedCalendarIDs.split(separator: ",").map(String.init))
+    }
+    func setCalendarExcluded(_ id: String, _ excluded: Bool) {
+        var s = excludedCalendarIDSet
+        if excluded { s.insert(id) } else { s.remove(id) }
+        excludedCalendarIDs = s.sorted().joined(separator: ",")
+    }
+
+    // MARK: Recording
+    /// Automatically show the floating live-caption window when a recording starts.
+    @AppStorage("autoShowCaptions") var autoShowCaptions: Bool = false
+    /// Detect when a call app (Zoom, Teams, …) is in an active call and offer to
+    /// record it — provider-agnostic, complements calendar detection.
+    @AppStorage("detectActiveMeetings") var detectActiveMeetings: Bool = true
+    /// Preferred microphone uniqueID for meeting recording. Empty = follow the
+    /// macOS system default (auto-switches to AirPods etc.).
+    @AppStorage("preferredMicrophoneID") var preferredMicrophoneID: String = ""
+
+    // MARK: Downloads (quality + automation)
+    /// Preferred quality for the "best" download path. Explicit format picks in
+    /// the UI are respected as-is and ignore this.
+    @AppStorage("downloadQuality") var downloadQuality: DownloadQuality = .best
+    /// Start transcription automatically once a download finishes.
+    @AppStorage("autoTranscribeOnDownload") var autoTranscribeOnDownload: Bool = false
+
+    // MARK: Notifications
+    /// Post a notification when a transcription finishes.
+    @AppStorage("notifyOnTranscriptionComplete") var notifyOnTranscriptionComplete: Bool = true
 
     // AI summaries & chat
     @AppStorage("aiBackend") var aiBackend: AIBackendChoice = .apple
@@ -471,6 +577,33 @@ class AppSettings: ObservableObject {
 
 // MARK: - Transcription History Item
 
+/// Where a transcript came from — drives the type badge + filter in the list.
+enum TranscriptSource: String, Codable, CaseIterable {
+    case meeting, download, file
+
+    var displayName: String {
+        switch self {
+        case .meeting: return "Meeting"
+        case .download: return "Download"
+        case .file: return "File"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .meeting: return "person.2.wave.2.fill"
+        case .download: return "arrow.down.circle.fill"
+        case .file: return "doc.fill"
+        }
+    }
+    var tint: Color {
+        switch self {
+        case .meeting: return .green
+        case .download: return .blue
+        case .file: return .orange
+        }
+    }
+}
+
 struct TranscriptionHistoryItem: Identifiable, Codable, Equatable {
     let id: UUID
     var title: String
@@ -478,6 +611,11 @@ struct TranscriptionHistoryItem: Identifiable, Codable, Equatable {
     let transcriptionDate: Date
     let duration: String?
     let modelUsed: String
+    /// Optional so older saved history (without the key) still decodes. nil = not starred.
+    var isFavorite: Bool?
+    /// Source category (meeting/download/file). Optional for backward compat.
+    var source: String?
+    var sourceType: TranscriptSource? { source.flatMap(TranscriptSource.init(rawValue:)) }
 
     init(title: String, filePath: String, duration: String? = nil, modelUsed: String) {
         self.id = UUID()
@@ -615,6 +753,7 @@ class TranscriptionHistoryManager: ObservableObject {
 
     func removeFromHistory(_ item: TranscriptionHistoryItem) {
         history.removeAll { $0.id == item.id }
+        TranscriptLibrary.shared.evict(path: item.filePath)
         saveHistory()
     }
 
@@ -625,8 +764,15 @@ class TranscriptionHistoryManager: ObservableObject {
         saveHistory()
     }
 
+    func toggleFavorite(_ item: TranscriptionHistoryItem) {
+        guard let idx = history.firstIndex(where: { $0.id == item.id }) else { return }
+        history[idx].isFavorite = !(history[idx].isFavorite ?? false)
+        saveHistory()
+    }
+
     func clearHistory() {
         history.removeAll()
+        TranscriptLibrary.shared.evictAll()
         saveHistory()
     }
 

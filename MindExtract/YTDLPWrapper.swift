@@ -938,6 +938,37 @@ class YTDLPWrapper: ObservableObject {
         }
     }
 
+    /// yt-dlp format selector for the user's preferred quality. Applies to the
+    /// "best" download path only — explicit per-format picks are respected as-is.
+    private var qualityFormatSelector: String {
+        switch settings.downloadQuality {
+        case .best:
+            return "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[vcodec^=av01]+bestaudio/bestvideo[vcodec^=avc]+bestaudio/bestvideo+bestaudio/best"
+        case .hd1080, .hd720:
+            let cap = settings.downloadQuality == .hd1080 ? 1080 : 720
+            return "bestvideo[height<=\(cap)][vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[height<=\(cap)][vcodec^=av01]+bestaudio/bestvideo[height<=\(cap)]+bestaudio/best[height<=\(cap)]/best"
+        case .audioOnly:
+            return "bestaudio[ext=m4a]/bestaudio/best"
+        }
+    }
+    private var qualityMergeFormat: String { settings.downloadQuality == .audioOnly ? "m4a" : "mp4" }
+
+    /// Kick off transcription of the just-downloaded file, if the user enabled it.
+    /// Runs in the background; a "transcription complete" notification fires when done.
+    private func autoTranscribeIfEnabled() {
+        guard settings.autoTranscribeOnDownload, let path = lastDownloadedFilePath else { return }
+        let manager = TranscriptionManager.shared
+        // Don't clobber a transcription the user already has running.
+        guard !manager.isTranscribing else { return }
+        let title = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+        let model = AppSettings.shared.defaultWhisperModel
+        manager.startNewTranscription(title: title, model: model, source: .download)
+        manager.transcribe(videoPath: path,
+                            model: model,
+                            outputFormat: settings.transcriptionOutputFormat,
+                            language: AppSettings.shared.defaultTranscriptionLanguage)
+    }
+
     func download(url: String, formatId: String, outputPath: String) {
         state = .downloading(progress: 0, speed: "Starting…")
         startDownloadStallDetection()
@@ -1011,6 +1042,7 @@ class YTDLPWrapper: ObservableObject {
                 if self.settings.playSoundOnComplete {
                     self.playCompletionSound()
                 }
+                self.autoTranscribeIfEnabled()
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
             }
@@ -1024,14 +1056,13 @@ class YTDLPWrapper: ObservableObject {
 
         let outputTemplate = "\(outputPath)/%(title).80s [%(id)s] %(height)sp.%(ext)s"
 
-        // Prefer H.264 (avc1) for QuickTime/macOS compatibility.
-        // Falls back to any best video if H.264 is unavailable.
-        let h264Format = "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[vcodec^=av01]+bestaudio/bestvideo[vcodec^=avc]+bestaudio/bestvideo+bestaudio/best"
+        // Quality-aware selector (H.264 preferred for QuickTime/macOS), honoring
+        // the user's "best/1080p/720p/audio only" preference.
         var args = [
-            "-f", h264Format,
+            "-f", qualityFormatSelector,
             "-o", outputTemplate,
             "--newline", "--progress", "--no-playlist", "--restrict-filenames",
-            "--merge-output-format", "mp4"
+            "--merge-output-format", qualityMergeFormat
         ]
         args.append(contentsOf: youtubeWorkaroundArgs)
         if settings.downloadSubtitles {
@@ -1052,17 +1083,19 @@ class YTDLPWrapper: ObservableObject {
                         title: info.title,
                         thumbnail: info.thumbnail,
                         platform: Platform.detect(from: url),
-                        isAudioOnly: false,
+                        isAudioOnly: self.settings.downloadQuality == .audioOnly,
                         filePath: self.lastDownloadedFilePath
                     )
                     self.historyManager.addToHistory(historyItem)
                 }
                 if self.settings.showNotifications {
-                    self.sendNotification(title: "Download Complete", body: "Video saved to Downloads")
+                    let what = self.settings.downloadQuality == .audioOnly ? "Audio" : "Video"
+                    self.sendNotification(title: "Download Complete", body: "\(what) saved to Downloads")
                 }
                 if self.settings.playSoundOnComplete {
                     self.playCompletionSound()
                 }
+                self.autoTranscribeIfEnabled()
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
             }
@@ -1182,6 +1215,7 @@ class YTDLPWrapper: ObservableObject {
                 if self.settings.playSoundOnComplete {
                     self.playCompletionSound()
                 }
+                self.autoTranscribeIfEnabled()
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
             }

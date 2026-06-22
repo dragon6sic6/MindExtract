@@ -17,9 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.5</string>
+	<string>2.3.0</string>
 	<key>CFBundleVersion</key>
-	<string>33</string>
+	<string>36</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -30,6 +30,16 @@
 	<string>© 2026 Mindact. All rights reserved.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>MindExtract uses on-device speech recognition to transcribe your audio locally. Nothing is sent to Apple or any server.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MindExtract records your microphone to capture your voice in meetings. Audio is processed entirely on your Mac and never uploaded.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>MindExtract reads your calendar to suggest the meeting you're in so you can record it with one tap. Your calendar data stays on your Mac.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>MindExtract reads your calendar to suggest the meeting you're in so you can record it with one tap. Your calendar data stays on your Mac.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>MindExtract can turn a meeting's action items into reminders in your Reminders app. It only adds the items you choose and never reads your existing reminders.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>MindExtract can turn a meeting's action items into reminders in your Reminders app. It only adds the items you choose and never reads your existing reminders.</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>

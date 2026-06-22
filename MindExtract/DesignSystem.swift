@@ -191,13 +191,14 @@ extension View {
 /// The one search field used across all lists (capsule input canon).
 struct SearchField: View {
     @Binding var text: String
+    var placeholder: String = "Search…"
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            TextField("Search…", text: $text)
+            TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
                 .font(.subheadline)
             if !text.isEmpty {

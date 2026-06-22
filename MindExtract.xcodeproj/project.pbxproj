@@ -17,6 +17,20 @@
 		B1000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000015 /* Assets.xcassets */; };
 		B1000D01 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D02 /* DesignSystem.swift */; };
 		B1000D03 /* Summarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D04 /* Summarizer.swift */; };
+		B1000E01 /* Translator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E02 /* Translator.swift */; };
+		B1000E03 /* Templates.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E04 /* Templates.swift */; };
+		B1000E05 /* MeetingRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E06 /* MeetingRecorder.swift */; };
+		B1000E07 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E08 /* RecordingView.swift */; };
+		B1000E09 /* LiveTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0A /* LiveTranscriber.swift */; };
+		B1000E0B /* MeetingCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0C /* MeetingCalendar.swift */; };
+		B1000E0D /* RemindersExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0E /* RemindersExporter.swift */; };
+		B1000E0F /* CaptionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E10 /* CaptionOverlay.swift */; };
+		B1000E11 /* MeetingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E12 /* MeetingInsights.swift */; };
+		B1000E13 /* ActiveMeetingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E14 /* ActiveMeetingDetector.swift */; };
+		B1000E15 /* TranscriptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E16 /* TranscriptLibrary.swift */; };
+		B1000E17 /* ExportTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E18 /* ExportTools.swift */; };
+		B1000E19 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1A /* WelcomeView.swift */; };
+		B1000E1B /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1C /* MCPServer.swift */; };
 		B1000D05 /* AIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D06 /* AIBackend.swift */; };
 		B1000007 /* ytdlp in Resources */ = {isa = PBXBuildFile; fileRef = B1000023 /* ytdlp */; };
 		B1000031 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000024 /* SettingsView.swift */; };
@@ -36,6 +50,20 @@
 		B1000016 /* MindExtract.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MindExtract.entitlements; sourceTree = "<group>"; };
 		B1000D02 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		B1000D04 /* Summarizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Summarizer.swift; sourceTree = "<group>"; };
+		B1000E02 /* Translator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Translator.swift; sourceTree = "<group>"; };
+		B1000E04 /* Templates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Templates.swift; sourceTree = "<group>"; };
+		B1000E06 /* MeetingRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingRecorder.swift; sourceTree = "<group>"; };
+		B1000E08 /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
+		B1000E0A /* LiveTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscriber.swift; sourceTree = "<group>"; };
+		B1000E0C /* MeetingCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingCalendar.swift; sourceTree = "<group>"; };
+		B1000E0E /* RemindersExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersExporter.swift; sourceTree = "<group>"; };
+		B1000E10 /* CaptionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptionOverlay.swift; sourceTree = "<group>"; };
+		B1000E12 /* MeetingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingInsights.swift; sourceTree = "<group>"; };
+		B1000E14 /* ActiveMeetingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveMeetingDetector.swift; sourceTree = "<group>"; };
+		B1000E16 /* TranscriptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLibrary.swift; sourceTree = "<group>"; };
+		B1000E18 /* ExportTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportTools.swift; sourceTree = "<group>"; };
+		B1000E1A /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		B1000E1C /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
 		B1000D06 /* AIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackend.swift; sourceTree = "<group>"; };
 		B1000023 /* ytdlp */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ytdlp; sourceTree = "<group>"; };
 		B1000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -82,6 +110,20 @@
 				B1000012 /* ContentView.swift */,
 				B1000D02 /* DesignSystem.swift */,
 				B1000D04 /* Summarizer.swift */,
+				B1000E02 /* Translator.swift */,
+				B1000E04 /* Templates.swift */,
+				B1000E06 /* MeetingRecorder.swift */,
+				B1000E08 /* RecordingView.swift */,
+				B1000E0A /* LiveTranscriber.swift */,
+				B1000E0C /* MeetingCalendar.swift */,
+				B1000E0E /* RemindersExporter.swift */,
+				B1000E10 /* CaptionOverlay.swift */,
+				B1000E12 /* MeetingInsights.swift */,
+				B1000E14 /* ActiveMeetingDetector.swift */,
+				B1000E16 /* TranscriptLibrary.swift */,
+				B1000E18 /* ExportTools.swift */,
+				B1000E1A /* WelcomeView.swift */,
+				B1000E1C /* MCPServer.swift */,
 				B1000D06 /* AIBackend.swift */,
 				B1000024 /* SettingsView.swift */,
 				B1000026 /* TranscriptionManager.swift */,
@@ -189,6 +231,20 @@
 				B1000002 /* ContentView.swift in Sources */,
 				B1000D01 /* DesignSystem.swift in Sources */,
 				B1000D03 /* Summarizer.swift in Sources */,
+				B1000E01 /* Translator.swift in Sources */,
+				B1000E03 /* Templates.swift in Sources */,
+				B1000E05 /* MeetingRecorder.swift in Sources */,
+				B1000E07 /* RecordingView.swift in Sources */,
+				B1000E09 /* LiveTranscriber.swift in Sources */,
+				B1000E0B /* MeetingCalendar.swift in Sources */,
+				B1000E0D /* RemindersExporter.swift in Sources */,
+				B1000E0F /* CaptionOverlay.swift in Sources */,
+				B1000E11 /* MeetingInsights.swift in Sources */,
+				B1000E13 /* ActiveMeetingDetector.swift in Sources */,
+				B1000E15 /* TranscriptLibrary.swift in Sources */,
+				B1000E17 /* ExportTools.swift in Sources */,
+				B1000E19 /* WelcomeView.swift in Sources */,
+				B1000E1B /* MCPServer.swift in Sources */,
 				B1000D05 /* AIBackend.swift in Sources */,
 				B1000031 /* SettingsView.swift in Sources */,
 				B1000033 /* TranscriptionManager.swift in Sources */,
@@ -329,7 +385,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 33;
+				CURRENT_PROJECT_VERSION = 36;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -341,7 +397,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.1.5;
+				MARKETING_VERSION = 2.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -360,7 +416,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 33;
+				CURRENT_PROJECT_VERSION = 36;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -372,7 +428,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.1.5;
+				MARKETING_VERSION = 2.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;

@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 enum SidebarItem: String, Hashable {
     case download = "Download"
+    case record = "Record"
     case transcripts = "Transcripts"
     case history = "History"
     case settings = "Settings"
@@ -21,6 +22,16 @@ struct ContentView: View {
 
     // Navigation
     @State private var selectedSidebarItem: SidebarItem? = .download
+
+    // First-run welcome
+    @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
+    @State private var showWelcome = false
+
+    // ⌘K search/ask overlay — one stable sheet whose content swaps between the
+    // palette and the chat (swapping sheet *identity* would flicker/dismiss).
+    enum AppOverlay { case palette, chat }
+    @State private var showOverlay = false
+    @State private var overlayContent: AppOverlay = .palette
 
     // Download state
     @State private var urlInput: String = ""
@@ -141,14 +152,14 @@ struct ContentView: View {
             TranscriptionOptionsSheet(
                 selectedLanguage: $selectedTranscriptionLanguage,
                 onAppearDefault: settings.defaultTranscriptionLanguage,
-                onStart: {
+                onStart: { model in
                     showTranscriptionLanguagePicker = false
                     if let file = pendingTranscriptionFile {
-                        transcribeLocalFile(file)
+                        transcribeLocalFile(file, model: model)
                     } else if let filePath = pendingTranscriptionFilePath {
-                        startTranscription(filePath: filePath)
+                        startTranscription(filePath: filePath, model: model)
                     } else {
-                        transcribeFromURL()
+                        transcribeFromURL(model: model)
                     }
                     pendingTranscriptionFile = nil
                     pendingTranscriptionFilePath = nil
@@ -160,6 +171,44 @@ struct ContentView: View {
                 }
             )
         }
+        .sheet(isPresented: $showWelcome) {
+            WelcomeView(
+                onRecord: { selectedSidebarItem = .record; markWelcomeSeen() },
+                onTranscribe: { selectedSidebarItem = .download; markWelcomeSeen() },
+                onDismiss: { markWelcomeSeen() }
+            )
+        }
+        .onAppear {
+            if !hasSeenWelcome && !showWelcome { showWelcome = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openSearch)) { _ in
+            overlayContent = .palette
+            showOverlay = true
+        }
+        .sheet(isPresented: $showOverlay) {
+            switch overlayContent {
+            case .palette:
+                CommandPaletteView(
+                    onOpenTranscript: { item in
+                        showOverlay = false
+                        selectedSidebarItem = .transcripts
+                        if item.fileExists { transcriptionManager.openTranscriptionFromHistory(item) }
+                    },
+                    onAsk: { query in
+                        CorpusChat.shared.reset()
+                        CorpusChat.shared.ask(query)
+                        overlayContent = .chat   // swaps content in the same sheet
+                    }
+                )
+            case .chat:
+                CorpusChatView()
+            }
+        }
+    }
+
+    private func markWelcomeSeen() {
+        hasSeenWelcome = true
+        showWelcome = false
     }
 
     // MARK: - Sidebar
@@ -169,6 +218,8 @@ struct ContentView: View {
             Section("Library") {
                 Label("Media", systemImage: "tray.and.arrow.down")
                     .tag(SidebarItem.download)
+                Label("Record", systemImage: "record.circle")
+                    .tag(SidebarItem.record)
                 Label("Transcripts", systemImage: "text.bubble")
                     .tag(SidebarItem.transcripts)
             }
@@ -190,6 +241,10 @@ struct ContentView: View {
         switch selectedSidebarItem ?? .download {
         case .download:
             downloadDetailView
+        case .record:
+            RecordingView(onOpenTranscripts: {
+                withAnimation(.easeInOut(duration: 0.2)) { selectedSidebarItem = .transcripts }
+            })
         case .transcripts:
             // Live transcription and saved transcripts both live here.
             if transcriptionManager.showTranscriptionView {
@@ -512,14 +567,9 @@ struct ContentView: View {
         }
     }
 
-    private func transcribeLocalFile(_ file: LocalFileInfo) {
-        if transcriptionManager.needsModelDownload {
-            transcriptionManager.transcriptionState = .modelNotDownloaded
-            return
-        }
-        let model = settings.defaultWhisperModel
-        let modelToUse = transcriptionManager.isModelDownloaded(model) ? model : (transcriptionManager.downloadedModels.first ?? model)
-        transcriptionManager.startNewTranscription(title: file.name, model: modelToUse)
+    private func transcribeLocalFile(_ file: LocalFileInfo, model: WhisperModel = AppSettings.shared.defaultWhisperModel) {
+        let modelToUse = model
+        transcriptionManager.startNewTranscription(title: file.name, model: modelToUse, source: .file)
         transcriptionManager.transcribe(
             videoPath: file.url.path,
             model: modelToUse,
@@ -659,15 +709,12 @@ struct ContentView: View {
 
     private func mediaActionRow(info: VideoInfo) -> some View {
         HStack(spacing: 10) {
-            // Transcribe — the app's namesake, first.
+            // Transcribe — the app's namesake, first. The options sheet handles
+            // the no-model case inline (download + auto-start), so always open it.
             Button {
-                if transcriptionManager.needsModelDownload {
-                    transcriptionManager.transcriptionState = .modelNotDownloaded
-                } else {
-                    pendingTranscriptionFile = nil
-                    pendingTranscriptionFilePath = nil
-                    showTranscriptionLanguagePicker = true
-                }
+                pendingTranscriptionFile = nil
+                pendingTranscriptionFilePath = nil
+                showTranscriptionLanguagePicker = true
             } label: {
                 Label("Transcribe", systemImage: "text.bubble.fill")
                     .frame(maxWidth: .infinity)
@@ -937,15 +984,10 @@ struct ContentView: View {
         }
     }
 
-    private func transcribeFromURL() {
-        if transcriptionManager.needsModelDownload {
-            transcriptionManager.transcriptionState = .modelNotDownloaded
-            return
-        }
-        let model = settings.defaultWhisperModel
-        let modelToUse = transcriptionManager.isModelDownloaded(model) ? model : (transcriptionManager.downloadedModels.first ?? model)
+    private func transcribeFromURL(model: WhisperModel = AppSettings.shared.defaultWhisperModel) {
+        let modelToUse = model
         let title = downloader.videoInfo?.title ?? "Video Transcription"
-        transcriptionManager.startNewTranscription(title: title, model: modelToUse)
+        transcriptionManager.startNewTranscription(title: title, model: modelToUse, source: .download)
         transcriptionManager.transcriptionState = .downloadingAudio(progress: 0)
 
         downloader.downloadAudioForTranscription(url: urlInput) { [self] audioPath, error in
@@ -1051,13 +1093,9 @@ struct ContentView: View {
                         if transcriptionManager.areBinariesAvailable,
                            let filePath = downloader.lastDownloadedFilePath {
                             Button(action: {
-                                if transcriptionManager.needsModelDownload {
-                                    transcriptionManager.transcriptionState = .modelNotDownloaded
-                                } else {
-                                    pendingTranscriptionFile = nil
-                                    pendingTranscriptionFilePath = filePath
-                                    showTranscriptionLanguagePicker = true
-                                }
+                                pendingTranscriptionFile = nil
+                                pendingTranscriptionFilePath = filePath
+                                showTranscriptionLanguagePicker = true
                             }) {
                                 Label("Transcribe", systemImage: "text.bubble")
                             }
@@ -1360,20 +1398,15 @@ struct ContentView: View {
         }
     }
 
-    private func startTranscription(filePath: String) {
-        let model = settings.defaultWhisperModel
+    private func startTranscription(filePath: String, model: WhisperModel = AppSettings.shared.defaultWhisperModel) {
         // Clear previous result before starting so stale state isn't shown
         transcriptionManager.clearTranscription()
-        if transcriptionManager.isModelDownloaded(model) {
-            transcriptionManager.transcribe(
-                videoPath: filePath,
-                model: model,
-                outputFormat: settings.transcriptionOutputFormat,
-                language: selectedTranscriptionLanguage
-            )
-        } else {
-            transcriptionManager.transcriptionState = .modelNotDownloaded
-        }
+        transcriptionManager.transcribe(
+            videoPath: filePath,
+            model: model,
+            outputFormat: settings.transcriptionOutputFormat,
+            language: selectedTranscriptionLanguage
+        )
     }
 
     // MARK: - Log Section
@@ -1820,13 +1853,40 @@ struct LocalFileRow: View {
 struct TranscriptionOptionsSheet: View {
     @Binding var selectedLanguage: String
     var onAppearDefault: String? = nil
-    let onStart: () -> Void
+    let onStart: (WhisperModel) -> Void
     let onCancel: () -> Void
 
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var transcriptionManager = TranscriptionManager.shared
 
+    // The model a tapped "Download & Transcribe" is for, so completion auto-starts
+    // with the right model even if the picker changed meanwhile.
+    @State private var awaitingModelDownload: WhisperModel?
+    @State private var appleSupported = false   // resolved async per language
+    @State private var selectedModel: WhisperModel = .small
+
     private let languages = AppSettings.transcriptionLanguages
+
+    /// Will WhisperKit (not Apple Speech) actually run for the chosen language?
+    /// True if the engine is WhisperKit, or Apple Speech can't do this language.
+    private var willUseWhisperKit: Bool { usingApple ? !appleSupported : true }
+
+    /// Models offered for the chosen language — KB-Whisper only for Swedish.
+    private var modelChoices: [WhisperModel] {
+        WhisperModel.allCases.filter { !$0.isSwedishOnly || selectedLanguage == "sv" }
+    }
+
+    private var needsDownload: Bool {
+        willUseWhisperKit && !transcriptionManager.downloadedModels.contains(selectedModel)
+    }
+
+    /// Menu label for a model — section headers carry the Swedish/general context.
+    private func modelLabel(_ m: WhisperModel) -> String {
+        let rec = (m == WhisperModel.recommended(for: selectedLanguage))
+        let have = transcriptionManager.downloadedModels.contains(m)
+        let name = m.displayName.replacingOccurrences(of: " (Swedish)", with: "")
+        return "\(name) · \(m.sizeDescription)\(rec ? " · Recommended" : "")\(have ? " · Installed" : "")"
+    }
 
     private var languageName: String {
         languages.first { $0.code == selectedLanguage }?.name ?? "Auto-detect"
@@ -1834,9 +1894,39 @@ struct TranscriptionOptionsSheet: View {
 
     private var usingApple: Bool { transcriptionManager.useAppleSpeech() }
 
+    private var appleSpeechAvailable: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
+
+    /// Plain-language description of the currently-selected engine, so users who
+    /// have never heard of "Apple Speech" or "WhisperKit" understand the choice.
+    private var engineExplanation: String {
+        switch settings.transcriptionEngine {
+        case .automatic:
+            return usingApple
+                ? "Automatic uses Apple Speech on this Mac — it's built into macOS, starts instantly, and needs no download. WhisperKit is an optional alternative."
+                : "Automatic uses WhisperKit on this Mac — an open-source engine that downloads a speech model once, then works fully offline."
+        case .appleSpeech:
+            return appleSpeechAvailable
+                ? "Built into macOS — starts instantly, runs on-device, and has nothing to download."
+                : "Apple Speech needs macOS 26. WhisperKit will be used instead on this Mac."
+        case .whisperKit:
+            return "Open-source speech engine that runs on any Mac and works fully offline. Apple Speech is the simpler built-in option on macOS 26+."
+        }
+    }
+
     var body: some View {
         sheetBody
-            .onAppear { if let d = onAppearDefault { selectedLanguage = d } }
+    }
+
+    /// Smart default: an explicit saved preference, else the system language if we
+    /// support it (so Swedish Macs default to Swedish → KB-Whisper), else auto.
+    private func resolvedDefaultLanguage() -> String {
+        let pref = onAppearDefault ?? "auto"
+        if pref != "auto" { return pref }
+        let sys = Locale.current.language.languageCode?.identifier ?? "auto"
+        return AppSettings.transcriptionLanguages.contains { $0.code == sys } ? sys : "auto"
     }
 
     private var sheetBody: some View {
@@ -1860,14 +1950,22 @@ struct TranscriptionOptionsSheet: View {
             Divider()
 
             VStack(spacing: 16) {
-                // Engine
-                optionRow(title: "Engine",
-                          subtitle: usingApple ? "Apple on-device speech — no model download" : "WhisperKit · \(settings.defaultWhisperModel.displayName)") {
-                    Picker("", selection: $settings.transcriptionEngine) {
-                        ForEach(TranscriptionEngineChoice.allCases) { Text($0.rawValue).tag($0) }
+                // Engine — with a plain-language note explaining what the chosen
+                // engine actually is (most people don't know "Apple Speech").
+                VStack(alignment: .leading, spacing: 8) {
+                    optionRow(title: "Engine",
+                              subtitle: usingApple ? "Apple on-device speech — no model download" : "WhisperKit · \(settings.defaultWhisperModel.displayName)") {
+                        Picker("", selection: $settings.transcriptionEngine) {
+                            ForEach(TranscriptionEngineChoice.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
                     }
-                    .labelsHidden()
-                    .frame(width: 150)
+                    Text(engineExplanation)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 // Language
@@ -1886,14 +1984,69 @@ struct TranscriptionOptionsSheet: View {
                         .toggleStyle(.switch)
                 }
 
-                // The chosen engine needs a model that isn't downloaded yet —
-                // catch it here instead of failing after "Start".
-                if transcriptionManager.needsModelDownload {
-                    Label("This engine needs a WhisperKit model. Download one in Settings first.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundColor(.orange)
+                // Translate to English — Whisper's on-device translate task.
+                // Apple Speech can't do this, so only offer it for WhisperKit.
+                if !usingApple {
+                    optionRow(title: "Translate to English",
+                              subtitle: "Transcribe foreign speech straight into English") {
+                        Toggle("", isOn: $settings.translateToEnglish)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                }
+
+                // WhisperKit model selection + inline download — language-aware, so
+                // Swedish recommends KB-Whisper just like the recording flow.
+                if willUseWhisperKit {
+                    if isDownloadingModel {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Downloading \(selectedModel.displayName) model… \(Int(transcriptionManager.modelDownloadProgress * 100))%")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            ProgressView(value: transcriptionManager.modelDownloadProgress)
+                                .tint(DS.Colors.accent)
+                            Text("This happens once. Transcription starts automatically when it's ready.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary.opacity(0.8))
+                        }
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if let downloadError {
+                        Label(downloadError, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(languageName) is transcribed by WhisperKit. Pick a model — KB-Whisper is best for Swedish; larger is more accurate, smaller is faster.")
+                                .font(.caption).foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            HStack {
+                                Text("Model").font(.body).fontWeight(.medium)
+                                Spacer()
+                                Picker("", selection: $selectedModel) {
+                                    let kb = modelChoices.filter { $0.isSwedishOnly }
+                                    let general = modelChoices.filter { !$0.isSwedishOnly }
+                                    if !kb.isEmpty {
+                                        Section("Best for Swedish") {
+                                            ForEach(kb) { Text(modelLabel($0)).tag($0) }
+                                        }
+                                    }
+                                    Section("General — OpenAI Whisper") {
+                                        ForEach(general) { Text(modelLabel($0)).tag($0) }
+                                    }
+                                }
+                                .labelsHidden()
+                                .frame(width: 220)
+                            }
+                            Text(selectedModel.description)
+                                .font(.caption2).foregroundColor(.secondary.opacity(0.8))
+                            if selectedLanguage == "sv" {
+                                Text("KB-Whisper is trained on Swedish by the National Library of Sweden — markedly more accurate on Swedish.")
+                                    .font(.caption2).foregroundColor(.secondary.opacity(0.8))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
                 }
             }
             .padding(20)
@@ -1901,24 +2054,120 @@ struct TranscriptionOptionsSheet: View {
             Divider()
 
             HStack(spacing: 10) {
-                Button("Cancel", action: onCancel)
+                Button("Cancel", action: cancelTapped)
                     .secondaryGlassButton()
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
 
-                Button(action: onStart) {
-                    Label("Start Transcription", systemImage: "waveform")
-                        .frame(maxWidth: .infinity)
+                if needsDownload {
+                    // Download-then-start: one button does both, with progress.
+                    Button(action: downloadThenStart) {
+                        Label(isDownloadingModel ? "Downloading…" : "Download & Transcribe",
+                              systemImage: isDownloadingModel ? "arrow.down.circle" : "arrow.down.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .primaryGlassButton()
+                    .controlSize(.large)
+                    .keyboardShortcut(.defaultAction)
+                    .frame(maxWidth: .infinity)
+                    .disabled(isDownloadingModel)
+                } else {
+                    Button(action: { onStart(selectedModel) }) {
+                        Label("Start Transcription", systemImage: "waveform")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .primaryGlassButton()
+                    .controlSize(.large)
+                    .keyboardShortcut(.defaultAction)
+                    .frame(maxWidth: .infinity)
                 }
-                .primaryGlassButton()
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .frame(maxWidth: .infinity)
-                .disabled(transcriptionManager.needsModelDownload)
             }
             .padding(16)
         }
         .frame(width: 420)
+        .onAppear {
+            if selectedLanguage.isEmpty || selectedLanguage == "auto" {
+                selectedLanguage = resolvedDefaultLanguage()
+            }
+            selectedModel = WhisperModel.recommended(for: selectedLanguage)
+            refreshAppleSupport()
+        }
+        .onChange(of: selectedLanguage) { _, newLang in
+            selectedModel = WhisperModel.recommended(for: newLang)
+            refreshAppleSupport()
+        }
+        // The exact model the download was for finished → start transcription.
+        .onChange(of: transcriptionManager.downloadedModels) { _, models in
+            if let waiting = awaitingModelDownload, models.contains(waiting) {
+                awaitingModelDownload = nil
+                onStart(waiting)
+            }
+        }
+    }
+
+    private func refreshAppleSupport() {
+        if #available(macOS 26.0, *) {
+            let lang = selectedLanguage
+            Task {
+                let ok = await TranscriptionManager.appleSpeechSupports(lang)
+                await MainActor.run { appleSupported = ok }
+            }
+        } else {
+            appleSupported = false
+        }
+    }
+
+    /// True while the model the user chose is actively downloading.
+    private var isDownloadingModel: Bool {
+        transcriptionManager.downloadingModel == selectedModel
+    }
+
+    /// Surface a failed inline download right here in the sheet (e.g. no network).
+    private var downloadError: String? {
+        if case .error(let message) = transcriptionManager.transcriptionState {
+            return message
+        }
+        return nil
+    }
+
+    private func downloadThenStart() {
+        awaitingModelDownload = selectedModel
+        transcriptionManager.downloadModel(selectedModel)
+    }
+
+    private func cancelTapped() {
+        if isDownloadingModel {
+            transcriptionManager.cancelModelDownload()
+            awaitingModelDownload = nil
+        } else {
+            onCancel()
+        }
+    }
+
+    // Shown the first time someone transcribes with WhisperKit and has no model.
+    // Explains *what* is about to download and *why*, before anything happens —
+    // so the download never feels like it started out of nowhere.
+    @ViewBuilder
+    private func modelSetupCard(_ model: WhisperModel) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "arrow.down.circle")
+                .font(.system(size: 22))
+                .foregroundStyle(DS.Colors.accent)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("One-time setup")
+                    .font(.subheadline).fontWeight(.semibold)
+                Text("To transcribe on your Mac, MindExtract needs the WhisperKit \(model.displayName) speech model (\(model.sizeDescription)). It downloads once, then transcription runs fully offline and privately — nothing leaves your Mac.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(DS.Colors.accent.opacity(0.08))
+        )
     }
 
     @ViewBuilder
