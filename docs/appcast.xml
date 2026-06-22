@@ -7,24 +7,36 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.5.2</title>
-      <pubDate>Mon, 22 Jun 2026 17:25:23 +0000</pubDate>
-      <sparkle:version>41</sparkle:version>
-      <sparkle:shortVersionString>2.5.2</sparkle:shortVersionString>
+      <title>Version 2.6.0</title>
+      <pubDate>Mon, 22 Jun 2026 18:14:08 +0000</pubDate>
+      <sparkle:version>42</sparkle:version>
+      <sparkle:shortVersionString>2.6.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.5.2</h2>
-<p>MindExtract now nudges you the moment a scheduled meeting starts — even when it's in the background.</p>
-<h3>📅 Records find you on time</h3>
+<h2>What's New in 2.6.0</h2>
+<p>MindExtract becomes the app you open every day — not just when you have a meeting. Your meetings now remember each other.</p>
+<h3>☀️ Today</h3>
 <ul>
-  <li>When a meeting on your calendar begins, MindExtract sends a notification — tap <strong>Record</strong> to capture it with the title and attendees already filled in. Combined with live-call detection, you'll never miss the start of a meeting again.</li>
-  <li>Detection now runs app-wide (no need to have the Record screen open). Turn nudges off any time in Settings → Recording.</li>
+  <li>A new home screen: today's meetings, every open commitment across all your meetings, and your latest recaps — in one glance.</li>
 </ul>
+<h3>✅ Open commitments that follow you</h3>
+<ul>
+  <li>Action items from every meeting are gathered into one checkable list, so nothing you promised quietly slips. Check them off as you go.</li>
+</ul>
+<h3>🤝 People & Topics</h3>
+<ul>
+  <li>Every person you've met is threaded automatically — all your meetings with them and what's still open between you. Recurring meetings cluster into project threads. No tagging, no data entry.</li>
+</ul>
+<h3>✨ Never walk in cold</h3>
+<ul>
+  <li>Before a scheduled meeting, a Prep card shows what you discussed last time with these people and what's still open with them.</li>
+</ul>
+<p>Everything is 100% on-device — it reads only what MindExtract already saved on your Mac.</p>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.5.2/MindExtract-2.5.2-Universal.dmg"
-        sparkle:edSignature="2ZbAMC6gY3aCafz18fb4VkUigDGgMW8xPSek1dv8TNcP3gcAnGQi12Jot2Xf+1NFkbK+Y0K2fZeeUd/11eXRDQ=="
-        length="86517883"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.6.0/MindExtract-2.6.0-Universal.dmg"
+        sparkle:edSignature="r56Gkqi+Zc4Y7vZcglSggkbyqk1Sm1TDbhfctWLDmP2twtnSE3sfkxaWVBOUmUmH+L5oQ/cNyhDYQ2PTnuXLDw=="
+        length="86539290"
         type="application/octet-stream"
       />
     </item>
