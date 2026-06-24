@@ -526,6 +526,10 @@ class AppSettings: ObservableObject {
     @AppStorage("calendarLeadMinutes") var calendarLeadMinutes: Int = 5
     /// Comma-separated EKCalendar identifiers to NOT scan. Empty = scan all.
     @AppStorage("excludedCalendarIDs") var excludedCalendarIDs: String = ""
+    /// Only surface events you actually take part in — you organize it, you're an
+    /// invited attendee (and haven't declined), or it's a personal entry on your own
+    /// calendar. Filters out a colleague's events on a shared calendar. Default on.
+    @AppStorage("calendarOnlyMyEvents") var calendarOnlyMyEvents: Bool = true
     var excludedCalendarIDSet: Set<String> {
         Set(excludedCalendarIDs.split(separator: ",").map(String.init))
     }

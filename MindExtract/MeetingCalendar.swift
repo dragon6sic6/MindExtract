@@ -21,7 +21,9 @@ final class MeetingCalendar: ObservableObject {
         let end: Date
         let attendees: [String]
         let attendeeEmails: [String]
-        var isLive: Bool          // happening right now (vs. starting soon)
+        let calendarTitle: String   // which calendar it came from (shown for transparency)
+        let meetingURL: String?     // Zoom/Teams/Meet link, for one-tap "Join & Record"
+        var isLive: Bool            // happening right now (vs. starting soon)
     }
 
     @Published private(set) var currentMeeting: CalEvent?
@@ -132,25 +134,124 @@ final class MeetingCalendar: ObservableObject {
         let start = cal.startOfDay(for: Date())
         guard let end = cal.date(byAdding: .day, value: max(0, daysAhead) + 1, to: start) else { return [] }
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
-        let excluded = settings.excludedCalendarIDSet
         let now = Date()
-        return store.events(matching: predicate)
-            .filter { !$0.isAllDay && $0.status != .canceled }
-            .filter { excluded.isEmpty || !excluded.contains($0.calendar?.calendarIdentifier ?? "") }
+        let relevant = store.events(matching: predicate).filter { isRelevantEvent($0) }
+        return deduplicate(relevant)
             .sorted { $0.startDate < $1.startDate }
-            .map { e in
-                CalEvent(
-                    id: e.eventIdentifier ?? UUID().uuidString,
-                    title: e.title ?? "Meeting",
-                    start: e.startDate,
-                    end: e.endDate,
-                    attendees: (e.attendees ?? []).compactMap { $0.name }.filter { !$0.isEmpty },
-                    attendeeEmails: (e.attendees ?? []).compactMap { p in
-                        let s = p.url.absoluteString
-                        return s.hasPrefix("mailto:") ? String(s.dropFirst("mailto:".count)) : nil
-                    }.filter { $0.contains("@") },
-                    isLive: e.startDate <= now && e.endDate > now)
+            .map { makeEvent($0, now: now) }
+    }
+
+    // MARK: De-duplication
+    //
+    // The same meeting often lands in more than one calendar you can see — your own
+    // copy plus a delegate's / shared ("ombud") calendar. EventKit returns each as a
+    // separate event, so the meeting shows up twice. Collapse copies of the same
+    // meeting (same title + time + organizer) and keep the one most clearly "yours".
+
+    private func deduplicate(_ events: [EKEvent]) -> [EKEvent] {
+        var best: [String: EKEvent] = [:]
+        var order: [String] = []
+        for e in events {
+            let key = dedupKey(e)
+            if let existing = best[key] {
+                if preferenceScore(e) > preferenceScore(existing) { best[key] = e }
+            } else {
+                best[key] = e
+                order.append(key)
             }
+        }
+        return order.compactMap { best[$0] }
+    }
+
+    private func dedupKey(_ e: EKEvent) -> String {
+        let title = (e.title ?? "").lowercased().trimmingCharacters(in: .whitespaces)
+        // Title + exact time window identifies one meeting across calendars. We avoid
+        // keying on organizer — a delegate/shared copy can carry different or missing
+        // organizer info, which would defeat the dedup. Two genuinely distinct meetings
+        // with the same title at the same minute is vanishingly rare.
+        return "\(title)|\(e.startDate.timeIntervalSinceReferenceDate)|\(e.endDate.timeIntervalSinceReferenceDate)"
+    }
+
+    /// Higher = more clearly the user's own copy (vs. a delegate/shared duplicate).
+    private func preferenceScore(_ e: EKEvent) -> Int {
+        var score = 0
+        if e.organizer?.isCurrentUser == true { score += 8 }
+        if let me = e.attendees?.first(where: { $0.isCurrentUser }) {
+            if me.participantStatus == .accepted { score += 4 }
+            else if me.participantStatus == .tentative { score += 2 }
+        }
+        if e.calendar?.allowsContentModifications == true { score += 1 }   // your editable calendar
+        return score
+    }
+
+    // MARK: Relevance — only the user's own meetings
+
+    /// A calendar worth scanning for meetings (excludes birthdays + subscribed feeds).
+    private func isScannableCalendar(_ cal: EKCalendar?) -> Bool {
+        guard let cal else { return false }
+        if cal.type == .birthday || cal.type == .subscription { return false }
+        return true
+    }
+
+    /// An event the user actually takes part in — so a colleague's event on a shared
+    /// calendar (where the user isn't invited) doesn't show up as "your" meeting.
+    private func isMyEvent(_ e: EKEvent) -> Bool {
+        // Explicitly declined → never surface.
+        if let me = e.attendees?.first(where: { $0.isCurrentUser }), me.participantStatus == .declined {
+            return false
+        }
+        if e.organizer?.isCurrentUser == true { return true }              // I organize it
+        if e.attendees?.contains(where: { $0.isCurrentUser }) == true { return true }  // I'm invited
+        // A personal entry (no participants) on a calendar I own/can edit.
+        let noParticipants = (e.attendees?.isEmpty ?? true) && e.organizer == nil
+        return noParticipants && (e.calendar?.allowsContentModifications ?? false)
+    }
+
+    /// Shared filter for both the Today list and the live nudge.
+    private func isRelevantEvent(_ e: EKEvent) -> Bool {
+        guard !e.isAllDay, e.status != .canceled, isScannableCalendar(e.calendar) else { return false }
+        if settings.excludedCalendarIDSet.contains(e.calendar?.calendarIdentifier ?? "") { return false }
+        if settings.calendarOnlyMyEvents, !isMyEvent(e) { return false }
+        return true
+    }
+
+    private func makeEvent(_ e: EKEvent, now: Date) -> CalEvent {
+        CalEvent(
+            id: e.eventIdentifier ?? UUID().uuidString,
+            title: e.title ?? "Meeting",
+            start: e.startDate,
+            end: e.endDate,
+            attendees: (e.attendees ?? []).compactMap { $0.isCurrentUser ? nil : $0.name }.filter { !$0.isEmpty },
+            // EKParticipant.url is a mailto: URL — pull the email for recap recipients.
+            attendeeEmails: (e.attendees ?? []).compactMap { p in
+                guard !p.isCurrentUser else { return nil }
+                let s = p.url.absoluteString
+                return s.hasPrefix("mailto:") ? String(s.dropFirst("mailto:".count)) : nil
+            }.filter { $0.contains("@") },
+            calendarTitle: e.calendar?.title ?? "",
+            meetingURL: Self.conferencingURL(e),
+            isLive: e.startDate <= now && e.endDate > now)
+    }
+
+    /// Best guess at the join link: the event's own URL, else the first known
+    /// conferencing link found in the location or notes.
+    private static func conferencingURL(_ e: EKEvent) -> String? {
+        if let u = e.url?.absoluteString, isConferencingLink(u) { return u }
+        let blob = [e.location, e.notes].compactMap { $0 }.joined(separator: "\n")
+        if !blob.isEmpty, let re = try? NSRegularExpression(pattern: "https://[^\\s]+") {
+            let ns = blob as NSString
+            for m in re.matches(in: blob, range: NSRange(location: 0, length: ns.length)) {
+                let url = ns.substring(with: m.range)
+                if isConferencingLink(url) { return url }
+            }
+        }
+        return e.url?.absoluteString   // fall back to any event URL
+    }
+
+    private static func isConferencingLink(_ s: String) -> Bool {
+        let l = s.lowercased()
+        return ["zoom.us", "teams.microsoft", "teams.live", "meet.google", "webex.com",
+                "whereby.com", "gotomeeting", "bluejeans", "around.co"].contains { l.contains($0) }
     }
 
     func refresh() {
@@ -164,30 +265,14 @@ final class MeetingCalendar: ObservableObject {
         // Prefer an event happening right now; else one starting within the lead window.
         let lead = Double(max(0, settings.calendarLeadMinutes)) * 60
         let soonWindow = now.addingTimeInterval(lead)
-        let excluded = settings.excludedCalendarIDSet
         let candidate = events
-            .filter { !$0.isAllDay && $0.status != .canceled }
-            .filter { excluded.isEmpty || !excluded.contains($0.calendar?.calendarIdentifier ?? "") }
+            .filter { isRelevantEvent($0) }
             .filter { $0.endDate > now && $0.startDate <= soonWindow }
             .sorted { $0.startDate < $1.startDate }
             .first
 
         let previousID = currentMeeting?.id
-        currentMeeting = candidate.map { e in
-            CalEvent(
-                id: e.eventIdentifier ?? UUID().uuidString,
-                title: e.title ?? "Meeting",
-                start: e.startDate,
-                end: e.endDate,
-                attendees: (e.attendees ?? []).compactMap { $0.name }.filter { !$0.isEmpty },
-                // EKParticipant.url is a mailto: URL — pull the email for recap recipients.
-                attendeeEmails: (e.attendees ?? []).compactMap { p in
-                    let s = p.url.absoluteString
-                    return s.hasPrefix("mailto:") ? String(s.dropFirst("mailto:".count)) : nil
-                }.filter { $0.contains("@") },
-                isLive: e.startDate <= now
-            )
-        }
+        currentMeeting = candidate.map { makeEvent($0, now: now) }
 
         // Calendar nudge (Granola-style): when a NEW meeting surfaces and MindExtract
         // is in the background, notify so you can record it the moment it starts.

@@ -100,7 +100,7 @@ enum SpeakerColors {
 enum TranscriptionTab: String, CaseIterable {
     case text = "Text"
     case timeline = "Timeline"
-    case summary = "Notes"
+    case summary = "Summary"
     case translate = "Translate"
     case chat = "Chat"
 }
@@ -783,6 +783,24 @@ struct TranscriptionResultView: View {
                     .accessibilityLabel("Chat with transcript")
             }
 
+            // Re-transcribe in another language — for when it came out wrong.
+            if isCompleted, transcriptionManager.audioFilePath != nil {
+                Menu {
+                    Button("Auto-detect") { transcriptionManager.retranscribe(language: "auto") }
+                    Divider()
+                    ForEach(AppSettings.transcriptionLanguages.filter { $0.code != "auto" }, id: \.code) { lang in
+                        Button(lang.name) { transcriptionManager.retranscribe(language: lang.code) }
+                    }
+                } label: {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 14))
+                        .frame(width: 26, height: 26).contentShape(Rectangle())
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .disabled(isTranscribing)
+                .help("Re-transcribe in another language")
+            }
+
             // Search toggle
             if isCompleted || !transcriptionManager.segments.isEmpty {
                 Button(action: {
@@ -992,6 +1010,32 @@ struct TranscriptionResultView: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
                 Spacer()
+                // Run a recipe (Brief → format → reminders → recap → export → hand to AI).
+                if !RecipeStore.shared.recipes.isEmpty, transcriptionManager.lastSavedPath != nil {
+                    Menu {
+                        ForEach(RecipeStore.shared.recipes) { r in
+                            Button { runRecipe(r) } label: { Text("\(r.name)  ·  \(r.summary)") }
+                        }
+                    } label: {
+                        Label("Run recipe", systemImage: "wand.and.stars").font(.system(size: 12))
+                    }
+                    .menuStyle(.borderlessButton).fixedSize()
+                    .help("Run a saved recipe on this transcript")
+                }
+                // Wrong language? Re-run on the same audio in one click.
+                if transcriptionManager.canRetranscribe {
+                    Menu {
+                        Button("Auto-detect") { transcriptionManager.retranscribe(language: "auto") }
+                        Divider()
+                        ForEach(AppSettings.transcriptionLanguages.filter { $0.code != "auto" }, id: \.code) { lang in
+                            Button(lang.name) { transcriptionManager.retranscribe(language: lang.code) }
+                        }
+                    } label: {
+                        Label("Re-transcribe", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12))
+                    }
+                    .menuStyle(.borderlessButton).fixedSize()
+                    .help("Came out in the wrong language? Run it again.")
+                }
                 if let path = transcriptionManager.lastSavedPath {
                     Button(action: {
                         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
@@ -1221,10 +1265,9 @@ struct TranscriptionResultView: View {
                     .padding(10)
                     .background(RoundedRectangle(cornerRadius: 8).fill(DS.Colors.accent.opacity(0.08)))
                 }
-                // The Meeting Brief — the one beautiful after-meeting payoff.
-                if let brief = templateOutputs[PromptTemplateLibrary.meetingBriefID.uuidString] {
-                    meetingBriefCard(brief.text)
-                }
+                // One canonical output. The format picker ("Summarize as…") chooses
+                // how it's shaped; the Brief is the default. We NEVER show the Brief
+                // next to an empty "Generate Summary" — that double-message was the mess.
                 templatePickerBar
                 if let notes = userNotes, !notes.isEmpty {
                     meetingNotesCard(notes)
@@ -1233,7 +1276,12 @@ struct TranscriptionResultView: View {
                     templateSection(PromptTemplateLibrary.polishNotes, inputText: combinedNotesInput(userNotes ?? ""))
                 } else if let id = selectedTemplateID, let template = templateStore.template(id: id) {
                     templateSection(template, inputText: transcriptionManager.liveTranscriptionText)
+                } else if let brief = templateOutputs[PromptTemplateLibrary.meetingBriefID.uuidString] {
+                    // Default format: the Brief (canonical).
+                    meetingBriefCard(brief.text)
                 } else {
+                    // No brief yet (e.g. a non-meeting transcript, or AI not configured):
+                    // a single, calm generate path — not a second competing surface.
                     summarySection
                 }
             }
@@ -1270,9 +1318,9 @@ struct TranscriptionResultView: View {
                 .foregroundStyle(DS.Colors.accent)
             Menu {
                 Button { selectedTemplateID = nil } label: {
-                    Label("Summary", systemImage: "sparkles")
+                    Label("Brief", systemImage: "sparkles")
                 }
-                Section("Templates") {
+                Section("Summarize as") {
                     ForEach(PromptTemplateLibrary.builtIns) { t in
                         Button { selectedTemplateID = t.id } label: {
                             Label(t.name, systemImage: t.icon)
@@ -1326,8 +1374,8 @@ struct TranscriptionResultView: View {
     }
 
     private var selectedTemplateName: String {
-        guard let id = selectedTemplateID else { return "Summary" }
-        return templateStore.template(id: id)?.name ?? "Summary"
+        guard let id = selectedTemplateID else { return "Brief" }
+        return templateStore.template(id: id)?.name ?? "Brief"
     }
 
     private func blankTemplate() -> PromptTemplate {
@@ -1802,6 +1850,22 @@ struct TranscriptionResultView: View {
             } catch { /* backend not ready / cancelled — user can run it manually */ }
             autoNotesStatus = nil
             autoNotesRunning = false
+        }
+    }
+
+    /// Run a saved recipe on this transcript (manual = all steps, interactive).
+    private func runRecipe(_ r: Recipe) {
+        guard let path = transcriptionManager.lastSavedPath else { return }
+        let ctx = RecipeRunner.Context(
+            transcript: transcriptionManager.liveTranscriptionText,
+            title: transcriptionManager.currentTranscriptionTitle,
+            path: path)
+        Task {
+            _ = await RecipeRunner.run(r, on: ctx, interactive: true)
+            // Reflect any new brief/format the recipe produced in the Summary tab.
+            if let sc = TranscriptAIStore.load(for: path) {
+                templateOutputs = sc.templateOutputs ?? templateOutputs
+            }
         }
     }
 

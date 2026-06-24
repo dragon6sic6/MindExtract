@@ -511,16 +511,16 @@ struct TranscriptsListView: View {
                 Image(systemName: "text.bubble")
                     .font(.system(size: 32))
                     .foregroundColor(.secondary.opacity(0.35))
-                Text("No transcripts yet")
+                Text("Your library is empty")
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
-                Text("Transcribe a video or file from Media — your transcripts appear here")
+                Text("Record a meeting or transcribe a file — everything you capture lands here")
                     .font(.caption)
                     .foregroundColor(.secondary.opacity(0.7))
                 if let onGoToMedia {
                     Button(action: onGoToMedia) {
-                        Label("Go to Media", systemImage: "tray.and.arrow.down")
+                        Label("Transcribe a file", systemImage: "waveform")
                     }
                     .secondaryGlassButton()
                     .padding(.top, 2)

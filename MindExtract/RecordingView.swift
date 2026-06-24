@@ -74,14 +74,9 @@ struct RecordingView: View {
             if shown { onOpenTranscripts() }
         }
         // Confirm / name / discard a finished recording before transcribing.
-        .sheet(item: $recorder.pendingRecording) { pending in
-            RecordingConfirmSheet(
-                pending: pending,
-                onTranscribe: { name, lang, model in recorder.confirmPending(title: name, language: lang, model: model) },
-                onDiscard: { recorder.discardPending() }
-            )
-            .interactiveDismissDisabled()
-        }
+        // The "Recording finished" confirm sheet is presented from ContentView (the
+        // always-mounted root) so it appears even when you stop from the menu bar
+        // while on another tab.
     }
 
     // MARK: Supported
@@ -546,7 +541,7 @@ struct RecordingView: View {
 
 // MARK: - Confirm sheet (name / transcribe / discard)
 
-private struct RecordingConfirmSheet: View {
+struct RecordingConfirmSheet: View {
     let pending: MeetingRecorder.PendingRecording
     let onTranscribe: (String, String, WhisperModel) -> Void
     let onDiscard: () -> Void
@@ -582,14 +577,12 @@ private struct RecordingConfirmSheet: View {
         return "\(name) · \(m.sizeDescription)\(rec ? " · Recommended" : "")\(have ? " · Installed" : "")"
     }
 
-    /// Smart default: the saved preference if set, else the system language if we
-    /// support it, else auto. Picking the actual language is what makes Swedish
-    /// (etc.) transcribe correctly instead of being guessed as English.
+    /// Default to the user's explicit preference if they set one; otherwise "Auto-
+    /// detect" — the engine now detects the language and switches to KB-Whisper for
+    /// Swedish on its own, so auto is the right (and smartest) default.
     private static func defaultLanguage() -> String {
         let pref = AppSettings.shared.defaultTranscriptionLanguage
-        if pref != "auto" { return pref }
-        let sys = Locale.current.language.languageCode?.identifier ?? "auto"
-        return AppSettings.transcriptionLanguages.contains { $0.code == sys } ? sys : "auto"
+        return pref != "auto" ? pref : "auto"
     }
 
     var body: some View {
