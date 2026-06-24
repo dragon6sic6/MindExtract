@@ -63,11 +63,12 @@ final class ActiveMeetingDetector: ObservableObject {
         scheduleNext()
     }
 
-    /// Self-rescheduling tick: poll briskly (5s) while a call is active or the app
-    /// is frontmost, but back off to 20s when idle in the background to save power.
+    /// Self-rescheduling tick: poll briskly (3s) when we're NOT recording, so a call
+    /// is noticed within seconds; while recording there's nothing to detect, so back
+    /// off to 15s. Polling the Core Audio process list is cheap.
     private func scheduleNext() {
         timer?.invalidate()
-        let interval: TimeInterval = (activeApp != nil || NSApp.isActive) ? 5 : 20
+        let interval: TimeInterval = MeetingRecorder.shared.isRecording ? 15 : 3
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self, AppSettings.shared.detectActiveMeetings else { return }
@@ -94,15 +95,18 @@ final class ActiveMeetingDetector: ObservableObject {
         activeApp = result?.name
         activeIsBrowser = result?.isBrowser ?? false
 
-        // App-wide nudge: when a NEW call appears and MindExtract is in the
-        // background, surface a notification so the user doesn't have to be looking.
+        // App-wide nudge: when a NEW call appears, surface a banner notification with
+        // a Record action — once per call. Fires whether or not MindExtract is
+        // frontmost, so you're asked promptly without hunting for the app.
         if let app = result?.name {
-            if app != nudgedApp, !NSApp.isActive, AppSettings.shared.meetingNudge, !MeetingRecorder.shared.isBusy {
+            if app != nudgedApp, AppSettings.shared.meetingNudge, !MeetingRecorder.shared.isBusy {
                 nudgedApp = app
-                postNudge(app)
+                MeetingPromptController.shared.present(app: app, isBrowser: result?.isBrowser ?? false)
+                postNudge(app)   // secondary channel (banner), if notifications are allowed
             }
         } else if previous != nil {
             nudgedApp = nil   // call ended — allow a fresh nudge next time
+            MeetingPromptController.shared.callEnded()
         }
     }
 
@@ -126,11 +130,12 @@ final class ActiveMeetingDetector: ObservableObject {
 
     private func postNudge(_ app: String) {
         let content = UNMutableNotificationContent()
-        content.title = "In a \(app) call"
-        content.body = "Tap to record it in MindExtract."
+        content.title = "\(app) call detected"
+        content.body = "Record this meeting? Click Record to capture it on-device."
         content.sound = .default
         content.categoryIdentifier = "MEETING_DETECTED"
         content.userInfo = ["app": app]
+        // Stable identifier → re-detecting the same call replaces rather than stacks.
         let request = UNNotificationRequest(identifier: "meeting-nudge", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }

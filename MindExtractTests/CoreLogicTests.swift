@@ -250,6 +250,27 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertEqual(MeetingMemory.suggestedTitle(fromBrief: brief), "Budget review for Q3")
     }
 
+    func testDetectLooseEndsFindsRecurringUnclosedCommitments() {
+        let cal = Calendar.current
+        let now = Date()
+        func item(_ text: String, _ tid: UUID, daysAgo: Int) -> TrackedActionItem {
+            TrackedActionItem(key: actionItemKey(tid, text), text: text, owner: nil, ownedByMe: true,
+                              dueDate: nil, dueText: nil, transcriptID: tid, transcriptTitle: "M",
+                              date: cal.date(byAdding: .day, value: -daysAgo, to: now)!,
+                              done: false, completedAt: nil)
+        }
+        let m1 = UUID(), m2 = UUID(), m3 = UUID()
+        let items = [
+            item("Send the signed contract to Anna", m1, daysAgo: 30),
+            item("Send signed contract over to Anna", m2, daysAgo: 15),   // same loose end, new meeting
+            item("Book the venue", m3, daysAgo: 2),                       // one-off, not a loose end
+        ]
+        let ends = MeetingMemory.detectLooseEnds(items)
+        XCTAssertEqual(ends.count, 1, "the recurring contract item is a loose end; the one-off is not")
+        XCTAssertEqual(ends.first?.count, 2)
+        XCTAssertTrue(ends.first?.text.lowercased().contains("contract") ?? false)
+    }
+
     func testActionItemKeyIsStableAndCaseInsensitive() {
         let id = UUID()
         let k1 = actionItemKey(id, "Send the report")

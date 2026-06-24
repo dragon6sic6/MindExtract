@@ -43,6 +43,34 @@ enum MCPSetup {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(configSnippet, forType: .string)
     }
+
+    /// True if our server is already registered in Claude Desktop's config (so the
+    /// UI can show "Connected" instead of an install button).
+    static var isInstalledInClaude: Bool {
+        guard let data = try? Data(contentsOf: claudeConfigURL),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let servers = obj["mcpServers"] as? [String: Any] else { return false }
+        return servers["mindextract"] != nil
+    }
+
+    static func revealClaudeConfig() {
+        NSWorkspace.shared.activateFileViewerSelecting([claudeConfigURL])
+    }
+
+    /// What an AI assistant can do once connected — shown so the value is concrete.
+    static let tools: [(name: String, desc: String)] = [
+        ("list_transcripts", "See every meeting & recording"),
+        ("search_transcripts", "Find where anything was discussed"),
+        ("get_transcript", "Read a full transcript"),
+        ("get_meeting_brief", "Pull the TL;DR, decisions & action items"),
+        ("list_action_items", "Collect commitments to file as tasks"),
+        ("list_people / get_person", "Relationship history & open items per person")
+    ]
+    static let prompts: [(name: String, desc: String)] = [
+        ("catch_me_up", "Summarize recent meetings + open items"),
+        ("prep_for", "A pre-meeting brief for a person"),
+        ("file_action_items", "Route a meeting's tasks into your tools")
+    ]
 }
 
 /// Top-level Settings categories, shown as an in-pane navigator (the app already
@@ -53,6 +81,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     case recording = "Recording"
     case calendar = "Calendar"
     case ai = "AI & Summaries"
+    case recipes = "Recipes"
     case downloads = "Downloads"
     case notifications = "Notifications"
     case about = "About"
@@ -61,6 +90,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .today: return "sun.max"
+        case .recipes: return "wand.and.stars"
         case .transcription: return "text.bubble"
         case .recording: return "record.circle"
         case .calendar: return "calendar"
@@ -88,6 +118,8 @@ struct SettingsView: View {
     @State private var mcpStatus: String?
     @State private var mcpConfigCopied = false
     @State private var keyTests: [String: KeyTestState] = [:]   // keyed by Keychain account
+    @ObservedObject private var recipeStore = RecipeStore.shared
+    @State private var editingRecipe: Recipe?
 
     private func acknowledgementRow(_ name: String, _ license: String, _ url: String) -> some View {
         HStack {
@@ -305,6 +337,7 @@ struct SettingsView: View {
     private var categoryContent: some View {
         switch category {
         case .today: todayPane
+        case .recipes: recipesPane
         case .transcription: transcriptionPane
         case .recording: recordingPane
         case .calendar: calendarPane
@@ -623,6 +656,16 @@ struct SettingsView: View {
             }
             if settings.calendarSuggestionsEnabled {
                 Divider().padding(.vertical, 2)
+                Toggle(isOn: Binding(
+                    get: { settings.calendarOnlyMyEvents },
+                    set: { settings.calendarOnlyMyEvents = $0; calendar.refresh() })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Only show meetings I'm part of")
+                        Text("Shows events you organize, are invited to (and haven't declined), or created on your own calendar — and hides a colleague's events on a shared calendar. Turn off to see everything on the calendars below.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                Divider().padding(.vertical, 2)
                 HStack {
                     Text("Suggest meetings starting within")
                     Spacer()
@@ -640,6 +683,9 @@ struct SettingsView: View {
 
         if settings.calendarSuggestionsEnabled && calendar.accessGranted, !calendar.calendars.isEmpty {
             SettingsSection(title: "Calendars to Scan", icon: "calendar.badge.checkmark") {
+                Text("Uncheck a calendar to ignore it entirely — handy for a shared or subscribed calendar that isn't yours.")
+                    .font(.caption).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 ForEach(calendar.calendars, id: \.calendarIdentifier) { cal in
                     Toggle(isOn: Binding(
                         get: { !settings.excludedCalendarIDSet.contains(cal.calendarIdentifier) },
@@ -650,7 +696,10 @@ struct SettingsView: View {
                         HStack(spacing: 7) {
                             Circle().fill(Color(nsColor: NSColor(cgColor: cal.cgColor) ?? .systemBlue))
                                 .frame(width: 9, height: 9)
-                            Text(cal.title).font(.system(size: 13))
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(cal.title).font(.system(size: 13))
+                                Text(Self.calendarSourceLabel(cal)).font(.caption2).foregroundColor(.secondary)
+                            }
                         }
                     }
                 }
@@ -660,8 +709,8 @@ struct SettingsView: View {
         SettingsSection(title: "After a Meeting", icon: "doc.text.magnifyingglass") {
             Toggle(isOn: $settings.autoGenerateMeetingNotes) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Auto-generate meeting notes")
-                    Text("Creates Meeting Minutes and Action Items automatically when a recording finishes transcribing. Uses your selected AI provider.")
+                    Text("Auto-generate the Meeting Brief")
+                    Text("When a meeting finishes transcribing, MindExtract writes the AI Brief (TL;DR, decisions, action items) automatically — so Today and your commitments fill in without opening the transcript. Uses your selected AI provider.")
                         .font(.caption).foregroundColor(.secondary)
                 }
             }
@@ -669,6 +718,19 @@ struct SettingsView: View {
                 .font(.caption2).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// A human label for where a calendar comes from (account + type), so the user
+    /// can tell their own calendar apart from a shared or subscribed one.
+    private static func calendarSourceLabel(_ cal: EKCalendar) -> String {
+        let source = cal.source?.title ?? "Local"
+        let kind: String
+        switch cal.type {
+        case .birthday: kind = "Birthdays"
+        case .subscription: kind = "Subscribed"
+        default: kind = cal.allowsContentModifications ? "Editable" : "Read-only / shared"
+        }
+        return "\(source) · \(kind)"
     }
 
     // MARK: - AI pane
@@ -728,15 +790,27 @@ struct SettingsView: View {
         }
 
         SettingsSection(title: "Connect to Claude & ChatGPT (MCP)", icon: "link") {
-            Text("Expose your transcripts to Claude Desktop (or any MCP client) as a local tool — then ask Claude/ChatGPT to search and pull from your recordings. Runs on your Mac via stdio; only what you actually ask about is sent to that AI.")
+            Text("Give your AI assistant a private window into your meetings. Once connected, ask Claude (or any MCP client) to summarize a meeting, pull action items, prep you for a person — and file the results into Notion, Linear, Slack or a CRM using its own integrations. Runs locally over stdio; nothing is uploaded by MindExtract — only what you ask about is sent to that AI.")
                 .font(.caption).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            // Connection status
+            HStack(spacing: 7) {
+                Image(systemName: MCPSetup.isInstalledInClaude ? "checkmark.circle.fill" : "circle.dashed")
+                    .foregroundColor(MCPSetup.isInstalledInClaude ? .green : .secondary)
+                Text(MCPSetup.isInstalledInClaude
+                     ? "Connected to Claude Desktop — fully quit and reopen Claude to load changes."
+                     : "Not connected yet.")
+                    .font(.caption).foregroundColor(.secondary)
+                Spacer()
+            }
+
             HStack {
                 Button {
                     let ok = MCPSetup.installToClaude()
-                    mcpStatus = ok ? "Added to Claude Desktop — restart Claude to use it." : "Couldn't write Claude's config."
+                    mcpStatus = ok ? "Added to Claude Desktop. Fully quit Claude (⌘Q) and reopen it." : "Couldn't write Claude's config."
                 } label: {
-                    Label("Set up Claude Desktop", systemImage: "checkmark.seal")
+                    Label(MCPSetup.isInstalledInClaude ? "Update Claude Desktop" : "Set up Claude Desktop", systemImage: "checkmark.seal")
                 }
                 .secondaryGlassButton().controlSize(.small)
 
@@ -748,12 +822,42 @@ struct SettingsView: View {
                     Label(mcpConfigCopied ? "Copied" : "Copy config (other clients)", systemImage: mcpConfigCopied ? "checkmark" : "doc.on.doc")
                 }
                 .secondaryGlassButton().controlSize(.small)
+
+                if MCPSetup.isInstalledInClaude {
+                    Button { MCPSetup.revealClaudeConfig() } label: {
+                        Label("Show config", systemImage: "folder")
+                    }
+                    .secondaryGlassButton().controlSize(.small)
+                }
                 Spacer()
             }
             if let mcpStatus {
                 Text(mcpStatus).font(.caption).foregroundColor(.secondary)
             }
-            Text("Exposes: search_transcripts, get_transcript, list_transcripts. Your transcripts never leave your Mac through MindExtract.")
+
+            // Concrete capability list — so the value is tangible.
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("TOOLS").font(.caption2.weight(.bold)).foregroundColor(.secondary).padding(.top, 4)
+                    ForEach(MCPSetup.tools, id: \.name) { t in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(t.name).font(.system(.caption2, design: .monospaced)).foregroundColor(.accentColor)
+                            Text("— \(t.desc)").font(.caption2).foregroundColor(.secondary)
+                        }
+                    }
+                    Text("WORKFLOWS (PROMPTS)").font(.caption2.weight(.bold)).foregroundColor(.secondary).padding(.top, 6)
+                    ForEach(MCPSetup.prompts, id: \.name) { p in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("/\(p.name)").font(.system(.caption2, design: .monospaced)).foregroundColor(.accentColor)
+                            Text("— \(p.desc)").font(.caption2).foregroundColor(.secondary)
+                        }
+                    }
+                }
+            } label: {
+                Text("What your AI can do (6 tools · 3 workflows)").font(.caption.weight(.medium))
+            }
+
+            Text("Read-only and on-device. The AI sees your meetings only while you're asking; MindExtract uploads nothing.")
                 .font(.caption2).foregroundColor(.secondary.opacity(0.85))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -835,6 +939,40 @@ struct SettingsView: View {
     }
 
     // MARK: - Today pane
+
+    @ViewBuilder
+    private var recipesPane: some View {
+        SettingsSection(title: "Recipes", icon: "wand.and.stars") {
+            Text("A recipe runs a fixed set of after-meeting steps in order — Brief → format → Reminders → recap → export → hand to your AI. Run it on demand from a transcript, or automatically on every meeting (silent on-device steps only). No conditionals, no third-party logins; anything that leaves your Mac is handed to your AI via MCP.")
+                .font(.caption).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(recipeStore.recipes) { r in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(r.name).font(.system(size: 13, weight: .medium))
+                            Text(r.summary).font(.caption2).foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button("Edit") { editingRecipe = r }.secondaryGlassButton().controlSize(.small)
+                    }
+                    Toggle("Run automatically after each meeting", isOn: Binding(
+                        get: { r.runOnEveryMeeting },
+                        set: { on in var x = r; x.runOnEveryMeeting = on; recipeStore.upsert(x) }))
+                        .font(.caption)
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: DS.Radius.md).fill(DS.Colors.rowFill))
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).strokeBorder(DS.Colors.hairline))
+            }
+            HStack {
+                Button { editingRecipe = Recipe(name: "New recipe") } label: { Label("New recipe", systemImage: "plus") }
+                    .secondaryGlassButton().controlSize(.small)
+                Spacer()
+            }
+        }
+        .sheet(item: $editingRecipe) { r in RecipeEditorSheet(recipe: r) }
+    }
 
     @ViewBuilder
     private var todayPane: some View {

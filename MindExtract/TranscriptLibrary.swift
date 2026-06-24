@@ -204,8 +204,21 @@ struct CommandPaletteView: View {
                 if !query.isEmpty {
                     Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
                         .buttonStyle(.plain)
+                        .help("Clear")
                 }
-                Text("esc").font(.caption2).foregroundColor(.secondary.opacity(0.6))
+                // Explicit close affordance — not everyone reaches for Escape.
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(Color.primary.opacity(0.08)))
+                        .overlay(Circle().strokeBorder(DS.Colors.hairline))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.cancelAction)
+                .help("Close (esc)")
             }
             .padding(14)
             Divider()

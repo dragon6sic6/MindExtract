@@ -81,6 +81,104 @@ class TranscriptionManager: ObservableObject {
         return v
     }
 
+    // MARK: - Auto Meeting Brief (so the intelligence layer lights up without opening the transcript)
+
+    private func providerReadyForAutoBrief() -> Bool {
+        switch AppSettings.shared.aiBackend {
+        case .apple: return true   // on-device; fails gracefully if AI is off
+        case .ollama: return !AppSettings.shared.ollamaModel.isEmpty
+        case .custom:
+            return !AppSettings.shared.customBaseURL.isEmpty
+                && !(KeychainHelper.get("custom-api-key") ?? "").isEmpty
+        default:
+            guard let kc = AppSettings.shared.aiBackend.keychainKey else { return true }
+            return !(KeychainHelper.get(kc) ?? "").isEmpty
+        }
+    }
+
+    /// After a MEETING transcription completes, generate the AI Meeting Brief in the
+    /// background and persist it to the sidecar — so commitments, People and the MCP
+    /// tools fill in even if the user never opens the transcript. The result view
+    /// defers to us (consumePendingIsMeeting), so this never double-runs.
+    private func autoGenerateMeetingBriefIfNeeded(transcript: String, path: String) {
+        guard AppSettings.shared.autoGenerateMeetingNotes, pendingIsMeeting else { return }
+        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.split(separator: " ").count >= 25 else { return }   // too short to be meaningful
+        guard providerReadyForAutoBrief() else { return }              // leave the flag for the view to retry
+        if let existing = TranscriptAIStore.load(for: path),
+           existing.templateOutputs?[PromptTemplateLibrary.meetingBriefID.uuidString] != nil { return }
+        _ = consumePendingIsMeeting()                                   // claim ownership
+        let suggestions = pendingSpeakerSuggestions                     // peek (view still consumes these)
+        let moments = pendingMarkedMoments
+        Task { @MainActor in
+            do {
+                let out = try await TemplateRunner.produce(PromptTemplateLibrary.meetingBrief, on: text)
+                var sidecar = TranscriptAIStore.load(for: path)
+                    ?? TranscriptAISidecar(summary: nil, chat: [], translation: nil, translationLanguageCode: nil,
+                                           templateOutputs: nil, userNotes: nil, speakerNames: nil,
+                                           speakerSuggestions: nil, markedMoments: nil, commitments: nil)
+                var outputs = sidecar.templateOutputs ?? [:]
+                outputs[PromptTemplateLibrary.meetingBriefID.uuidString] = out
+                sidecar.templateOutputs = outputs
+                if (sidecar.speakerSuggestions ?? []).isEmpty, !suggestions.isEmpty { sidecar.speakerSuggestions = suggestions }
+                if (sidecar.markedMoments ?? []).isEmpty, !moments.isEmpty { sidecar.markedMoments = moments }
+                TranscriptAIStore.save(sidecar, for: path)
+                MeetingMemory.shared.rebuild()   // light up Today / People immediately
+                appLog("[MindExtract] Auto-brief generated: \(path)")
+                // Run any "on every meeting" recipes — silent on-device steps only
+                // (format, reminders); interactive steps are reserved for manual runs.
+                let ctx = RecipeRunner.Context(transcript: text, title: self.currentTranscriptionTitle, path: path)
+                for r in RecipeStore.shared.autoRecipes {
+                    _ = await RecipeRunner.run(r, on: ctx, interactive: false)
+                }
+            } catch {
+                appLog("[MindExtract] Auto-brief failed: \(error.localizedDescription)")
+                self.markPendingMeeting()   // restore so the result view can retry on open
+            }
+        }
+    }
+
+    /// Generate briefs for recent meetings that don't have one yet, so the Today /
+    /// People / MCP intelligence layer lights up on EXISTING recordings (not just new
+    /// ones). Conservative: meetings only, provider-ready only, sequential, capped,
+    /// and never while a transcription is running. Idempotent — skips meetings that
+    /// already have a brief, so it's safe to call on every launch.
+    func backfillMeetingBriefs(limit: Int = 8) {
+        guard AppSettings.shared.autoGenerateMeetingNotes, providerReadyForAutoBrief(), !isTranscribing else { return }
+        let candidates = transcriptionHistory.history
+            .filter { ($0.sourceType == .meeting || MeetingMemory.isGenericTitle($0.title)) && $0.fileExists }
+            .prefix(limit)
+            .filter { item in
+                guard let text = item.transcriptionText, text.split(separator: " ").count >= 25 else { return false }
+                return TranscriptAIStore.load(for: item.filePath)?
+                    .templateOutputs?[PromptTemplateLibrary.meetingBriefID.uuidString] == nil
+            }
+        guard !candidates.isEmpty else { return }
+        Task { @MainActor in
+            for item in candidates {
+                guard !self.isTranscribing,
+                      let text = item.transcriptionText?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty
+                else { continue }
+                do {
+                    let out = try await TemplateRunner.produce(PromptTemplateLibrary.meetingBrief, on: text)
+                    var sidecar = TranscriptAIStore.load(for: item.filePath)
+                        ?? TranscriptAISidecar(summary: nil, chat: [], translation: nil, translationLanguageCode: nil,
+                                               templateOutputs: nil, userNotes: nil, speakerNames: nil,
+                                               speakerSuggestions: nil, markedMoments: nil, commitments: nil)
+                    var outputs = sidecar.templateOutputs ?? [:]
+                    outputs[PromptTemplateLibrary.meetingBriefID.uuidString] = out
+                    sidecar.templateOutputs = outputs
+                    TranscriptAIStore.save(sidecar, for: item.filePath)
+                    appLog("[MindExtract] Backfilled brief: \(item.title)")
+                } catch {
+                    appLog("[MindExtract] Backfill stopped (\(error.localizedDescription))")
+                    break   // provider problem → stop the run
+                }
+            }
+            MeetingMemory.shared.rebuild()
+        }
+    }
+
     private var whisperKit: WhisperKit?
     private var currentLoadedModel: WhisperModel?
     private var currentTask: Task<Void, Never>?
@@ -337,6 +435,71 @@ class TranscriptionManager: ObservableObject {
 
     // MARK: - WhisperKit Initialization
 
+    /// A downloaded multilingual model (needed to auto-detect language / transcribe
+    /// non-Swedish). Prefers the user's default if it's multilingual.
+    private func multilingualBaseModel() -> WhisperModel {
+        let def = AppSettings.shared.defaultWhisperModel
+        if !def.isSwedishOnly, isModelDownloaded(def) { return def }
+        for m in [WhisperModel.small, .base, .largev3turbo, .medium, .largev3, .tiny] where isModelDownloaded(m) { return m }
+        return def
+    }
+
+    /// Re-run transcription on the SAME audio with a different language — for when a
+    /// transcript came out in the wrong language. Overwrites the existing transcript
+    /// file + history item, and clears the stale AI brief so it regenerates.
+    /// The audio that produced the currently shown transcript — the kept playback
+    /// copy if it's a fresh transcription, else the source media that lives next to
+    /// the transcript file (meeting recordings keep their .m4a in the same folder).
+    /// Never the global last_transcription.wav, which would be the WRONG audio for a
+    /// transcript reopened from history.
+    private var currentAudioForRetranscribe: String? {
+        if let a = audioFilePath, fileManager.fileExists(atPath: a) { return a }
+        guard let out = lastSavedPath else { return nil }
+        let dir = (out as NSString).deletingLastPathComponent
+        guard let files = try? fileManager.contentsOfDirectory(atPath: dir) else { return nil }
+        let audioExts: Set<String> = ["m4a", "wav", "mp3", "caf", "mp4", "mov"]
+        let audio = files.filter { audioExts.contains(($0 as NSString).pathExtension.lowercased()) }
+        // Prefer the combined mix over the raw mic/system tracks.
+        let main = audio.first { !["mic.m4a", "system.m4a"].contains($0.lowercased()) } ?? audio.first
+        return main.map { dir + "/" + $0 }
+    }
+
+    var canRetranscribe: Bool { !isTranscribing && lastSavedPath != nil && currentAudioForRetranscribe != nil }
+
+    func retranscribe(language: String) {
+        guard !isTranscribing,
+              let audio = currentAudioForRetranscribe,
+              let outputPath = lastSavedPath else { return }
+        // "auto"/non-Swedish need a multilingual model (so detection + English work);
+        // explicit Swedish goes straight to KB-Whisper. runWhisperKit still swaps to
+        // KB if it detects Swedish under "auto".
+        let model: WhisperModel = (language == "sv") ? (bestAvailableKBModel() ?? multilingualBaseModel())
+                                                      : multilingualBaseModel()
+        // Drop the stale brief/commitments so they rebuild from the corrected text.
+        if var sc = TranscriptAIStore.load(for: outputPath) {
+            sc.templateOutputs?[PromptTemplateLibrary.meetingBriefID.uuidString] = nil
+            sc.commitments = nil
+            TranscriptAIStore.save(sc, for: outputPath)
+            if currentTranscriptSource == .meeting { markPendingMeeting() }
+        }
+        // transcribeAudioFile deletes its input, so feed it a throwaway copy.
+        let tmp = NSTemporaryDirectory() + UUID().uuidString + ".wav"
+        do { try fileManager.copyItem(atPath: audio, toPath: tmp) }
+        catch { transcriptionState = .error("Couldn't access the recording to re-transcribe."); return }
+        transcribeAudioFile(audioPath: tmp, model: model, outputPath: outputPath, outputFormat: .txt, language: language)
+    }
+
+    /// The best Swedish (KB-Whisper) model that's actually downloaded — preferring
+    /// the user's default if it's a KB model, else small → medium → base → large.
+    private func bestAvailableKBModel() -> WhisperModel? {
+        var candidates: [WhisperModel] = []
+        let def = AppSettings.shared.defaultWhisperModel
+        if def.isSwedishOnly { candidates.append(def) }
+        candidates += [.kbWhisperSmall, .kbWhisperMedium, .kbWhisperBase, .kbWhisperLarge]
+        for m in candidates where findModelFolder(m) != nil { return m }
+        return nil
+    }
+
     private func ensureWhisperKit(model: WhisperModel) async throws -> WhisperKit {
         if let kit = whisperKit, currentLoadedModel == model {
             return kit
@@ -413,6 +576,25 @@ class TranscriptionManager: ObservableObject {
 
     // MARK: - Transcription
 
+    /// Turn a title into a filesystem-safe base name (drops path-illegal chars, caps length).
+    static func safeFileBase(_ title: String, fallback: String) -> String {
+        let illegal = CharacterSet(charactersIn: "/\\:?%*|\"<>")
+        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: illegal).joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+        let bounded = String(cleaned.prefix(80)).trimmingCharacters(in: .whitespaces)
+        return bounded.isEmpty ? fallback : bounded
+    }
+
+    /// A path that doesn't collide with an existing file (appends " 2", " 3", …).
+    static func uniqueFilePath(dir: String, base: String, ext: String) -> String {
+        let fm = FileManager.default
+        var candidate = "\(dir)/\(base).\(ext)"
+        var n = 2
+        while fm.fileExists(atPath: candidate) { candidate = "\(dir)/\(base) \(n).\(ext)"; n += 1 }
+        return candidate
+    }
+
     func transcribe(videoPath: String, model: WhisperModel, outputFormat: TranscriptionOutputFormat, language: String = "auto") {
         // Sync with file system before checking model availability
         loadDownloadedModels(synchronous: true)
@@ -442,7 +624,11 @@ class TranscriptionManager: ObservableObject {
         let videoDirectory = videoURL.deletingLastPathComponent().path
         let videoBaseName = videoURL.deletingPathExtension().lastPathComponent
         let tempAudioPath = NSTemporaryDirectory() + UUID().uuidString + ".wav"
-        let outputPath = videoDirectory + "/" + videoBaseName + "." + outputFormat.rawValue
+        // Name the transcript after the meeting/title the user gave it (not the raw
+        // audio file), so the saved file reads like the meeting. Falls back to the
+        // audio name; made unique so two same-named meetings don't overwrite.
+        let base = Self.safeFileBase(currentTranscriptionTitle, fallback: videoBaseName)
+        let outputPath = Self.uniqueFilePath(dir: videoDirectory, base: base, ext: outputFormat.rawValue)
 
         DispatchQueue.main.async {
             self.transcriptionState = .extractingAudio
@@ -554,7 +740,23 @@ class TranscriptionManager: ObservableObject {
 
         currentTask = Task {
             do {
-                let kit = try await ensureWhisperKit(model: model)
+                var kit = try await ensureWhisperKit(model: model)
+                var activeModel = model
+
+                // Auto-detect the spoken language; and whenever it's Swedish, switch to
+                // KB-Whisper (best Swedish accuracy) if it's downloaded and we're not
+                // already on it. Detection is a quick first-chunk pass; never fatal.
+                var effectiveLanguage = language
+                if language == "auto", let detected = try? await kit.detectLanguage(audioPath: audioPath) {
+                    effectiveLanguage = detected.language
+                    appLog("[MindExtract] Detected language: \(detected.language)")
+                }
+                if effectiveLanguage == "sv", !activeModel.isSwedishOnly, let kb = self.bestAvailableKBModel() {
+                    appLog("[MindExtract] Swedish detected — switching to \(kb.displayName)")
+                    kit = try await ensureWhisperKit(model: kb)
+                    activeModel = kb
+                }
+                await MainActor.run { self.currentModelUsed = activeModel }
 
                 await MainActor.run {
                     self.transcriptionState = .transcribing(progress: 0)
@@ -562,8 +764,8 @@ class TranscriptionManager: ObservableObject {
 
                 // Configure transcription options
                 var options = DecodingOptions()
-                if language != "auto" {
-                    options.language = language
+                if effectiveLanguage != "auto" {
+                    options.language = effectiveLanguage
                 }
                 options.wordTimestamps = true
                 // Whisper's built-in translate task: transcribe foreign speech
@@ -752,13 +954,22 @@ class TranscriptionManager: ObservableObject {
                 case .json:
                     fullText = buildJSON(from: allSegments)
                 case .txt:
-                    fullText = allSegments.map { seg in
+                    let body = allSegments.map { seg in
                         let ts = self.formatTimestampBracket(seg.start)
                         if let speaker = seg.speaker {
                             return "\(ts) \(speaker): \(seg.text)"
                         }
                         return "\(ts) \(seg.text)"
                     }.joined(separator: "\n\n")
+                    // Lead the transcript with the meeting title + date, so the saved
+                    // file reads like a document and the title travels with the text.
+                    let titleLine = self.currentTranscriptionTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if titleLine.isEmpty {
+                        fullText = body
+                    } else {
+                        let dateStr = DateFormatter.localizedString(from: Date(), dateStyle: .long, timeStyle: .short)
+                        fullText = "# \(titleLine)\n\(dateStr)\n\n\(body)"
+                    }
                 }
 
                 // Save to file
@@ -772,6 +983,7 @@ class TranscriptionManager: ObservableObject {
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
                     self.notifyTranscriptionComplete()
+                    self.autoGenerateMeetingBriefIfNeeded(transcript: self.liveTranscriptionText, path: outputPath)
                     self.advanceBatchIfNeeded()
                     appLog("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
                 }
@@ -1677,6 +1889,7 @@ extension TranscriptionManager {
                 transcriptionState = .completed(outputPath: outputPath)
                 saveToHistory(title: currentTranscriptionTitle, filePath: outputPath)
                 notifyTranscriptionComplete()
+                autoGenerateMeetingBriefIfNeeded(transcript: liveTranscriptionText, path: outputPath)
                 advanceBatchIfNeeded()
                 cleanup()
             } catch {

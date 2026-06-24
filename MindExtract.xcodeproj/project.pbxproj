@@ -26,6 +26,8 @@
 		B1000E1F /* MeetingMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E20 /* MeetingMemory.swift */; };
 		B1000E21 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E22 /* TodayView.swift */; };
 		B1000E23 /* PeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E24 /* PeopleView.swift */; };
+		B1000E25 /* MeetingPromptOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E26 /* MeetingPromptOverlay.swift */; };
+		B1000E27 /* Recipes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E28 /* Recipes.swift */; };
 		B1000E0D /* RemindersExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0E /* RemindersExporter.swift */; };
 		B1000E0F /* CaptionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E10 /* CaptionOverlay.swift */; };
 		B1000E11 /* MeetingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E12 /* MeetingInsights.swift */; };
@@ -82,6 +84,8 @@
 		B1000E20 /* MeetingMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingMemory.swift; sourceTree = "<group>"; };
 		B1000E22 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		B1000E24 /* PeopleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleView.swift; sourceTree = "<group>"; };
+		B1000E26 /* MeetingPromptOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingPromptOverlay.swift; sourceTree = "<group>"; };
+		B1000E28 /* Recipes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recipes.swift; sourceTree = "<group>"; };
 		B1000E0E /* RemindersExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersExporter.swift; sourceTree = "<group>"; };
 		B1000E10 /* CaptionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptionOverlay.swift; sourceTree = "<group>"; };
 		B1000E12 /* MeetingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingInsights.swift; sourceTree = "<group>"; };
@@ -165,6 +169,8 @@
 				B1000E20 /* MeetingMemory.swift */,
 				B1000E22 /* TodayView.swift */,
 				B1000E24 /* PeopleView.swift */,
+				B1000E26 /* MeetingPromptOverlay.swift */,
+				B1000E28 /* Recipes.swift */,
 				B1000E0E /* RemindersExporter.swift */,
 				B1000E10 /* CaptionOverlay.swift */,
 				B1000E12 /* MeetingInsights.swift */,
@@ -320,6 +326,8 @@
 				B1000E1F /* MeetingMemory.swift in Sources */,
 				B1000E21 /* TodayView.swift in Sources */,
 				B1000E23 /* PeopleView.swift in Sources */,
+				B1000E25 /* MeetingPromptOverlay.swift in Sources */,
+				B1000E27 /* Recipes.swift in Sources */,
 				B1000E0D /* RemindersExporter.swift in Sources */,
 				B1000E0F /* CaptionOverlay.swift in Sources */,
 				B1000E11 /* MeetingInsights.swift in Sources */,
@@ -477,7 +485,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 43;
+				CURRENT_PROJECT_VERSION = 44;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -490,7 +498,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.7.0;
+				MARKETING_VERSION = 2.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -504,10 +512,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 43;
+				CURRENT_PROJECT_VERSION = 44;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.7.0;
+				MARKETING_VERSION = 2.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextractTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
@@ -521,10 +529,10 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 43;
+				CURRENT_PROJECT_VERSION = 44;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.7.0;
+				MARKETING_VERSION = 2.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextractTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
@@ -543,7 +551,7 @@
 				CODE_SIGN_STYLE = Manual;
 				INFOPLIST_FILE = MindExtract/Info.plist;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 43;
+				CURRENT_PROJECT_VERSION = 44;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -555,7 +563,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 2.7.0;
+				MARKETING_VERSION = 2.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mindact.mindextract;
 				PRODUCT_NAME = MindExtract;
 				SWIFT_EMIT_LOC_STRINGS = YES;

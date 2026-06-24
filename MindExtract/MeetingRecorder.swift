@@ -387,6 +387,10 @@ final class MeetingRecorder: ObservableObject {
         // Don't auto-commit — let the user name it, transcribe, or discard. Their
         // meeting audio is theirs; nothing irreversible happens without a tap.
         pendingRecording = PendingRecording(url: finalURL, title: title, duration: lastDuration, dir: dir, notes: liveNotes)
+        // Bring MindExtract to the front so the "Recording finished" sheet is seen —
+        // recording is often stopped from the menu bar with another app focused.
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first { $0.canBecomeKey }?.makeKeyAndOrderFront(nil)
     }
 
     /// Transcribe the pending recording with the chosen title, spoken language,

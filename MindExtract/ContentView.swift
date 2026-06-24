@@ -21,9 +21,15 @@ struct ContentView: View {
     @StateObject private var historyManager = HistoryManager.shared
     @StateObject private var transcriptionManager = TranscriptionManager.shared
     @StateObject private var transcriptionHistory = TranscriptionHistoryManager.shared
+    @ObservedObject private var recorder = MeetingRecorder.shared
 
     // Navigation
     @State private var selectedSidebarItem: SidebarItem? = .today
+
+    // Transcribe page sub-tabs — "New" (paste a link / drop a file) and "Downloads"
+    // (the imports list, formerly the standalone History tab).
+    enum TranscribeTab: String, CaseIterable { case new = "New", downloads = "Downloads" }
+    @State private var transcribeTab: TranscribeTab = .new
 
     // First-run welcome
     @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
@@ -120,6 +126,16 @@ struct ContentView: View {
         }
         .frame(minWidth: 820, minHeight: 580)
         .background(WindowConfigurator())
+        // "Recording finished" confirm sheet — presented at the root so it appears
+        // no matter which tab you're on (e.g. when you stop from the menu bar).
+        .sheet(item: $recorder.pendingRecording) { pending in
+            RecordingConfirmSheet(
+                pending: pending,
+                onTranscribe: { name, lang, model in recorder.confirmPending(title: name, language: lang, model: model) },
+                onDiscard: { recorder.discardPending() }
+            )
+            .interactiveDismissDisabled()
+        }
         // App-lock gate: cover everything until the user authenticates.
         .overlay {
             if appLock.isLocked { LockView() }
@@ -264,20 +280,23 @@ struct ContentView: View {
                 Section {
                     Label("Today", systemImage: "sun.max")
                         .tag(SidebarItem.today)
+                }
+                // Two clear "doors in": capture a meeting on-device, or bring in
+                // outside audio/video to transcribe. Everything they produce lands
+                // in the single Library below.
+                Section("Capture") {
+                    Label("Meetings", systemImage: "record.circle")
+                        .tag(SidebarItem.record)
+                    Label("Transcribe", systemImage: "waveform")
+                        .tag(SidebarItem.download)
+                }
+                Section("Browse") {
+                    Label("Library", systemImage: "books.vertical")
+                        .tag(SidebarItem.transcripts)
                     Label("People", systemImage: "person.2")
                         .tag(SidebarItem.people)
                 }
-                Section("Library") {
-                    Label("Media", systemImage: "tray.and.arrow.down")
-                        .tag(SidebarItem.download)
-                    Label("Record", systemImage: "record.circle")
-                        .tag(SidebarItem.record)
-                    Label("Transcripts", systemImage: "text.bubble")
-                        .tag(SidebarItem.transcripts)
-                }
                 Section {
-                    Label("History", systemImage: "clock")
-                        .tag(SidebarItem.history)
                     Label("Settings", systemImage: "gearshape")
                         .tag(SidebarItem.settings)
                 }
@@ -306,7 +325,7 @@ struct ContentView: View {
                 if item.fileExists { transcriptionManager.openTranscriptionFromHistory(item) }
             })
         case .download:
-            downloadDetailView
+            transcribeDetailView
         case .record:
             RecordingView(onOpenTranscripts: {
                 withAnimation(.easeInOut(duration: 0.2)) { selectedSidebarItem = .transcripts }
@@ -328,6 +347,26 @@ struct ContentView: View {
             historyDetailView
         case .settings:
             SettingsView(downloader: downloader)
+        }
+    }
+
+    // MARK: - Transcribe (the "bring in outside media" door)
+
+    @ViewBuilder
+    private var transcribeDetailView: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $transcribeTab) {
+                ForEach(TranscribeTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            .frame(maxWidth: 240)
+            .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 6)
+
+            if transcribeTab == .new {
+                downloadDetailView
+            } else {
+                historyDetailView
+            }
         }
     }
 
@@ -525,6 +564,7 @@ struct ContentView: View {
                 urlInput = item.url
                 pendingRedownloadFormat = item.formatId   // auto-pick same quality if still available
                 selectedSidebarItem = .download
+                transcribeTab = .new   // show the input/progress, not the list
                 performAction()
             },
             onTranscribe: { item in
