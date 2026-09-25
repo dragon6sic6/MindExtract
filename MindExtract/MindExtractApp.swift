@@ -30,72 +30,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         updaterController.startUpdater()
-        // Register the notification delegate + category FIRST, so the very first
-        // nudge (a call already in progress at launch) carries its "Record" action.
-        let center = UNUserNotificationCenter.current()
-        center.delegate = self
-        let record = UNNotificationAction(identifier: "RECORD", title: "Record", options: [.foreground])
-        center.setNotificationCategories([
-            UNNotificationCategory(identifier: "MEETING_DETECTED", actions: [record],
-                                   intentIdentifiers: [], options: [])
-        ])
-        // Ask for notification permission up front — without it macOS silently drops
-        // the "meeting detected" banner. (The floating prompt works regardless.)
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
-        // Menu-bar control so you can start/stop a recording mid-call from any app.
+        UNUserNotificationCenter.current().delegate = self
+        // Menu-bar control so you can start/stop a note from any app.
         if MeetingRecorder.isSupported {
             menuBar = MenuBarController()
-            // Run call + calendar detection app-wide (not just on the Record tab)
-            // so the nudge can fire whenever you're in / about to be in a meeting.
-            ActiveMeetingDetector.shared.startMonitoring()
-            MeetingCalendar.shared.startMonitoring()
         }
         // Push-to-talk dictation (hold right ⌥ Option).
         DictationController.shared.refresh()
-        // Floating pill + auto-stop while recording in another app.
+        // Floating pill while recording in another app.
         RecordingPillController.shared.activate()
-        // Auto-record and live captions, app-wide.
+        // Live captions while recording (if turned on).
         MeetingAutomation.shared.activate()
-        // Light up the intelligence layer on existing meetings: generate any missing
-        // AI briefs in the background shortly after launch (idempotent, capped).
+        // Generate any missing meeting notes in the background shortly after
+        // launch (idempotent, capped).
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             TranscriptionManager.shared.backfillMeetingBriefs()
         }
     }
 
-    // postNudge already only fires when backgrounded, so a banner is always the
-    // right call here. (Kept simple — completionHandler isn't Sendable, so no hop.)
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])
-    }
-
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                didReceive response: UNNotificationResponse,
-                                withCompletionHandler completionHandler: @escaping () -> Void) {
-        // Pull Sendable values out before hopping to the main actor (the response
-        // object itself isn't Sendable).
-        let info = response.notification.request.content.userInfo
-        let app = info["app"] as? String
-        let isCalendar = info["calendar"] as? Bool == true
-        let isRecordAction = response.actionIdentifier == "RECORD"
-        Task { @MainActor in
-            NSApp.activate(ignoringOtherApps: true)
-            NSApp.windows.first?.makeKeyAndOrderFront(nil)
-            if isRecordAction, !MeetingRecorder.shared.isBusy {
-                if isCalendar, let m = MeetingCalendar.shared.currentMeeting {
-                    MeetingRecorder.shared.start(event: m)
-                } else {
-                    _ = app
-                    MeetingRecorder.shared.startInContext()
-                }
-            } else {
-                NotificationCenter.default.post(name: .navigate, object: SidebarItem.record)
-            }
-        }
-        completionHandler()   // macOS keeps the app alive; safe to ack now
     }
 
     // Don't let a recording die silently on quit — offer to stop & transcribe.
@@ -124,9 +81,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
 
 // MARK: - Menu bar recorder control
 
-/// A status-bar item that starts/stops meeting recording from anywhere and shows
-/// elapsed time while recording — the natural flow when you're in a call and the
-/// app isn't frontmost.
+/// A status-bar item that starts/stops a note from anywhere and shows elapsed
+/// time while recording, plus a way to download from a link.
 @MainActor
 final class MenuBarController {
     private let item: NSStatusItem
@@ -134,124 +90,81 @@ final class MenuBarController {
 
     init() {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "MindExtract recording")
+        item.button?.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "MindExtract")
         let recorder = MeetingRecorder.shared
         recorder.$state.sink { [weak self] _ in self?.refresh() }.store(in: &cancellables)
         recorder.$elapsed.sink { [weak self] _ in self?.refresh() }.store(in: &cancellables)
-        // Reflect a detected meeting (active call or calendar event) in the menu bar,
-        // so the user gets a calm, always-present "record this?" without a popup.
-        ActiveMeetingDetector.shared.$activeApp.sink { [weak self] _ in self?.refresh() }.store(in: &cancellables)
-        MeetingCalendar.shared.$currentMeeting.sink { [weak self] _ in self?.refresh() }.store(in: &cancellables)
         refresh()
-    }
-
-    /// A meeting MindExtract has detected and could record right now (live calendar
-    /// event preferred, else an app/browser actively in a call).
-    private var detectedMeeting: (title: String, attendees: [String], emails: [String])? {
-        if let m = MeetingCalendar.shared.currentMeeting, m.isLive {
-            return (m.title, m.attendees, m.attendeeEmails)
-        }
-        if let app = ActiveMeetingDetector.shared.activeApp {
-            return (ActiveMeetingDetector.shared.activeIsBrowser ? "Video call" : "\(app) call", [], [])
-        }
-        return nil
     }
 
     private func refresh() {
         let recorder = MeetingRecorder.shared
         guard let button = item.button else { return }
-        let detected = detectedMeeting
 
         if recorder.isRecording {
             let img = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")
-            img?.isTemplate = true   // so the tint actually applies (was rendering black)
+            img?.isTemplate = true   // so the tint actually applies
             button.image = img
-            // White icon + white timer text, readable on any menu-bar tint. The
-            // ticking timer is the unmistakable "recording" cue. monospaced digits
-            // keep it from jittering.
+            // White icon + white timer text, readable on any menu-bar tint;
+            // monospaced digits keep it from jittering.
             button.attributedTitle = NSAttributedString(
-                string: " " + RecordingView.formatElapsed(recorder.elapsed),
+                string: " " + AppUtil.formatElapsed(recorder.elapsed),
                 attributes: [
                     .foregroundColor: NSColor.white,
                     .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .medium)
                 ])
             button.contentTintColor = .white
-        } else if detected != nil, !recorder.isBusy {
-            // A meeting is happening — a calm orange dot (distinct from the red
-            // "recording" state). The actual prompt is the banner notification; we
-            // keep the menu-bar text empty so it can't render as invisible black.
-            let img = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Meeting detected — record?")
-            img?.isTemplate = true   // template image so contentTintColor actually applies
-            button.image = img
-            button.attributedTitle = NSAttributedString(string: "")
-            button.contentTintColor = .systemOrange
         } else {
-            button.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Record")
+            button.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "MindExtract")
             button.attributedTitle = NSAttributedString(string: "")
             button.contentTintColor = nil
         }
 
         let menu = NSMenu()
         if recorder.isRecording {
-            menu.addItem(withTitle: "Stop & Transcribe", action: #selector(stopTapped), keyEquivalent: "").target = self
+            menu.addItem(withTitle: String(localized: "Stop & Transcribe"), action: #selector(stopTapped), keyEquivalent: "").target = self
         } else if recorder.isBusy {
-            let starting = NSMenuItem(title: "Starting…", action: nil, keyEquivalent: "")
+            let starting = NSMenuItem(title: String(localized: "Starting…"), action: nil, keyEquivalent: "")
             starting.isEnabled = false
             menu.addItem(starting)
-        } else if let detected {
-            let header = NSMenuItem(title: "Meeting detected", action: nil, keyEquivalent: "")
-            header.isEnabled = false
-            menu.addItem(header)
-            menu.addItem(withTitle: "Record “\(detected.title)”", action: #selector(recordDetectedTapped), keyEquivalent: "").target = self
-            menu.addItem(.separator())
-            menu.addItem(withTitle: "Start a blank recording", action: #selector(startTapped), keyEquivalent: "").target = self
         } else {
-            menu.addItem(withTitle: "Start Recording", action: #selector(startTapped), keyEquivalent: "").target = self
+            menu.addItem(withTitle: String(localized: "New Note"), action: #selector(startTapped), keyEquivalent: "").target = self
         }
+        menu.addItem(withTitle: String(localized: "Download from Link…"), action: #selector(downloadTapped), keyEquivalent: "").target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Open MindExtract", action: #selector(openTapped), keyEquivalent: "").target = self
+        menu.addItem(withTitle: String(localized: "Open MindExtract"), action: #selector(openTapped), keyEquivalent: "").target = self
         item.menu = menu
     }
 
-    @objc private func startTapped() { MeetingRecorder.shared.start(language: AppSettings.shared.defaultTranscriptionLanguage) }
-    @objc private func recordDetectedTapped() { MeetingRecorder.shared.startInContext() }
+    @objc private func startTapped() {
+        openTapped()
+        MeetingRecorder.shared.startNote()
+    }
     @objc private func stopTapped() {
         // Bring the app forward now (user-initiated, so macOS honors the activate);
-        // the "Recording finished" sheet appears once finalization completes.
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first { $0.canBecomeKey }?.makeKeyAndOrderFront(nil)
+        // the note fills in once finalization completes.
+        openTapped()
         MeetingRecorder.shared.stop()
+    }
+    @objc private func downloadTapped() {
+        openTapped()
+        NotificationCenter.default.post(name: .openDownloader, object: nil)
     }
     @objc private func openTapped() {
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first?.makeKeyAndOrderFront(nil)
-    }
-}
-
-// MARK: - Launcher
-//
-// When spawned with `--mcp` (by Claude Desktop or another MCP client), run the
-// stdio MCP server and never start the GUI. Otherwise launch the normal app.
-
-@main
-struct AppLauncher {
-    static func main() {
-        if CommandLine.arguments.contains("--mcp") {
-            MCPServer.run()
-            return
-        }
-        MindExtractApp.main()
+        NSApp.windows.first { $0.identifier?.rawValue.hasPrefix(MainWindow.id) == true }?.makeKeyAndOrderFront(nil)
     }
 }
 
 // MARK: - Main App
 
+@main
 struct MindExtractApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var settings = AppSettings.shared
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: MainWindow.id) {
             // Follows the system appearance (light/dark) and accent color unless
             // the user picked one in Settings → General.
             ContentView()
@@ -277,28 +190,29 @@ struct MindExtractApp: App {
                 }
                 .keyboardShortcut("?", modifiers: .command)
             }
-            CommandMenu("Go") {
+            CommandGroup(replacing: .newItem) {
+                Button("New Note") { NotificationCenter.default.post(name: .newNote, object: nil) }
+                    .keyboardShortcut("n", modifiers: .command)
+                Button("Download from Link…") { NotificationCenter.default.post(name: .openDownloader, object: nil) }
+                    .keyboardShortcut("d", modifiers: [.command, .shift])
+            }
+            CommandMenu("Note") {
                 Button("Search & Ask…") { NotificationCenter.default.post(name: .openSearch, object: nil) }
                     .keyboardShortcut("k", modifiers: .command)
                 // No .disabled — SwiftUI Commands aren't re-evaluated on @Published
-                // changes, so a disabled binding would be stuck. markMoment() itself
-                // no-ops unless recording, which is the correct HIG behavior.
+                // changes. markMoment() itself no-ops unless recording.
                 Button("Mark Moment") { MeetingRecorder.shared.markMoment() }
                     .keyboardShortcut("m", modifiers: .command)
-                Divider()
-                Button("Today") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.today) }
-                    .keyboardShortcut("1", modifiers: .command)
-                Button("Meetings") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.record) }
-                    .keyboardShortcut("2", modifiers: .command)
-                Button("Library") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.transcripts) }
-                    .keyboardShortcut("3", modifiers: .command)
-                Button("People") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.people) }
-                    .keyboardShortcut("4", modifiers: .command)
-                Divider()
-                Button("Import File or Link…") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.download) }
-                    .keyboardShortcut("i", modifiers: .command)
             }
         }
+
+        // Download the video or audio behind any link — its own small window.
+        Window("Download", id: DownloaderWindow.id) {
+            DownloaderView()
+        }
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 640, height: 620)
+        .defaultPosition(.center)
 
         // Native Settings window (⌘,).
         Settings {
@@ -311,7 +225,9 @@ struct MindExtractApp: App {
 
 extension Notification.Name {
     static let openSettings = Notification.Name("openSettings")
-    static let navigate = Notification.Name("navigate")
+    static let newNote = Notification.Name("newNote")
+    static let openDownloader = Notification.Name("openDownloader")
+    static let showDownloads = Notification.Name("showDownloads")
     static let checkForUpdates = Notification.Name("checkForUpdates")
     static let openSearch = Notification.Name("openSearch")
 }

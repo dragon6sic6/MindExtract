@@ -171,12 +171,11 @@ enum RecipeRunner {
                                    speakerSuggestions: nil, markedMoments: nil, commitments: nil)
         change(&sc)
         TranscriptAIStore.save(sc, for: path)
-        MeetingMemory.shared.rebuild()
     }
 
     private static func actionItems(from brief: String) -> [String] {
-        let section = MeetingMemory.briefSection(brief, "Action items")
-        return MeetingMemory.parseActionItems(section)
+        let section = MeetingText.briefSection(brief, "Action items")
+        return RemindersExporter.parseActionItems(section)
     }
 
     private static func openRecapDraft(title: String, brief: String) {

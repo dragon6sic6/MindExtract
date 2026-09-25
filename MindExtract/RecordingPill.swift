@@ -5,21 +5,13 @@ import Combine
 // MARK: - Floating recording pill
 //
 // While recording and MindExtract isn't frontmost, a small glass pill floats in
-// the top-right corner: time, level, a way back to your notes, and Stop. When the
-// call app releases the mic it turns into "Call ended · stopping in 20 s" with a
-// Keep recording button — so a forgotten recording can't run on for hours.
+// the top-right corner: time, level, a way back to your notes, and Stop.
 
 @MainActor
 final class RecordingPillController: ObservableObject {
     static let shared = RecordingPillController()
 
-    /// Seconds left before an automatic stop after the call ended; nil = none.
-    @Published private(set) var stopCountdown: Int?
-
-    static let countdownSeconds = 20
-
     private var panel: NSPanel?
-    private var countdownTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
     private init() {
@@ -38,52 +30,18 @@ final class RecordingPillController: ObservableObject {
     /// Call once at launch so the pill follows the recorder from then on.
     func activate() { update() }
 
-    /// The detected call ended — start the cancellable auto-stop countdown.
-    func callEnded() {
-        guard AppSettings.shared.autoStopWhenCallEnds, MeetingRecorder.shared.isRecording, stopCountdown == nil else { return }
-        stopCountdown = Self.countdownSeconds
-        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            Task { @MainActor in RecordingPillController.shared.tick() }
-        }
-        update()
-    }
-
-    func keepRecording() {
-        cancelCountdown()
-        update()
-    }
-
     func stopNow() {
-        cancelCountdown()
         MeetingRecorder.shared.stop()
         openNotes()
     }
 
     func openNotes() {
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first { $0.canBecomeKey && !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
-        NotificationCenter.default.post(name: .navigate, object: SidebarItem.record)
-    }
-
-    private func tick() {
-        guard let left = stopCountdown else { return }
-        if left <= 1 {
-            stopNow()
-        } else {
-            stopCountdown = left - 1
-        }
-    }
-
-    private func cancelCountdown() {
-        countdownTimer?.invalidate()
-        countdownTimer = nil
-        stopCountdown = nil
+        NSApp.windows.first { $0.identifier?.rawValue.hasPrefix(MainWindow.id) == true }?.makeKeyAndOrderFront(nil)
     }
 
     private func update() {
-        let recording = MeetingRecorder.shared.isRecording
-        if !recording { cancelCountdown() }
-        if recording && (!NSApp.isActive || stopCountdown != nil) {
+        if MeetingRecorder.shared.isRecording && !NSApp.isActive {
             show()
         } else {
             hide()
@@ -119,8 +77,8 @@ final class RecordingPillController: ObservableObject {
             }
         }
         panel.orderFrontRegardless()
-        // The content changes (countdown ↔ timer) after this runloop pass; refit
-        // then, keeping the right edge where the user left it.
+        // The content settles after this runloop pass; refit then, keeping the
+        // right edge where the user left it.
         DispatchQueue.main.async { [weak self] in
             guard let self, let panel = self.panel, panel.isVisible else { return }
             self.fit(panel)
@@ -149,27 +107,18 @@ private struct RecordingPillView: View {
             Image(systemName: "record.circle.fill")
                 .foregroundStyle(DS.Colors.recording)
                 .symbolEffect(.pulse, options: .repeating)
-            if let left = controller.stopCountdown {
-                Text("Call ended · stopping in \(left) s")
-                    .font(.callout.weight(.semibold))
-                    .monospacedDigit()
-                Button("Keep recording") { controller.keepRecording() }
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.capsule)
-            } else {
-                Text(RecordingView.formatElapsed(recorder.elapsed))
-                    .font(.callout.weight(.semibold))
-                    .monospacedDigit()
-                MiniLevelBars(level: recorder.level)
-                Button {
-                    controller.openNotes()
-                } label: {
-                    Image(systemName: "note.text")
-                }
-                .buttonStyle(.borderless)
-                .help("Open your notes")
-                .accessibilityLabel("Open notes")
+            Text(AppUtil.formatElapsed(recorder.elapsed))
+                .font(.callout.weight(.semibold))
+                .monospacedDigit()
+            MiniLevelBars(level: recorder.level)
+            Button {
+                controller.openNotes()
+            } label: {
+                Image(systemName: "note.text")
             }
+            .buttonStyle(.borderless)
+            .help("Open your notes")
+            .accessibilityLabel("Open notes")
             Button {
                 controller.stopNow()
             } label: {

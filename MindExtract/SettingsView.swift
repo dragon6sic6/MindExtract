@@ -1,79 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
-import EventKit
 
-/// Helpers to connect MindExtract's MCP server to Claude Desktop / other clients.
-@MainActor
-enum MCPSetup {
-    static var executablePath: String { Bundle.main.executablePath ?? "" }
-
-    static var configSnippet: String {
-        // Build via JSONSerialization so an unusual path (quotes/backslashes) can't
-        // produce invalid JSON.
-        let obj: [String: Any] = ["mcpServers": ["mindextract": ["command": executablePath, "args": ["--mcp"]]]]
-        guard let data = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]),
-              let str = String(data: data, encoding: .utf8) else { return "" }
-        return str
-    }
-
-    static var claudeConfigURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Claude/claude_desktop_config.json")
-    }
-
-    /// Merge our server into Claude Desktop's config (preserving any existing servers).
-    @discardableResult
-    static func installToClaude() -> Bool {
-        let url = claudeConfigURL
-        let fm = FileManager.default
-        try? fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        var root: [String: Any] = [:]
-        if let data = try? Data(contentsOf: url),
-           let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
-            root = obj
-        }
-        var servers = root["mcpServers"] as? [String: Any] ?? [:]
-        servers["mindextract"] = ["command": executablePath, "args": ["--mcp"]]
-        root["mcpServers"] = servers
-        guard let out = try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys]) else { return false }
-        return (try? out.write(to: url, options: .atomic)) != nil
-    }
-
-    static func copyConfig() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(configSnippet, forType: .string)
-    }
-
-    /// True if our server is already registered in Claude Desktop's config (so the
-    /// UI can show "Connected" instead of an install button).
-    static var isInstalledInClaude: Bool {
-        guard let data = try? Data(contentsOf: claudeConfigURL),
-              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let servers = obj["mcpServers"] as? [String: Any] else { return false }
-        return servers["mindextract"] != nil
-    }
-
-    static func revealClaudeConfig() {
-        NSWorkspace.shared.activateFileViewerSelecting([claudeConfigURL])
-    }
-
-    /// What an AI assistant can do once connected — shown so the value is concrete.
-    static let tools: [(name: String, desc: String)] = [
-        ("list_transcripts", "See every meeting & recording"),
-        ("search_transcripts", "Find where anything was discussed"),
-        ("get_transcript", "Read a full transcript"),
-        ("get_meeting_brief", "Pull the TL;DR, decisions & action items"),
-        ("list_action_items", "Collect commitments to file as tasks"),
-        ("list_people / get_person", "Relationship history & open items per person")
-    ]
-    static let prompts: [(name: String, desc: String)] = [
-        ("catch_me_up", "Summarize recent meetings + open items"),
-        ("prep_for", "A pre-meeting brief for a person"),
-        ("file_action_items", "Route a meeting's tasks into your tools")
-    ]
-}
-
-/// The Settings window's panes. Seven, each owning one area of the app — so a
+/// The Settings window's panes. Six, each owning one area of the app — so a
 /// setting has exactly one home and every pane looks the same (grouped Form).
 enum SettingsCategory: String, CaseIterable, Identifiable {
     case general
@@ -81,7 +9,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     case transcription
     case dictation
     case ai
-    case calendar
     case imports
 
     var id: String { rawValue }
@@ -93,7 +20,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .transcription: return "Transcription"
         case .dictation: return "Dictation"
         case .ai: return "AI"
-        case .calendar: return "Calendar"
         case .imports: return "Import"
         }
     }
@@ -105,7 +31,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .transcription: return String(localized: "Transcription")
         case .dictation: return String(localized: "Dictation")
         case .ai: return String(localized: "AI")
-        case .calendar: return String(localized: "Calendar")
         case .imports: return String(localized: "Import")
         }
     }
@@ -117,7 +42,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .transcription: return "text.bubble"
         case .dictation: return "keyboard"
         case .ai: return "sparkles"
-        case .calendar: return "calendar"
         case .imports: return "square.and.arrow.down"
         }
     }
@@ -128,9 +52,7 @@ struct SettingsView: View {
     @ObservedObject var downloader: YTDLPWrapper
     @ObservedObject var transcriptionManager = TranscriptionManager.shared
     @ObservedObject var dictation = DictationController.shared
-    @ObservedObject private var calendar = MeetingCalendar.shared
     @ObservedObject private var recorder = MeetingRecorder.shared
-    @ObservedObject private var activeMeeting = ActiveMeetingDetector.shared
     @ObservedObject private var recipeStore = RecipeStore.shared
     /// Persisted so other parts of the app can deep-link a pane before opening Settings.
     @AppStorage("settingsCategory") private var category: SettingsCategory = .general
@@ -139,8 +61,6 @@ struct SettingsView: View {
     @State private var showYouTubeSignOutConfirm = false
     @State private var ollamaModels: [String] = []
     @State private var ollamaDetectFailed = false
-    @State private var mcpStatus: String?
-    @State private var mcpConfigCopied = false
     @State private var keyTests: [String: KeyTestState] = [:]   // keyed by Keychain account
     @State private var editingRecipe: Recipe?
 
@@ -163,7 +83,6 @@ struct SettingsView: View {
         .frame(minWidth: 760, idealWidth: 820, minHeight: 540, idealHeight: 640)
         .onAppear {
             transcriptionManager.loadDownloadedModels()
-            calendar.refreshAccessStatus()
             recorder.refreshPermissions()
         }
         .confirmationDialog("Reset all settings?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
@@ -189,7 +108,6 @@ struct SettingsView: View {
         case .transcription: transcriptionPane
         case .dictation: dictationPane
         case .ai: aiPane
-        case .calendar: calendarPane
         case .imports: importPane
         }
     }
@@ -229,15 +147,6 @@ struct SettingsView: View {
             Text("Appearance")
         } footer: {
             Text("Automatic follows your Mac's light or dark mode and accent color.")
-        }
-
-        Section {
-            TextField("Name", text: $settings.myName, prompt: Text("Your full name"))
-            TextField("Email", text: $settings.myEmail, prompt: Text("name@company.com"))
-        } header: {
-            Text("About you")
-        } footer: {
-            Text("Used to tell which tasks from your meetings are yours and which you're waiting on. Stays on your Mac.")
         }
 
         Section {
@@ -340,32 +249,6 @@ struct SettingsView: View {
             Text("Audio")
         } footer: {
             Text("MindExtract records your microphone and the other participants' audio. No bot joins the call, and nothing leaves your Mac. \"System default\" follows AirPods and headsets automatically.")
-        }
-
-        Section {
-            Toggle(isOn: Binding(
-                get: { settings.detectActiveMeetings },
-                set: { activeMeeting.setEnabled($0) })) {
-                Text("Notice when I'm in a call")
-                Text("Zoom, Teams, Meet and others — also in the browser. Only checks which app uses the microphone, never what's said.")
-            }
-            Toggle(isOn: $settings.meetingNudge) {
-                Text("Offer to record")
-                Text("Shows a small prompt, and a notification when MindExtract is in the background.")
-            }
-            .disabled(!settings.detectActiveMeetings)
-            Toggle(isOn: $settings.autoRecordMeetings) {
-                Text("Start recording automatically")
-                Text("Records as soon as a call starts, without asking.")
-            }
-            .disabled(!settings.detectActiveMeetings)
-            Toggle(isOn: $settings.autoStopWhenCallEnds) {
-                Text("Stop when the call ends")
-                Text("After a 20-second countdown you can cancel.")
-            }
-            .disabled(!settings.detectActiveMeetings)
-        } header: {
-            Text("Calls")
         }
 
         Section {
@@ -597,35 +480,6 @@ struct SettingsView: View {
         } footer: {
             Text("A recipe is a fixed series of follow-up steps — like notes, then a recap email, then tasks in Reminders. Run it from a meeting, or switch it on to run after every meeting.")
         }
-
-        Section {
-            LabeledContent("Claude Desktop") {
-                HStack {
-                    if MCPSetup.isInstalledInClaude {
-                        Label("Connected", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                    }
-                    Button(MCPSetup.isInstalledInClaude ? "Update" : "Connect") {
-                        let ok = MCPSetup.installToClaude()
-                        mcpStatus = ok ? String(localized: "Done. Quit Claude (⌘Q) and open it again.")
-                                       : String(localized: "Couldn't update Claude's settings.")
-                    }
-                }
-            }
-            LabeledContent("Other AI apps") {
-                Button(mcpConfigCopied ? "Copied" : "Copy Setup") {
-                    MCPSetup.copyConfig()
-                    mcpConfigCopied = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { mcpConfigCopied = false }
-                }
-            }
-            if let mcpStatus {
-                Text(verbatim: mcpStatus).foregroundStyle(.secondary)
-            }
-        } header: {
-            Text("Use your meetings in Claude")
-        } footer: {
-            Text("Ask Claude about your meetings — catch up, prepare for a person, turn tasks into tickets. Read-only; Claude only sees what you ask about.")
-        }
     }
 
     enum KeyTestState: Equatable { case idle, testing, ok, fail(String) }
@@ -725,104 +579,6 @@ struct SettingsView: View {
                 settings.ollamaModel = first
             }
         }
-    }
-
-    // MARK: - Calendar
-
-    @ViewBuilder
-    private var calendarPane: some View {
-        Section {
-            LabeledContent("Calendar access") {
-                if calendar.accessGranted {
-                    HStack {
-                        Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                        Button("Manage…") { calendar.openSystemSettings() }
-                    }
-                } else {
-                    Button("Allow…") { Task { await calendar.requestAccess() } }
-                }
-            }
-            Toggle(isOn: Binding(
-                get: { settings.calendarSuggestionsEnabled },
-                set: { on in
-                    calendar.setSuggestionsEnabled(on)
-                    if on && !calendar.accessGranted { Task { await calendar.requestAccess() } }
-                })) {
-                Text("Use my calendar")
-                Text("Meeting titles and participants are filled in, and Today shows what's coming up.")
-            }
-            LabeledContent("Google or Microsoft account") {
-                Button("Add Account…") { calendar.openInternetAccounts() }
-            }
-        } header: {
-            Text("Calendar")
-        } footer: {
-            Text("MindExtract reads the calendars on your Mac and never writes to them. Accounts added in System Settings → Internet Accounts appear automatically.")
-        }
-
-        if settings.calendarSuggestionsEnabled {
-            Section {
-                Toggle(isOn: Binding(
-                    get: { settings.calendarOnlyMyEvents },
-                    set: { settings.calendarOnlyMyEvents = $0; calendar.refresh() })) {
-                    Text("Only meetings I'm part of")
-                    Text("Hides a colleague's events on a shared calendar.")
-                }
-                Picker("Suggest a meeting", selection: $settings.calendarLeadMinutes) {
-                    Text("When it starts").tag(0)
-                    Text("5 minutes before").tag(5)
-                    Text("15 minutes before").tag(15)
-                    Text("30 minutes before").tag(30)
-                }
-                .onChange(of: settings.calendarLeadMinutes) { _, _ in calendar.refresh() }
-                Picker("Today shows", selection: $settings.todayLookaheadDays) {
-                    Text("Today").tag(0)
-                    Text("Today and tomorrow").tag(1)
-                    Text("Next 3 days").tag(3)
-                    Text("Next 7 days").tag(7)
-                }
-            } header: {
-                Text("Meetings")
-            }
-
-            if calendar.accessGranted, !calendar.calendars.isEmpty {
-                Section {
-                    ForEach(calendar.calendars, id: \.calendarIdentifier) { cal in
-                        Toggle(isOn: Binding(
-                            get: { !settings.excludedCalendarIDSet.contains(cal.calendarIdentifier) },
-                            set: { include in
-                                settings.setCalendarExcluded(cal.calendarIdentifier, !include)
-                                calendar.refresh()
-                            })) {
-                            Label {
-                                Text(verbatim: cal.title)
-                                Text(verbatim: Self.calendarSourceLabel(cal))
-                            } icon: {
-                                Circle().fill(Color(nsColor: NSColor(cgColor: cal.cgColor) ?? .systemBlue))
-                                    .frame(width: 10, height: 10)
-                            }
-                        }
-                    }
-                } header: {
-                    Text("Calendars")
-                } footer: {
-                    Text("Turn off calendars that aren't yours, like shared or subscribed ones.")
-                }
-            }
-        }
-    }
-
-    /// A human label for where a calendar comes from (account + type), so the user
-    /// can tell their own calendar apart from a shared or subscribed one.
-    private static func calendarSourceLabel(_ cal: EKCalendar) -> String {
-        let source = cal.source?.title ?? String(localized: "On My Mac")
-        let kind: String
-        switch cal.type {
-        case .birthday: kind = String(localized: "Birthdays")
-        case .subscription: kind = String(localized: "Subscribed")
-        default: kind = cal.allowsContentModifications ? String(localized: "Own") : String(localized: "Shared")
-        }
-        return "\(source) · \(kind)"
     }
 
     // MARK: - Import
@@ -946,8 +702,6 @@ struct SettingsView: View {
     private func resetSettingsToDefaults() {
         settings.resetToDefaults()
         // Re-sync the live services with the restored defaults.
-        activeMeeting.setEnabled(settings.detectActiveMeetings)
-        calendar.setSuggestionsEnabled(settings.calendarSuggestionsEnabled)
         dictation.refresh()
         AppDelegate.applyAppearance(settings.appAppearance)
         category = .general

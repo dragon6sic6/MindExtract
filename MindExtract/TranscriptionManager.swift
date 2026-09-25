@@ -103,7 +103,7 @@ class TranscriptionManager: ObservableObject {
     }
 
     /// After a MEETING transcription completes, generate the AI Meeting Brief in the
-    /// background and persist it to the sidecar — so commitments, People and the MCP
+    /// background and persist it to the sidecar — so the meeting notes
     /// tools fill in even if the user never opens the transcript. The result view
     /// defers to us (consumePendingIsMeeting), so this never double-runs.
     // MARK: - Meeting notes (enhanced)
@@ -201,7 +201,7 @@ class TranscriptionManager: ObservableObject {
                 if (sidecar.speakerSuggestions ?? []).isEmpty, !suggestions.isEmpty { sidecar.speakerSuggestions = suggestions }
                 if (sidecar.markedMoments ?? []).isEmpty, !moments.isEmpty { sidecar.markedMoments = moments }
                 TranscriptAIStore.save(sidecar, for: path)
-                MeetingMemory.shared.rebuild()   // light up Today / People immediately
+                MeetingText.retitleGenericMeetings()
                 appLog("[MindExtract] Auto-brief generated: \(path)")
                 // Run any "on every meeting" recipes — silent on-device steps only
                 // (format, reminders); interactive steps are reserved for manual runs.
@@ -216,15 +216,15 @@ class TranscriptionManager: ObservableObject {
         }
     }
 
-    /// Generate briefs for recent meetings that don't have one yet, so the Today /
-    /// People / MCP intelligence layer lights up on EXISTING recordings (not just new
+    /// Generate briefs for recent meetings that don't have one yet, so existing
+    /// recordings get notes and a real title too (not just new
     /// ones). Conservative: meetings only, provider-ready only, sequential, capped,
     /// and never while a transcription is running. Idempotent — skips meetings that
     /// already have a brief, so it's safe to call on every launch.
     func backfillMeetingBriefs(limit: Int = 8) {
         guard AppSettings.shared.autoGenerateMeetingNotes, providerReadyForAutoBrief(), !isTranscribing else { return }
         let candidates = transcriptionHistory.history
-            .filter { ($0.sourceType == .meeting || MeetingMemory.isGenericTitle($0.title)) && $0.fileExists }
+            .filter { ($0.sourceType == .meeting || MeetingText.isGenericTitle($0.title)) && $0.fileExists }
             .prefix(limit)
             .filter { item in
                 guard let text = item.transcriptionText, text.split(separator: " ").count >= 25 else { return false }
@@ -253,7 +253,7 @@ class TranscriptionManager: ObservableObject {
                     break   // provider problem → stop the run
                 }
             }
-            MeetingMemory.shared.rebuild()
+            MeetingText.retitleGenericMeetings()
         }
     }
 

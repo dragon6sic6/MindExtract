@@ -53,7 +53,7 @@ struct TranscribeSheet: View {
                     Section {
                         TextField("Name", text: $name)
                     } header: {
-                        Text("Recording finished · \(RecordingView.formatElapsed(pending.duration))")
+                        Text("Recording finished · \(AppUtil.formatElapsed(pending.duration))")
                     }
                 }
                 Section {

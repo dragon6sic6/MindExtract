@@ -522,45 +522,12 @@ class AppSettings: ObservableObject {
     /// Show the "Recording finished" sheet (name, language, model) instead of
     /// transcribing straight away.
     @AppStorage("confirmBeforeTranscribing") var confirmBeforeTranscribing: Bool = false
-    /// Stop recording (after a cancellable countdown) when the detected call ends.
-    @AppStorage("autoStopWhenCallEnds") var autoStopWhenCallEnds: Bool = true
     /// "sv" → Pianissimo; other codes → Whisper; "auto" detects per dictation.
     @AppStorage("dictationLanguage") var dictationLanguage: String = "sv"
-
-    // MARK: Calendar (meeting auto-detection)
-    /// The app's own on/off switch — lets the user stop MindExtract from using
-    /// the calendar without revoking the macOS permission (only System Settings
-    /// can revoke TCC). Off = no meeting suggestions anywhere in the app.
-    @AppStorage("calendarSuggestionsEnabled") var calendarSuggestionsEnabled: Bool = true
-    /// How many minutes ahead of a meeting's start we begin suggesting it.
-    @AppStorage("calendarLeadMinutes") var calendarLeadMinutes: Int = 5
-    /// Comma-separated EKCalendar identifiers to NOT scan. Empty = scan all.
-    @AppStorage("excludedCalendarIDs") var excludedCalendarIDs: String = ""
-    /// Only surface events you actually take part in — you organize it, you're an
-    /// invited attendee (and haven't declined), or it's a personal entry on your own
-    /// calendar. Filters out a colleague's events on a shared calendar. Default on.
-    @AppStorage("calendarOnlyMyEvents") var calendarOnlyMyEvents: Bool = true
-    var excludedCalendarIDSet: Set<String> {
-        Set(excludedCalendarIDs.split(separator: ",").map(String.init))
-    }
-    func setCalendarExcluded(_ id: String, _ excluded: Bool) {
-        var s = excludedCalendarIDSet
-        if excluded { s.insert(id) } else { s.remove(id) }
-        excludedCalendarIDs = s.sorted().joined(separator: ",")
-    }
 
     // MARK: Recording
     /// Automatically show the floating live-caption window when a recording starts.
     @AppStorage("autoShowCaptions") var autoShowCaptions: Bool = false
-    /// Detect when a call app (Zoom, Teams, …) is in an active call and offer to
-    /// record it — provider-agnostic, complements calendar detection.
-    @AppStorage("detectActiveMeetings") var detectActiveMeetings: Bool = true
-    /// Auto-start recording when a meeting/call is detected (opt-in; thoughtless
-    /// capture). The user can stop with one tap.
-    @AppStorage("autoRecordMeetings") var autoRecordMeetings: Bool = false
-    /// Notify "in a call — record it?" when a meeting is detected and MindExtract
-    /// is in the background, so you don't have to be looking at the app.
-    @AppStorage("meetingNudge") var meetingNudge: Bool = true
     /// Preferred microphone uniqueID for meeting recording. Empty = follow the
     /// macOS system default (auto-switches to AirPods etc.).
     @AppStorage("preferredMicrophoneID") var preferredMicrophoneID: String = ""
@@ -585,16 +552,6 @@ class AppSettings: ObservableObject {
     // MARK: Privacy & security
     /// Require Touch ID / device password to open the app.
     @AppStorage("appLockEnabled") var appLockEnabled: Bool = false
-
-    // MARK: Today / commitments ("who am I" powers mine-vs-theirs ownership)
-    /// Your name as it appears in meetings — used to tell which action items are
-    /// yours vs. ones you're waiting on others for.
-    @AppStorage("myName") var myName: String = ""
-    /// Your work email — its local part also helps match you as an owner.
-    @AppStorage("myEmail") var myEmail: String = ""
-    /// How many days ahead the Today screen looks for meetings (0 = today only).
-    @AppStorage("todayLookaheadDays") var todayLookaheadDays: Int = 0
-    /// Show the one-line "plan my day" summary at the top of Today.
 
     // AI summaries & chat
     @AppStorage("aiBackend") var aiBackend: AIBackendChoice = .apple
@@ -630,11 +587,11 @@ class AppSettings: ObservableObject {
         "downloadSubtitles", "subtitleLanguage", "parallelDownloads", "playSoundOnComplete", "showNotifications",
         "downloadPath", "cookieBrowser", "cookiesFilePath", "defaultWhisperModel", "transcriptionOutputFormat",
         "enableSpeakerDiarization", "transcriptionEngine", "autoGenerateMeetingNotes", "translateToEnglish",
-        "customVocabulary", "dictationEnabled", "appAppearance", "confirmBeforeTranscribing", "autoStopWhenCallEnds",
-        "dictationLanguage", "calendarSuggestionsEnabled", "calendarLeadMinutes", "excludedCalendarIDs",
-        "calendarOnlyMyEvents", "autoShowCaptions", "detectActiveMeetings", "autoRecordMeetings", "meetingNudge",
+        "customVocabulary", "dictationEnabled", "appAppearance", "confirmBeforeTranscribing",
+        "dictationLanguage",
+        "autoShowCaptions",
         "preferredMicrophoneID", "downloadQuality", "autoTranscribeOnDownload", "notifyOnTranscriptionComplete",
-        "brandName", "brandLogoPath", "appLockEnabled", "myName", "myEmail", "todayLookaheadDays", "aiBackend",
+        "brandName", "brandLogoPath", "appLockEnabled", "aiBackend",
         "ollamaModel", "openAIModel", "anthropicModel", "geminiModel", "grokModel", "mistralModel", "groqModel",
         "openRouterModel", "customBaseURL", "customModel", "defaultTranscriptionLanguage",
         "notepadShowsTranscript", "settingsCategory",

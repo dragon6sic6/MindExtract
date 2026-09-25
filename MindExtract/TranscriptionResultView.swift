@@ -810,14 +810,15 @@ struct TranscriptionResultView: View {
 
     private var headerView: some View {
         HStack(spacing: 12) {
-            // Back to the Transcripts list (kept in memory — not discarded).
-            Button(action: { if !isTranscribing { audioPlayer.stop(); onClose?() } }) {
-                Label("Library", systemImage: "chevron.left")
+            // Back to the meeting page (only when opened from one).
+            if let onClose {
+                Button(action: { if !isTranscribing { audioPlayer.stop(); onClose() } }) {
+                    Label("Back", systemImage: "chevron.left")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isTranscribing)
+                .layoutPriority(1)
             }
-            .buttonStyle(.borderless)
-            .disabled(isTranscribing)
-            .help(isTranscribing ? "Available when the transcript is ready" : "Back to the Library")
-            .layoutPriority(1)
 
             Text(transcriptionManager.currentTranscriptionTitle.isEmpty
                  ? String(localized: "Transcript")

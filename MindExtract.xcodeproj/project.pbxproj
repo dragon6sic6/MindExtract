@@ -16,6 +16,8 @@
 		B1000E41 /* MeetingDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E42 /* MeetingDocumentView.swift */; };
 		B1000E3F /* PermissionsOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E40 /* PermissionsOnboardingView.swift */; };
 		B1000E3B /* AudioConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E3C /* AudioConverter.swift */; };
+		B1000E45 /* DownloaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E46 /* DownloaderView.swift */; };
+		B1000E43 /* MeetingText.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E44 /* MeetingText.swift */; };
 		B1000E37 /* TranscribeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E38 /* TranscribeSheet.swift */; };
 		B1000E35 /* MeetingAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E36 /* MeetingAutomation.swift */; };
 		B1000E33 /* MeetingNotesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E34 /* MeetingNotesPanel.swift */; };
@@ -32,22 +34,13 @@
 		B1000E01 /* Translator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E02 /* Translator.swift */; };
 		B1000E03 /* Templates.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E04 /* Templates.swift */; };
 		B1000E05 /* MeetingRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E06 /* MeetingRecorder.swift */; };
-		B1000E07 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E08 /* RecordingView.swift */; };
 		B1000E09 /* LiveTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0A /* LiveTranscriber.swift */; };
-		B1000E0B /* MeetingCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0C /* MeetingCalendar.swift */; };
-		B1000E1F /* MeetingMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E20 /* MeetingMemory.swift */; };
-		B1000E21 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E22 /* TodayView.swift */; };
-		B1000E23 /* PeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E24 /* PeopleView.swift */; };
-		B1000E25 /* MeetingPromptOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E26 /* MeetingPromptOverlay.swift */; };
 		B1000E27 /* Recipes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E28 /* Recipes.swift */; };
 		B1000E0D /* RemindersExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0E /* RemindersExporter.swift */; };
 		B1000E0F /* CaptionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E10 /* CaptionOverlay.swift */; };
 		B1000E11 /* MeetingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E12 /* MeetingInsights.swift */; };
-		B1000E13 /* ActiveMeetingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E14 /* ActiveMeetingDetector.swift */; };
 		B1000E15 /* TranscriptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E16 /* TranscriptLibrary.swift */; };
 		B1000E17 /* ExportTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E18 /* ExportTools.swift */; };
-		B1000E19 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1A /* WelcomeView.swift */; };
-		B1000E1B /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1C /* MCPServer.swift */; };
 		B1000E1D /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1E /* AppLock.swift */; };
 		TST00011 /* CoreLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00010 /* CoreLogicTests.swift */; };
 		B1000D05 /* AIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D06 /* AIBackend.swift */; };
@@ -92,32 +85,25 @@
 		B1000E02 /* Translator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Translator.swift; sourceTree = "<group>"; };
 		B1000E04 /* Templates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Templates.swift; sourceTree = "<group>"; };
 		B1000E06 /* MeetingRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingRecorder.swift; sourceTree = "<group>"; };
-		B1000E08 /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		B1000E0A /* LiveTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscriber.swift; sourceTree = "<group>"; };
-		B1000E0C /* MeetingCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingCalendar.swift; sourceTree = "<group>"; };
-		B1000E20 /* MeetingMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingMemory.swift; sourceTree = "<group>"; };
-		B1000E22 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
-		B1000E24 /* PeopleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleView.swift; sourceTree = "<group>"; };
-		B1000E26 /* MeetingPromptOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingPromptOverlay.swift; sourceTree = "<group>"; };
 		B1000E28 /* Recipes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recipes.swift; sourceTree = "<group>"; };
 		B1000E0E /* RemindersExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersExporter.swift; sourceTree = "<group>"; };
 		B1000E10 /* CaptionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptionOverlay.swift; sourceTree = "<group>"; };
 		B1000E12 /* MeetingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingInsights.swift; sourceTree = "<group>"; };
-		B1000E14 /* ActiveMeetingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveMeetingDetector.swift; sourceTree = "<group>"; };
 		B1000E16 /* TranscriptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLibrary.swift; sourceTree = "<group>"; };
 		B1000E2A /* PianissimoEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianissimoEngine.swift; sourceTree = "<group>"; };
 		B1000E2C /* Dictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dictation.swift; sourceTree = "<group>"; };
 		B1000E42 /* MeetingDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDocumentView.swift; sourceTree = "<group>"; };
 		B1000E40 /* PermissionsOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsOnboardingView.swift; sourceTree = "<group>"; };
 		B1000E3C /* AudioConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioConverter.swift; sourceTree = "<group>"; };
+		B1000E46 /* DownloaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloaderView.swift; sourceTree = "<group>"; };
+		B1000E44 /* MeetingText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingText.swift; sourceTree = "<group>"; };
 		B1000E38 /* TranscribeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeSheet.swift; sourceTree = "<group>"; };
 		B1000E36 /* MeetingAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingAutomation.swift; sourceTree = "<group>"; };
 		B1000E34 /* MeetingNotesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingNotesPanel.swift; sourceTree = "<group>"; };
 		B1000E32 /* RecordingPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingPill.swift; sourceTree = "<group>"; };
 		B1000E2E /* EnhancedNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedNotes.swift; sourceTree = "<group>"; };
 		B1000E18 /* ExportTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportTools.swift; sourceTree = "<group>"; };
-		B1000E1A /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
-		B1000E1C /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
 		B1000E1E /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		TST00010 /* CoreLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreLogicTests.swift; sourceTree = "<group>"; };
 		TST00020 /* MindExtractTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MindExtractTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -189,32 +175,25 @@
 				B1000E02 /* Translator.swift */,
 				B1000E04 /* Templates.swift */,
 				B1000E06 /* MeetingRecorder.swift */,
-				B1000E08 /* RecordingView.swift */,
 				B1000E0A /* LiveTranscriber.swift */,
-				B1000E0C /* MeetingCalendar.swift */,
-				B1000E20 /* MeetingMemory.swift */,
-				B1000E22 /* TodayView.swift */,
-				B1000E24 /* PeopleView.swift */,
-				B1000E26 /* MeetingPromptOverlay.swift */,
 				B1000E28 /* Recipes.swift */,
 				B1000E0E /* RemindersExporter.swift */,
 				B1000E10 /* CaptionOverlay.swift */,
 				B1000E12 /* MeetingInsights.swift */,
-				B1000E14 /* ActiveMeetingDetector.swift */,
 				B1000E16 /* TranscriptLibrary.swift */,
 				B1000E2A /* PianissimoEngine.swift */,
 				B1000E2C /* Dictation.swift */,
 				B1000E42 /* MeetingDocumentView.swift */,
 				B1000E40 /* PermissionsOnboardingView.swift */,
 				B1000E3C /* AudioConverter.swift */,
+				B1000E46 /* DownloaderView.swift */,
+				B1000E44 /* MeetingText.swift */,
 				B1000E38 /* TranscribeSheet.swift */,
 				B1000E36 /* MeetingAutomation.swift */,
 				B1000E34 /* MeetingNotesPanel.swift */,
 				B1000E32 /* RecordingPill.swift */,
 				B1000E2E /* EnhancedNotes.swift */,
 				B1000E18 /* ExportTools.swift */,
-				B1000E1A /* WelcomeView.swift */,
-				B1000E1C /* MCPServer.swift */,
 				B1000E1E /* AppLock.swift */,
 				B1000D06 /* AIBackend.swift */,
 				B1000024 /* SettingsView.swift */,
@@ -363,19 +342,15 @@
 				B1000E01 /* Translator.swift in Sources */,
 				B1000E03 /* Templates.swift in Sources */,
 				B1000E05 /* MeetingRecorder.swift in Sources */,
-				B1000E07 /* RecordingView.swift in Sources */,
 				B1000E09 /* LiveTranscriber.swift in Sources */,
-				B1000E0B /* MeetingCalendar.swift in Sources */,
-				B1000E1F /* MeetingMemory.swift in Sources */,
-				B1000E21 /* TodayView.swift in Sources */,
-				B1000E23 /* PeopleView.swift in Sources */,
-				B1000E25 /* MeetingPromptOverlay.swift in Sources */,
 				B1000E27 /* Recipes.swift in Sources */,
 				B1000E29 /* PianissimoEngine.swift in Sources */,
 				B1000E2B /* Dictation.swift in Sources */,
 				B1000E41 /* MeetingDocumentView.swift in Sources */,
 				B1000E3F /* PermissionsOnboardingView.swift in Sources */,
 				B1000E3B /* AudioConverter.swift in Sources */,
+				B1000E45 /* DownloaderView.swift in Sources */,
+				B1000E43 /* MeetingText.swift in Sources */,
 				B1000E37 /* TranscribeSheet.swift in Sources */,
 				B1000E35 /* MeetingAutomation.swift in Sources */,
 				B1000E33 /* MeetingNotesPanel.swift in Sources */,
@@ -384,11 +359,8 @@
 				B1000E0D /* RemindersExporter.swift in Sources */,
 				B1000E0F /* CaptionOverlay.swift in Sources */,
 				B1000E11 /* MeetingInsights.swift in Sources */,
-				B1000E13 /* ActiveMeetingDetector.swift in Sources */,
 				B1000E15 /* TranscriptLibrary.swift in Sources */,
 				B1000E17 /* ExportTools.swift in Sources */,
-				B1000E19 /* WelcomeView.swift in Sources */,
-				B1000E1B /* MCPServer.swift in Sources */,
 				B1000E1D /* AppLock.swift in Sources */,
 				B1000D05 /* AIBackend.swift in Sources */,
 				B1000031 /* SettingsView.swift in Sources */,

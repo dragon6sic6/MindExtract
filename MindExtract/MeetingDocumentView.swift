@@ -115,17 +115,8 @@ struct MeetingDocumentView: View {
     @ViewBuilder
     private var document: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if phase == .finished {
-                Button(action: { player.stop(); onBack() }) {
-                    Label("Back", systemImage: "chevron.left")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
-                .disabled(tm.isTranscribing)
-            }
-
             if phase == .recording {
-                TextField("New meeting", text: $recorder.liveTitle)
+                TextField("New note", text: $recorder.liveTitle)
                     .textFieldStyle(.plain)
                     .font(.system(size: 34, weight: .semibold, design: .serif))
             } else {
@@ -234,7 +225,7 @@ struct MeetingDocumentView: View {
     @ViewBuilder
     private var consentMenu: some View {
         if let at = recorder.consentAt {
-            Label("Consent · \(RecordingView.formatElapsed(at))", systemImage: "checkmark.shield")
+            Label("Consent · \(AppUtil.formatElapsed(at))", systemImage: "checkmark.shield")
                 .font(.callout)
                 .foregroundStyle(.green)
                 .padding(.horizontal, 10).padding(.vertical, 5)
@@ -390,7 +381,7 @@ struct MeetingDocumentView: View {
 
                 switch phase {
                 case .recording:
-                    Text(RecordingView.formatElapsed(recorder.elapsed))
+                    Text(AppUtil.formatElapsed(recorder.elapsed))
                         .font(.callout.weight(.medium))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)

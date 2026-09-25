@@ -1908,6 +1908,16 @@
         }
       }
     },
+    "Download from Link…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned från länk…"
+          }
+        }
+      }
+    },
     "Download the selected videos as audio (M4A)": {
       "localizations": {
         "sv": {
@@ -1924,6 +1934,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ladda ned de markerade videorna som ljud (MP3)"
+          }
+        }
+      }
+    },
+    "Download the video or audio behind a link (⇧⌘D)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned videon eller ljudet bakom en länk (⇧⌘D)"
           }
         }
       }
@@ -2678,6 +2698,16 @@
         }
       }
     },
+    "Hold right ⌥ Option anywhere to dictate into any app.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Håll in höger ⌥ Option var som helst för att diktera i vilken app som helst."
+          }
+        }
+      }
+    },
     "Hold right ⌥ Option to dictate": {
       "localizations": {
         "sv": {
@@ -2854,6 +2884,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Senare idag"
+          }
+        }
+      }
+    },
+    "Let MindExtract hear you": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Låt MindExtract höra dig"
           }
         }
       }
@@ -3429,6 +3469,16 @@
         }
       }
     },
+    "New Note": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ny anteckning"
+          }
+        }
+      }
+    },
     "New Recipe…": {
       "localizations": {
         "sv": {
@@ -3465,6 +3515,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nytt möte"
+          }
+        }
+      }
+    },
+    "New note": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ny anteckning"
           }
         }
       }
@@ -3579,6 +3639,16 @@
         }
       }
     },
+    "No notes yet": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inga anteckningar än"
+          }
+        }
+      }
+    },
     "No notes yet. Press Write Notes and MindExtract writes them from the transcript.": {
       "localizations": {
         "sv": {
@@ -3655,6 +3725,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Inte inloggad"
+          }
+        }
+      }
+    },
+    "Note": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteckning"
           }
         }
       }
@@ -3845,6 +3925,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Öppna mappen för nedladdningar"
+          }
+        }
+      }
+    },
+    "Open MindExtract": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna MindExtract"
           }
         }
       }
@@ -4719,6 +4809,16 @@
         }
       }
     },
+    "Remove from List": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort från listan"
+          }
+        }
+      }
+    },
     "Remove from queue": {
       "localizations": {
         "sv": {
@@ -5029,6 +5129,16 @@
         }
       }
     },
+    "Saving…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sparar…"
+          }
+        }
+      }
+    },
     "Search & Ask": {
       "localizations": {
         "sv": {
@@ -5075,6 +5185,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sök i alla transkript eller ställ en fråga om dem (⌘K)"
+          }
+        }
+      }
+    },
+    "Search notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök i anteckningar"
           }
         }
       }
@@ -5409,6 +5529,16 @@
         }
       }
     },
+    "Start a note: records your voice and, in a call, the others (⌘N)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starta en anteckning: spelar in din röst och, i ett samtal, de andra (⌘N)"
+          }
+        }
+      }
+    },
     "Start recording automatically": {
       "localizations": {
         "sv": {
@@ -5455,6 +5585,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stoppa"
+          }
+        }
+      }
+    },
+    "Stop & Transcribe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stoppa och transkribera"
+          }
+        }
+      }
+    },
+    "Stop and transcribe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stoppa och transkribera"
           }
         }
       }
@@ -5635,6 +5785,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Systemets förval"
+          }
+        }
+      }
+    },
+    "Take a note by talking": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteckna genom att prata"
           }
         }
       }
@@ -6005,6 +6165,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Transkribera något"
+          }
+        }
+      }
+    },
+    "Transcribe the others in a call": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribera de andra i ett samtal"
           }
         }
       }
@@ -6600,6 +6770,16 @@
         }
       }
     },
+    "Write while MindExtract listens — you see the words as they're spoken, and it tells who's speaking when you're more than one.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv medan MindExtract lyssnar – du ser orden medan de sägs, och den håller isär vem som pratar när ni är flera."
+          }
+        }
+      }
+    },
     "Writing your notes from the transcript…": {
       "localizations": {
         "sv": {
@@ -6720,12 +6900,32 @@
         }
       }
     },
+    "Your notes and transcripts show up here.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dina anteckningar och transkriberingar hamnar här."
+          }
+        }
+      }
+    },
     "Your notes appear here when the transcript is ready.": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Dina anteckningar visas här när transkriptet är klart."
+          }
+        }
+      }
+    },
+    "Your notes are transcribed on this Mac. Nothing leaves your computer.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dina anteckningar transkriberas på den här Macen. Inget lämnar datorn."
           }
         }
       }

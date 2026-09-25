@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-// MARK: - "Allow MindExtract to transcribe your meetings"
+// MARK: - "Let MindExtract hear you"
 //
 // One calm screen with everything recording needs, each in plain words with one
 // button. Shown on first launch, and whenever Record is pressed without the
@@ -16,7 +16,6 @@ struct PermissionsOnboardingView: View {
     var onDone: () -> Void
 
     @ObservedObject private var recorder = MeetingRecorder.shared
-    @ObservedObject private var calendar = MeetingCalendar.shared
     @ObservedObject private var tm = TranscriptionManager.shared
     @State private var askedForMeetingAudio = false
 
@@ -25,10 +24,10 @@ struct PermissionsOnboardingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Let MindExtract transcribe your meetings")
+                Text("Let MindExtract hear you")
                     .font(.system(size: 30, weight: .semibold, design: .serif))
                     .fixedSize(horizontal: false, vertical: true)
-                Text("MindExtract listens through your Mac. No bot joins the meeting, and nothing leaves your computer.")
+                Text("Your notes are transcribed on this Mac. Nothing leaves your computer.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -43,7 +42,7 @@ struct PermissionsOnboardingView: View {
                     }
                 }
                 Divider()
-                row("Transcribe the others in the meeting", systemImage: "speaker.wave.2", granted: recorder.screenGranted,
+                row("Transcribe the others in a call", systemImage: "speaker.wave.2", granted: recorder.screenGranted,
                     button: "Allow Meeting Audio") {
                     recorder.requestScreenPermission()
                     recorder.openScreenRecordingSettings()
@@ -55,19 +54,10 @@ struct PermissionsOnboardingView: View {
                             .font(.callout)
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Button("Restart") { RecordingView.relaunch() }
+                        Button("Restart") { AppUtil.relaunch() }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 14)
-                }
-                Divider()
-                row("See who's in the meeting", systemImage: "calendar", granted: calendar.accessGranted,
-                    button: "Allow Calendar",
-                    help: "Meeting titles and participants come from your calendar invite. Optional.") {
-                    Task {
-                        await calendar.requestAccess()
-                        if calendar.accessGranted { calendar.startMonitoring() }
-                    }
                 }
                 if !tm.isModelDownloaded(.pianissimo) {
                     Divider()
@@ -94,11 +84,9 @@ struct PermissionsOnboardingView: View {
         .frame(width: 620)
         .onAppear {
             recorder.refreshPermissions()
-            calendar.refreshAccessStatus()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             recorder.refreshPermissions()
-            calendar.refreshAccessStatus()
         }
     }
 
