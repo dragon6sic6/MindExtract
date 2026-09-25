@@ -19,9 +19,12 @@ struct RecordingView: View {
 
     /// The model used for the live preview — the recommended model for the chosen
     /// language, but only if it's already downloaded (live needs it immediately).
+    /// Pianissimo can't stream, so Swedish previews with a downloaded Whisper model.
     private var liveModel: WhisperModel? {
         let rec = WhisperModel.recommended(for: startLanguage)
-        return transcriptionManager.downloadedModels.contains(rec) ? rec : nil
+        if rec.usesWhisperKit { return transcriptionManager.downloadedModels.contains(rec) ? rec : nil }
+        return [WhisperModel.small, .base, .largev3turbo, .medium, .tiny, .largev3]
+            .first { transcriptionManager.downloadedModels.contains($0) }
     }
 
     private func resolvedStartLanguage() -> String {
@@ -556,14 +559,18 @@ struct RecordingConfirmSheet: View {
 
     private let languages = AppSettings.transcriptionLanguages
 
-    /// This language is transcribed by WhisperKit (Apple Speech can't do it), so
-    /// we always let the user pick the model — KB-Whisper is recommended for Swedish.
-    private var usesWhisperKit: Bool { !appleSupported }
+    /// This language is transcribed by a downloadable model (Apple Speech can't do
+    /// it, or it's Swedish — Pianissimo beats Apple Speech there unless Apple Speech
+    /// was explicitly chosen), so let the user pick the model.
+    private var usesWhisperKit: Bool {
+        if language == "sv" && AppSettings.shared.transcriptionEngine != .appleSpeech { return true }
+        return !appleSupported
+    }
     /// The chosen model isn't downloaded yet → offer to download it first.
     private var needsDownload: Bool { usesWhisperKit && !tm.downloadedModels.contains(selectedModel) }
     private var isDownloadingModel: Bool { tm.downloadingModel != nil }
 
-    /// Models offered for the chosen language — KB-Whisper only appears for Swedish.
+    /// Models offered for the chosen language — Pianissimo only appears for Swedish.
     private var modelChoices: [WhisperModel] {
         WhisperModel.allCases.filter { !$0.isSwedishOnly || language == "sv" }
     }
@@ -578,7 +585,7 @@ struct RecordingConfirmSheet: View {
     }
 
     /// Default to the user's explicit preference if they set one; otherwise "Auto-
-    /// detect" — the engine now detects the language and switches to KB-Whisper for
+    /// detect" — the engine now detects the language and switches to Pianissimo for
     /// Swedish on its own, so auto is the right (and smartest) default.
     private static func defaultLanguage() -> String {
         let pref = AppSettings.shared.defaultTranscriptionLanguage
@@ -632,7 +639,7 @@ struct RecordingConfirmSheet: View {
                         }
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("\(languageName) is transcribed by WhisperKit. Pick a model — KB-Whisper is best for Swedish; larger is more accurate, smaller is faster.")
+                            Text("\(languageName) is transcribed on your Mac. Pick a model — Pianissimo is best for Swedish; for Whisper, larger is more accurate and smaller is faster.")
                                 .font(.caption).foregroundColor(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             HStack {
@@ -646,7 +653,7 @@ struct RecordingConfirmSheet: View {
                                             ForEach(kb) { Text(modelLabel($0)).tag($0) }
                                         }
                                     }
-                                    Section("General — OpenAI Whisper") {
+                                    Section("All languages — OpenAI Whisper") {
                                         ForEach(general) { Text(modelLabel($0)).tag($0) }
                                     }
                                 }
@@ -656,7 +663,7 @@ struct RecordingConfirmSheet: View {
                             Text(selectedModel.description)
                                 .font(.caption2).foregroundColor(.secondary.opacity(0.8))
                             if language == "sv" {
-                                Text("KB-Whisper is trained on Swedish by the National Library of Sweden (KBLab) — markedly more accurate on Swedish than the standard models.")
+                                Text("Pianissimo is trained on Swedish by Klang AI — more accurate and much faster on Swedish than Whisper.")
                                     .font(.caption2).foregroundColor(.secondary.opacity(0.8))
                                     .fixedSize(horizontal: false, vertical: true)
                             }

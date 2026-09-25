@@ -278,4 +278,77 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertEqual(k1, k2, "key normalizes case + surrounding whitespace")
         XCTAssertNotEqual(k1, actionItemKey(UUID(), "Send the report"))
     }
+
+    // MARK: Pianissimo (Swedish engine)
+
+    private func w(_ word: String, _ start: Double, _ end: Double) -> PianissimoWord {
+        PianissimoWord(word: word, start: start, end: end, confidence: 0.9)
+    }
+
+    func testSwedishRecommendsPianissimoAndItStaysOutOfWhisperKit() {
+        XCTAssertEqual(WhisperModel.recommended(for: "sv"), .pianissimo)
+        XCTAssertEqual(WhisperModel.recommended(for: "en"), .small)
+        XCTAssertTrue(WhisperModel.pianissimo.isSwedishOnly)
+        XCTAssertFalse(WhisperModel.pianissimo.usesWhisperKit)
+        XCTAssertTrue(WhisperModel.allCases.filter { $0 != .pianissimo }.allSatisfy { $0.usesWhisperKit && !$0.isSwedishOnly })
+    }
+
+    func testRemovedKBWhisperRawValueDoesNotDecode() {
+        // Old installs stored "kb_whisper-small" as the default — must fall back, not crash.
+        XCTAssertNil(WhisperModel(rawValue: "kb_whisper-small"))
+    }
+
+    func testSegmenterSplitsAtSentenceEndsAndPauses() {
+        let words = [
+            w("Hej", 0.0, 0.3), w("och", 0.4, 0.6), w("välkommen", 0.7, 1.4), w("hit.", 1.5, 2.8),
+            w("Vi", 3.0, 3.2), w("börjar", 3.3, 3.8),
+            w("nu.", 6.0, 6.4),                      // 2.2 s pause before this word
+        ]
+        let segs = PianissimoSegmenter.segments(from: words)
+        XCTAssertEqual(segs.map(\.text), ["Hej och välkommen hit.", "Vi börjar", "nu."])
+        XCTAssertEqual(segs.first?.start, 0.0)
+        XCTAssertEqual(segs.first?.end, 2.8)
+    }
+
+    func testSegmenterKeepsShortSentencesTogetherAndCapsRunOns() {
+        // "Ja." is too short to stand alone as a caption.
+        let short = PianissimoSegmenter.segments(from: [w("Ja.", 0, 0.3), w("Precis", 0.4, 0.9), w("så.", 1.0, 3.0)])
+        XCTAssertEqual(short.map(\.text), ["Ja. Precis så."])
+
+        let runOn = (0..<130).map { i in w("ord", Double(i) * 0.3, Double(i) * 0.3 + 0.25) }
+        let segs = PianissimoSegmenter.segments(from: runOn)
+        XCTAssertTrue(segs.allSatisfy { $0.words.count <= 60 && $0.end - $0.start <= 20.5 })
+        XCTAssertEqual(segs.reduce(0) { $0 + $1.words.count }, 130, "no words lost")
+    }
+
+    func testPianissimoFileListIsPinnedAndComplete() {
+        XCTAssertEqual(PianissimoEngine.revision.count, 40)
+        for pkg in PianissimoEngine.packages {
+            XCTAssertTrue(PianissimoEngine.files.contains { $0.path.hasPrefix("\(pkg).mlpackage/") }, pkg)
+        }
+        XCTAssertTrue(PianissimoEngine.files.contains { $0.path == "parakeet_vocab.json" })
+        XCTAssertTrue(PianissimoEngine.files.allSatisfy { $0.sha256.count == 64 })
+    }
+
+    /// Opt-in end-to-end check (downloads ~690 MB): set PIANISSIMO_E2E_AUDIO to a
+    /// colon-separated list of audio files.
+    func testPianissimoEndToEnd() async throws {
+        guard let list = ProcessInfo.processInfo.environment["PIANISSIMO_E2E_AUDIO"] else {
+            throw XCTSkip("Set PIANISSIMO_E2E_AUDIO to run")
+        }
+        if !PianissimoEngine.isInstalled {
+            let t = CFAbsoluteTimeGetCurrent()
+            try await PianissimoEngine.install { _ in }
+            print("PIANISSIMO install: \(Int(CFAbsoluteTimeGetCurrent() - t))s, \(PianissimoEngine.installedSize() ?? 0) bytes")
+        }
+        XCTAssertTrue(PianissimoEngine.isInstalled)
+        for path in list.split(separator: ":").map(String.init) {
+            let t = CFAbsoluteTimeGetCurrent()
+            let out = try await PianissimoEngine.shared.transcribe(audioURL: URL(fileURLWithPath: path)) { _ in }
+            let segs = PianissimoSegmenter.segments(from: out.words)
+            print("PIANISSIMO \(String(format: "%.1f", out.duration))s audio in \(String(format: "%.2f", CFAbsoluteTimeGetCurrent() - t))s: \(out.text)")
+            for s in segs { print("PIANISSIMO   [\(String(format: "%.1f", s.start))-\(String(format: "%.1f", s.end))] \(s.text)") }
+            XCTAssertFalse(out.text.isEmpty)
+        }
+    }
 }

@@ -2016,9 +2016,15 @@ struct TranscriptionOptionsSheet: View {
 
     /// Will WhisperKit (not Apple Speech) actually run for the chosen language?
     /// True if the engine is WhisperKit, or Apple Speech can't do this language.
-    private var willUseWhisperKit: Bool { usingApple ? !appleSupported : true }
+    /// Swedish always offers the model picker (Pianissimo beats Apple Speech on
+    /// Swedish) unless Apple Speech was explicitly chosen as the engine.
+    private var willUseWhisperKit: Bool {
+        guard usingApple else { return true }
+        if selectedLanguage == "sv" && AppSettings.shared.transcriptionEngine != .appleSpeech { return true }
+        return !appleSupported
+    }
 
-    /// Models offered for the chosen language — KB-Whisper only for Swedish.
+    /// Models offered for the chosen language — Pianissimo only for Swedish.
     private var modelChoices: [WhisperModel] {
         WhisperModel.allCases.filter { !$0.isSwedishOnly || selectedLanguage == "sv" }
     }
@@ -2068,7 +2074,7 @@ struct TranscriptionOptionsSheet: View {
     }
 
     /// Smart default: an explicit saved preference, else the system language if we
-    /// support it (so Swedish Macs default to Swedish → KB-Whisper), else auto.
+    /// support it (so Swedish Macs default to Swedish → Pianissimo), else auto.
     private func resolvedDefaultLanguage() -> String {
         let pref = onAppearDefault ?? "auto"
         if pref != "auto" { return pref }
@@ -2143,7 +2149,7 @@ struct TranscriptionOptionsSheet: View {
                 }
 
                 // WhisperKit model selection + inline download — language-aware, so
-                // Swedish recommends KB-Whisper just like the recording flow.
+                // Swedish recommends Pianissimo just like the recording flow.
                 if willUseWhisperKit {
                     if isDownloadingModel {
                         VStack(alignment: .leading, spacing: 6) {
@@ -2164,7 +2170,7 @@ struct TranscriptionOptionsSheet: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("\(languageName) is transcribed by WhisperKit. Pick a model — KB-Whisper is best for Swedish; larger is more accurate, smaller is faster.")
+                            Text("\(languageName) is transcribed on your Mac. Pick a model — Pianissimo is best for Swedish; for Whisper, larger is more accurate and smaller is faster.")
                                 .font(.caption).foregroundColor(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             HStack {
@@ -2178,7 +2184,7 @@ struct TranscriptionOptionsSheet: View {
                                             ForEach(kb) { Text(modelLabel($0)).tag($0) }
                                         }
                                     }
-                                    Section("General — OpenAI Whisper") {
+                                    Section("All languages — OpenAI Whisper") {
                                         ForEach(general) { Text(modelLabel($0)).tag($0) }
                                     }
                                 }
@@ -2188,7 +2194,7 @@ struct TranscriptionOptionsSheet: View {
                             Text(selectedModel.description)
                                 .font(.caption2).foregroundColor(.secondary.opacity(0.8))
                             if selectedLanguage == "sv" {
-                                Text("KB-Whisper is trained on Swedish by the National Library of Sweden — markedly more accurate on Swedish.")
+                                Text("Pianissimo is trained on Swedish by Klang AI — more accurate and much faster on Swedish than Whisper.")
                                     .font(.caption2).foregroundColor(.secondary.opacity(0.8))
                                     .fixedSize(horizontal: false, vertical: true)
                             }

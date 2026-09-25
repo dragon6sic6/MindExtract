@@ -263,9 +263,8 @@ class TranscriptionManager: ObservableObject {
     func loadDownloadedModels(synchronous: Bool = true) {
         var models: Set<WhisperModel> = []
         for model in WhisperModel.allCases {
-            if findModelFolder(model) != nil {
-                models.insert(model)
-            }
+            let present = model.usesWhisperKit ? findModelFolder(model) != nil : PianissimoEngine.isInstalled
+            if present { models.insert(model) }
         }
         if synchronous && Thread.isMainThread {
             self.downloadedModels = models
@@ -279,8 +278,10 @@ class TranscriptionManager: ObservableObject {
     /// Locate a downloaded model inside the Hub cache structure.
     /// Hub stores files at: downloadBase/models/argmaxinc/whisperkit-coreml/<variant>/
     private func findModelFolder(_ model: WhisperModel) -> URL? {
-        // Hub stores at downloadBase/models/<repo-owner>/<repo-name>/<variant>/ —
-        // build from the model's repo so custom repos (KB-Whisper) resolve too.
+        // Pianissimo isn't a WhisperKit folder — nil keeps it out of WhisperKit and
+        // the live preview.
+        guard model.usesWhisperKit else { return nil }
+        // Hub stores at downloadBase/models/<repo-owner>/<repo-name>/<variant>/.
         var modelDir = modelsDirectory.appendingPathComponent("models")
         for part in model.repo.split(separator: "/") {
             modelDir = modelDir.appendingPathComponent(String(part))
@@ -313,6 +314,7 @@ class TranscriptionManager: ObservableObject {
     }
 
     func modelFileSize(_ model: WhisperModel) -> Int64? {
+        if !model.usesWhisperKit { return PianissimoEngine.installedSize() }
         guard let modelDir = findModelFolder(model) else { return nil }
 
         var totalSize: Int64 = 0
@@ -355,17 +357,22 @@ class TranscriptionManager: ObservableObject {
 
         currentTask = Task {
             do {
-                try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
-
-                // Use the static download method with downloadBase pointing to our
-                // models dir; `from:` lets KB-Whisper come from its own repo.
-                let _ = try await WhisperKit.download(
-                    variant: model.variant,
-                    downloadBase: modelsDirectory,
-                    from: model.repo
-                ) { progress in
-                    Task { @MainActor in
-                        self.modelDownloadProgress = progress.fractionCompleted
+                if model.usesWhisperKit {
+                    try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
+                    // Use the static download method with downloadBase pointing to our models dir.
+                    let _ = try await WhisperKit.download(
+                        variant: model.variant,
+                        downloadBase: modelsDirectory,
+                        from: model.repo
+                    ) { progress in
+                        Task { @MainActor in
+                            self.modelDownloadProgress = progress.fractionCompleted
+                        }
+                    }
+                } else {
+                    // Download (pinned + sha256-verified) and compile on-device.
+                    try await PianissimoEngine.install { fraction in
+                        Task { @MainActor in self.modelDownloadProgress = fraction }
                     }
                 }
 
@@ -409,6 +416,17 @@ class TranscriptionManager: ObservableObject {
     }
 
     func deleteModel(_ model: WhisperModel) {
+        if !model.usesWhisperKit {
+            Task {
+                do {
+                    try await PianissimoEngine.uninstall()
+                    self.downloadedModels.remove(model)
+                } catch {
+                    self.transcriptionState = .error("Failed to delete model: \(error.localizedDescription)")
+                }
+            }
+            return
+        }
         guard let modelDir = findModelFolder(model) else { return }
         do {
             try fileManager.removeItem(at: modelDir)
@@ -471,10 +489,10 @@ class TranscriptionManager: ObservableObject {
               let audio = currentAudioForRetranscribe,
               let outputPath = lastSavedPath else { return }
         // "auto"/non-Swedish need a multilingual model (so detection + English work);
-        // explicit Swedish goes straight to KB-Whisper. runWhisperKit still swaps to
-        // KB if it detects Swedish under "auto".
-        let model: WhisperModel = (language == "sv") ? (bestAvailableKBModel() ?? multilingualBaseModel())
-                                                      : multilingualBaseModel()
+        // explicit Swedish goes straight to Pianissimo. runWhisperKit still swaps to
+        // Pianissimo if it detects Swedish under "auto".
+        let model: WhisperModel = (language == "sv" && isModelDownloaded(.pianissimo)) ? .pianissimo
+                                                                                       : multilingualBaseModel()
         // Drop the stale brief/commitments so they rebuild from the corrected text.
         if var sc = TranscriptAIStore.load(for: outputPath) {
             sc.templateOutputs?[PromptTemplateLibrary.meetingBriefID.uuidString] = nil
@@ -489,15 +507,33 @@ class TranscriptionManager: ObservableObject {
         transcribeAudioFile(audioPath: tmp, model: model, outputPath: outputPath, outputFormat: .txt, language: language)
     }
 
-    /// The best Swedish (KB-Whisper) model that's actually downloaded — preferring
-    /// the user's default if it's a KB model, else small → medium → base → large.
-    private func bestAvailableKBModel() -> WhisperModel? {
-        var candidates: [WhisperModel] = []
-        let def = AppSettings.shared.defaultWhisperModel
-        if def.isSwedishOnly { candidates.append(def) }
-        candidates += [.kbWhisperSmall, .kbWhisperMedium, .kbWhisperBase, .kbWhisperLarge]
-        for m in candidates where findModelFolder(m) != nil { return m }
-        return nil
+    // MARK: - Legacy KB-Whisper cleanup
+
+    /// KB-Whisper was replaced by Pianissimo in 2.9. Its files stay on disk until
+    /// the user removes them from Settings — never deleted automatically.
+    private var legacyKBDirectory: URL {
+        modelsDirectory.appendingPathComponent("models/mickekringai")
+    }
+
+    /// Bytes still used by old KB-Whisper models, or nil if none are left.
+    func legacyKBModelsSize() -> Int64? {
+        guard fileManager.fileExists(atPath: legacyKBDirectory.path) else { return nil }
+        var total: Int64 = 0
+        if let e = fileManager.enumerator(at: legacyKBDirectory, includingPropertiesForKeys: [.fileSizeKey]) {
+            for case let url as URL in e {
+                total += Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            }
+        }
+        return total
+    }
+
+    func removeLegacyKBModels() {
+        do {
+            try fileManager.removeItem(at: legacyKBDirectory)
+            objectWillChange.send()
+        } catch {
+            transcriptionState = .error("Couldn't remove the old KB-Whisper models: \(error.localizedDescription)")
+        }
     }
 
     private func ensureWhisperKit(model: WhisperModel) async throws -> WhisperKit {
@@ -539,6 +575,21 @@ class TranscriptionManager: ObservableObject {
     /// Prewarm a model in the background after download, triggering CoreML compilation
     /// so the first transcription is fast.
     private func prewarmModel(_ model: WhisperModel) {
+        if !model.usesWhisperKit {
+            // First load specializes the models for this Mac's Neural Engine.
+            Task.detached(priority: .utility) {
+                await MainActor.run { self.prewarmingModel = model }
+                let start = CFAbsoluteTimeGetCurrent()
+                do {
+                    _ = try await PianissimoEngine.shared.load()
+                    appLog("[MindExtract] Pianissimo prewarm complete in \(String(format: "%.1f", CFAbsoluteTimeGetCurrent() - start))s")
+                } catch {
+                    appLog("[MindExtract] Pianissimo prewarm failed: \(error.localizedDescription)")
+                }
+                await MainActor.run { self.prewarmingModel = nil }
+            }
+            return
+        }
         guard let modelFolder = findModelFolder(model) else { return }
 
         Task.detached(priority: .utility) {
@@ -740,21 +791,35 @@ class TranscriptionManager: ObservableObject {
 
         currentTask = Task {
             do {
-                var kit = try await ensureWhisperKit(model: model)
-                var activeModel = model
+                // Translate-to-English is a one-shot, per-transcription choice — reset
+                // it so it can't silently keep translating later files.
+                let translate = UserDefaults.standard.bool(forKey: "translateToEnglish")
+                if translate { UserDefaults.standard.set(false, forKey: "translateToEnglish") }
 
-                // Auto-detect the spoken language; and whenever it's Swedish, switch to
-                // KB-Whisper (best Swedish accuracy) if it's downloaded and we're not
-                // already on it. Detection is a quick first-chunk pass; never fatal.
+                // Auto-detect the spoken language (needs a WhisperKit model), and whenever
+                // it's Swedish use Pianissimo — the best Swedish engine — if installed.
+                // Detection is a quick first-chunk pass; never fatal.
+                var activeModel = model
                 var effectiveLanguage = language
-                if language == "auto", let detected = try? await kit.detectLanguage(audioPath: audioPath) {
-                    effectiveLanguage = detected.language
-                    appLog("[MindExtract] Detected language: \(detected.language)")
+                if language == "auto" {
+                    let detector = model.usesWhisperKit ? model : self.multilingualBaseModel()
+                    if self.findModelFolder(detector) != nil {
+                        let detectKit = try await ensureWhisperKit(model: detector)
+                        if let detected = try? await detectKit.detectLanguage(audioPath: audioPath) {
+                            effectiveLanguage = detected.language
+                            appLog("[MindExtract] Detected language: \(detected.language)")
+                        }
+                    } else if !model.usesWhisperKit {
+                        // Only Pianissimo installed — nothing to detect with; it's Swedish.
+                        effectiveLanguage = "sv"
+                    }
                 }
-                if effectiveLanguage == "sv", !activeModel.isSwedishOnly, let kb = self.bestAvailableKBModel() {
-                    appLog("[MindExtract] Swedish detected — switching to \(kb.displayName)")
-                    kit = try await ensureWhisperKit(model: kb)
-                    activeModel = kb
+                if effectiveLanguage == "sv", !translate, self.isModelDownloaded(.pianissimo) {
+                    if activeModel != .pianissimo { appLog("[MindExtract] Swedish — using Pianissimo") }
+                    activeModel = .pianissimo
+                } else if !activeModel.usesWhisperKit {
+                    // Not Swedish (or translating): Pianissimo can't do it.
+                    activeModel = self.multilingualBaseModel()
                 }
                 await MainActor.run { self.currentModelUsed = activeModel }
 
@@ -762,81 +827,82 @@ class TranscriptionManager: ObservableObject {
                     self.transcriptionState = .transcribing(progress: 0)
                 }
 
-                // Configure transcription options
-                var options = DecodingOptions()
-                if effectiveLanguage != "auto" {
-                    options.language = effectiveLanguage
-                }
-                options.wordTimestamps = true
-                // Whisper's built-in translate task: transcribe foreign speech
-                // straight into English, on-device. UserDefaults read is
-                // thread-safe (we're off the main actor here). It's a one-shot
-                // per-transcription choice — reset it so it can't silently keep
-                // translating later files the user expected in their own language.
-                if UserDefaults.standard.bool(forKey: "translateToEnglish") {
-                    options.task = .translate
-                    UserDefaults.standard.set(false, forKey: "translateToEnglish")
-                }
-                // Custom vocabulary: bias the decoder toward the user's names/terms
-                // by feeding them as a conditioning prompt. WhisperKit trims and
-                // strips special tokens itself; we just encode the cleaned list.
-                let vocab = Self.vocabularyPrompt(UserDefaults.standard.string(forKey: "customVocabulary") ?? "")
-                if !vocab.isEmpty, let tokenizer = kit.tokenizer {
-                    let tokens = tokenizer.encode(text: " " + vocab)
-                        .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
-                    if !tokens.isEmpty { options.promptTokens = tokens }
-                }
+                let results: [TranscriptionResult]
+                if activeModel == .pianissimo {
+                    results = try await self.transcribeWithPianissimo(audioPath: audioPath)
+                } else {
+                    let kit = try await ensureWhisperKit(model: activeModel)
 
-                // Set up segment discovery callback for real-time streaming
-                kit.segmentDiscoveryCallback = { [weak self] discoveredSegments in
-                    guard let self = self else { return }
-                    let newSegmentData = discoveredSegments.compactMap { seg -> TranscriptionSegmentData? in
-                        let cleaned = self.cleanTokens(seg.text)
-                        guard !cleaned.isEmpty else { return nil }
-                        return TranscriptionSegmentData(
-                            start: seg.start,
-                            end: seg.end,
-                            text: cleaned,
-                            speaker: nil,
-                            words: (seg.words ?? []).map { w in
-                                WordTimingData(word: self.cleanTokens(w.word), start: w.start, end: w.end, probability: w.probability)
-                            },
-                            avgLogprob: seg.avgLogprob
-                        )
+                    // Configure transcription options
+                    var options = DecodingOptions()
+                    if effectiveLanguage != "auto" {
+                        options.language = effectiveLanguage
                     }
-                    Task { @MainActor in
-                        self.segments.append(contentsOf: newSegmentData)
-                        self.liveTranscriptionText = self.segments.map { $0.text }.joined(separator: "\n\n")
-                        if let lastEnd = self.segments.last?.end {
-                            self.audioDuration = max(self.audioDuration, lastEnd)
+                    options.wordTimestamps = true
+                    // Whisper's built-in translate task: foreign speech straight into English.
+                    if translate { options.task = .translate }
+                    // Custom vocabulary: bias the decoder toward the user's names/terms
+                    // by feeding them as a conditioning prompt. WhisperKit trims and
+                    // strips special tokens itself; we just encode the cleaned list.
+                    let vocab = Self.vocabularyPrompt(UserDefaults.standard.string(forKey: "customVocabulary") ?? "")
+                    if !vocab.isEmpty, let tokenizer = kit.tokenizer {
+                        let tokens = tokenizer.encode(text: " " + vocab)
+                            .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
+                        if !tokens.isEmpty { options.promptTokens = tokens }
+                    }
+
+                    // Set up segment discovery callback for real-time streaming
+                    kit.segmentDiscoveryCallback = { [weak self] discoveredSegments in
+                        guard let self = self else { return }
+                        let newSegmentData = discoveredSegments.compactMap { seg -> TranscriptionSegmentData? in
+                            let cleaned = self.cleanTokens(seg.text)
+                            guard !cleaned.isEmpty else { return nil }
+                            return TranscriptionSegmentData(
+                                start: seg.start,
+                                end: seg.end,
+                                text: cleaned,
+                                speaker: nil,
+                                words: (seg.words ?? []).map { w in
+                                    WordTimingData(word: self.cleanTokens(w.word), start: w.start, end: w.end, probability: w.probability)
+                                },
+                                avgLogprob: seg.avgLogprob
+                            )
+                        }
+                        Task { @MainActor in
+                            self.segments.append(contentsOf: newSegmentData)
+                            self.liveTranscriptionText = self.segments.map { $0.text }.joined(separator: "\n\n")
+                            if let lastEnd = self.segments.last?.end {
+                                self.audioDuration = max(self.audioDuration, lastEnd)
+                            }
                         }
                     }
-                }
 
-                // Progress callback for percentage updates
-                let callback: TranscriptionCallback = { [weak self] progress in
-                    guard let self = self else { return nil }
-                    Task { @MainActor in
-                        // Use window progress as a rough percentage estimate
-                        let windowId = progress.windowId
-                        // Each window is ~30s of audio; estimate progress
-                        if self.audioDuration > 0 {
-                            let estimatedProgress = min(Double(windowId * 30) / Double(self.audioDuration), 0.99)
-                            self.transcriptionState = .transcribing(progress: estimatedProgress)
+                    // Progress callback for percentage updates
+                    let callback: TranscriptionCallback = { [weak self] progress in
+                        guard let self = self else { return nil }
+                        Task { @MainActor in
+                            // Use window progress as a rough percentage estimate
+                            let windowId = progress.windowId
+                            // Each window is ~30s of audio; estimate progress
+                            if self.audioDuration > 0 {
+                                let estimatedProgress = min(Double(windowId * 30) / Double(self.audioDuration), 0.99)
+                                self.transcriptionState = .transcribing(progress: estimatedProgress)
+                            }
                         }
+                        return Task.isCancelled ? false : nil
                     }
-                    return Task.isCancelled ? false : nil
+
+                    // Run transcription with callbacks
+                    let whisperResults = try await kit.transcribe(
+                        audioPath: audioPath,
+                        decodeOptions: options,
+                        callback: callback
+                    )
+
+                    // Clear the callback to avoid retain cycles
+                    kit.segmentDiscoveryCallback = nil
+                    results = whisperResults
                 }
-
-                // Run transcription with callbacks
-                let results = try await kit.transcribe(
-                    audioPath: audioPath,
-                    decodeOptions: options,
-                    callback: callback
-                )
-
-                // Clear the callback to avoid retain cycles
-                kit.segmentDiscoveryCallback = nil
 
                 // Build final segment data from results (in case callback missed any)
                 var allSegments: [TranscriptionSegmentData] = []
@@ -1009,6 +1075,40 @@ class TranscriptionManager: ObservableObject {
                 cleanup()
             }
         }
+    }
+
+    // MARK: - Pianissimo Transcription
+
+    /// Runs Pianissimo and returns WhisperKit-shaped results, so speaker
+    /// diarization, channel attribution and export run unchanged for both engines.
+    private func transcribeWithPianissimo(audioPath: String) async throws -> [TranscriptionResult] {
+        let isFirstLoad = await !PianissimoEngine.shared.isLoaded
+        if isFirstLoad {
+            transcriptionState = .loadingModel(modelName: WhisperModel.pianissimo.displayName)
+        }
+        let start = CFAbsoluteTimeGetCurrent()
+        let output = try await PianissimoEngine.shared.transcribe(audioURL: URL(fileURLWithPath: audioPath)) { fraction in
+            Task { @MainActor in
+                // Leave headroom for diarization, which reports 0.95.
+                self.transcriptionState = .transcribing(progress: min(fraction, 1) * 0.9)
+            }
+        }
+        appLog("[MindExtract] Pianissimo: \(output.words.count) words, \(String(format: "%.1f", output.duration))s audio in \(String(format: "%.1f", CFAbsoluteTimeGetCurrent() - start))s")
+
+        let segments = PianissimoSegmenter.segments(from: output.words).enumerated().map { i, seg in
+            TranscriptionSegment(
+                id: i,
+                start: Float(seg.start),
+                end: Float(seg.end),
+                text: seg.text,
+                avgLogprob: log(max(seg.words.map(\.confidence).reduce(0, +) / Float(max(seg.words.count, 1)), 1e-4)),
+                words: seg.words.map {
+                    WordTiming(word: " " + $0.word, tokens: [], start: Float($0.start), end: Float($0.end), probability: $0.confidence)
+                }
+            )
+        }
+        audioDuration = max(audioDuration, Float(output.duration))
+        return [TranscriptionResult(text: output.text, segments: segments, language: "sv", timings: TranscriptionTimings())]
     }
 
     // MARK: - Speaker Segment Merging
@@ -1739,20 +1839,25 @@ extension TranscriptionManager {
         return false
     }
 
-    /// Routes an already-extracted audio file to the selected engine.
-    /// Never use a Swedish-only model (KB-Whisper) for non-Swedish audio, and
-    /// never use a multilingual model for Swedish when KB is available isn't forced
-    /// here — we only *prevent the harmful mismatch*, not override user choice.
+    /// Never use a Swedish-only model (Pianissimo) for non-Swedish audio. Under
+    /// "auto", runWhisperKit decides after detection, so Pianissimo passes through.
     func effectiveWhisperModel(_ model: WhisperModel, language: String) -> WhisperModel {
-        if model.isSwedishOnly && language != "sv" {
+        if model.isSwedishOnly && language != "sv" && language != "auto" {
             return downloadedModels.first { !$0.isSwedishOnly } ?? .small
         }
         return model
     }
 
+    /// Routes an already-extracted audio file to the selected engine.
     func runTranscription(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
         activeOutputPath = outputPath
-        if useAppleSpeech(), #available(macOS 26.0, *) {
+        // Swedish goes to Pianissimo when it's installed — unless the user explicitly
+        // chose Apple Speech as their engine.
+        let pianissimoForSwedish = language == "sv" && isModelDownloaded(.pianissimo)
+            && AppSettings.shared.transcriptionEngine != .appleSpeech
+        if pianissimoForSwedish {
+            runWhisperKit(audioPath: audioPath, model: .pianissimo, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
+        } else if useAppleSpeech(), #available(macOS 26.0, *) {
             // Apple Speech can't do every language. If it can't do this one, route
             // to WhisperKit (which can) so e.g. Swedish isn't transcribed as English.
             currentTask = Task { @MainActor in

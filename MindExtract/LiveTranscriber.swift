@@ -10,7 +10,7 @@ import WhisperKit
 // re-transcribes only the UNCONFIRMED tail (clipTimestamps) — with front-purging
 // so memory and decode cost stay bounded for arbitrarily long meetings. This is
 // a live PREVIEW; the high-quality final transcript is produced from the full
-// recording after stop (KB-Whisper + diarization).
+// recording after stop (Pianissimo/Whisper + diarization).
 
 /// Thread-safe audio store: per-source resample (own queue) + incremental mix
 /// with front-purge. Mixed samples are addressed by ABSOLUTE index; `purged`

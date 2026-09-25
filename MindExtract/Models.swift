@@ -271,13 +271,9 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
     case medium = "openai_whisper-medium"
     case largev3 = "openai_whisper-large-v3"
     case largev3turbo = "openai_whisper-large-v3_turbo"
-    // KB-Whisper (KBLab / National Library of Sweden) — Swedish-optimized, beats
-    // OpenAI Whisper on Swedish. Distributed as WhisperKit Core ML by mickekringai
-    // (repo ships base/small/medium/large variants).
-    case kbWhisperBase = "kb_whisper-base"
-    case kbWhisperSmall = "kb_whisper-small"
-    case kbWhisperMedium = "kb_whisper-medium"
-    case kbWhisperLarge = "kb_whisper-large"
+    // Klang Pianissimo (Klang AI AB, CC BY 4.0) — Swedish Parakeet-TDT model run
+    // through FluidAudio, not WhisperKit. See PianissimoEngine.
+    case pianissimo = "pianissimo-sv"
 
     var id: String { rawValue }
 
@@ -289,10 +285,7 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return "Medium"
         case .largev3: return "Large v3"
         case .largev3turbo: return "Large v3 Turbo"
-        case .kbWhisperBase: return "KB-Whisper Base (Swedish)"
-        case .kbWhisperSmall: return "KB-Whisper Small (Swedish)"
-        case .kbWhisperMedium: return "KB-Whisper Medium (Swedish)"
-        case .kbWhisperLarge: return "KB-Whisper Large (Swedish)"
+        case .pianissimo: return "Pianissimo (Swedish)"
         }
     }
 
@@ -304,10 +297,7 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return "~1.5 GB"
         case .largev3: return "~3 GB"
         case .largev3turbo: return "~1.6 GB"
-        case .kbWhisperBase: return "~150 MB"
-        case .kbWhisperSmall: return "~500 MB"
-        case .kbWhisperMedium: return "~1.5 GB"
-        case .kbWhisperLarge: return "~3 GB"
+        case .pianissimo: return "~690 MB"
         }
     }
 
@@ -319,10 +309,7 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return 1_500_000_000
         case .largev3: return 3_000_000_000
         case .largev3turbo: return 1_600_000_000
-        case .kbWhisperBase: return 150_000_000
-        case .kbWhisperSmall: return 500_000_000
-        case .kbWhisperMedium: return 1_500_000_000
-        case .kbWhisperLarge: return 3_000_000_000
+        case .pianissimo: return 690_000_000
         }
     }
 
@@ -334,10 +321,7 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return "High accuracy, slower"
         case .largev3: return "Best accuracy, requires more RAM"
         case .largev3turbo: return "Near-best accuracy, optimized speed"
-        case .kbWhisperBase: return "Fast Swedish, small download"
-        case .kbWhisperSmall: return "Best Swedish accuracy at this size — beats OpenAI Large on Swedish"
-        case .kbWhisperMedium: return "Higher Swedish accuracy, slower"
-        case .kbWhisperLarge: return "Highest Swedish accuracy, requires more RAM"
+        case .pianissimo: return "Best Swedish — trained by Klang AI, fast and punctuated"
         }
     }
 
@@ -345,25 +329,30 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         self == .small
     }
 
-    /// Swedish-only fine-tunes — should only be offered when transcribing Swedish.
+    /// Swedish-only models — should only be offered when transcribing Swedish.
     var isSwedishOnly: Bool {
-        rawValue.hasPrefix("kb_whisper-")
+        self == .pianissimo
+    }
+
+    /// Runs on WhisperKit (vs. Pianissimo on FluidAudio). Only WhisperKit models can
+    /// detect language, translate, or drive the live preview.
+    var usesWhisperKit: Bool {
+        self != .pianissimo
     }
 
     /// HuggingFace repo the WhisperKit Core ML files come from.
     var repo: String {
-        isSwedishOnly ? "mickekringai/kb-whisper-coreml" : "argmaxinc/whisperkit-coreml"
+        usesWhisperKit ? "argmaxinc/whisperkit-coreml" : PianissimoEngine.repo
     }
 
-    /// Variant folder name inside `repo` (KB folders are "base"/"small"/… — the
-    /// rawValue without the "kb_whisper-" prefix).
+    /// Variant folder name inside `repo`.
     var variant: String {
-        isSwedishOnly ? String(rawValue.dropFirst("kb_whisper-".count)) : rawValue
+        rawValue
     }
 
-    /// The best default model for a given spoken language — KB-Whisper for Swedish.
+    /// The best default model for a given spoken language — Pianissimo for Swedish.
     static func recommended(for language: String) -> WhisperModel {
-        language == "sv" ? .kbWhisperSmall : .small
+        language == "sv" ? .pianissimo : .small
     }
 
     /// The WhisperKit model identifier used for download/init

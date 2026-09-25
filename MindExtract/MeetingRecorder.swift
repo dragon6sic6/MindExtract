@@ -395,7 +395,7 @@ final class MeetingRecorder: ObservableObject {
 
     /// Transcribe the pending recording with the chosen title, spoken language,
     /// and model. Language is explicit (Apple "auto" defaults to English); the
-    /// model is passed through (e.g. KB-Whisper for Swedish) rather than read from
+    /// model is passed through (e.g. Pianissimo for Swedish) rather than read from
     /// the global default, which must not become a Swedish-only model.
     func confirmPending(title: String, language: String, model: WhisperModel) {
         guard let pending = pendingRecording else { return }

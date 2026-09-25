@@ -112,6 +112,7 @@ struct SettingsView: View {
     @State private var category: SettingsCategory = .transcription
     @State private var showAdvancedAuth = false
     @State private var showResetConfirmation = false
+    @State private var confirmRemoveLegacyKB = false
     @State private var showYouTubeSignOutConfirm = false
     @State private var ollamaModels: [String] = []
     @State private var ollamaDetectFailed = false
@@ -431,16 +432,16 @@ struct SettingsView: View {
             }
         }
 
-        SettingsSection(title: "WhisperKit Models", icon: "cpu") {
+        SettingsSection(title: "Speech Models", icon: "cpu") {
             if transcriptionManager.useAppleSpeech() {
-                Text("You're using Apple's built-in speech — these models are only needed if you switch the engine to WhisperKit.")
+                Text("You're using Apple's built-in speech. Swedish still uses Pianissimo when it's downloaded; the Whisper models are only needed if you switch the engine to WhisperKit.")
                     .font(.caption).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack {
                 Text("Default model")
                 Spacer()
-                // Swedish-only models (KB-Whisper) are excluded from the global
+                // Swedish-only models (Pianissimo) are excluded from the global
                 // default — auto-selected only for Swedish, never for English audio.
                 Picker("", selection: $settings.defaultWhisperModel) {
                     ForEach(WhisperModel.allCases.filter { !$0.isSwedishOnly }) { model in
@@ -462,9 +463,9 @@ struct SettingsView: View {
                     ModelRow(model: model)
                 }
             }
-            // Swedish-optimized KB-Whisper models (auto-used when transcribing Swedish).
-            modelGroupHeader("Swedish — KB-Whisper", systemImage: "character.bubble")
-            Text("Fine-tuned by the National Library of Sweden. Picked automatically for Swedish audio; not used for other languages.")
+            // Swedish engine — Pianissimo (used automatically for Swedish audio).
+            modelGroupHeader("Swedish — Pianissimo", systemImage: "character.bubble")
+            Text("Trained on Swedish by Klang AI. Used automatically for Swedish audio; other languages use Whisper.")
                 .font(.caption2).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(spacing: 0) {
@@ -472,11 +473,36 @@ struct SettingsView: View {
                     ModelRow(model: model)
                 }
             }
+            // CC BY 4.0 attribution for the model weights.
+            HStack(spacing: 4) {
+                Text(PianissimoEngine.attribution)
+                Link("Model card", destination: URL(string: "https://huggingface.co/KlangAI/pianissimo-sv")!)
+            }
+            .font(.caption2).foregroundColor(.secondary)
+            if let legacy = transcriptionManager.legacyKBModelsSize() {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Old KB-Whisper models")
+                        Text("No longer used — Pianissimo replaces them. \(transcriptionManager.formatBytes(legacy)) on disk.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button("Remove", role: .destructive) { confirmRemoveLegacyKB = true }
+                }
+                .padding(.top, 4)
+                .confirmationDialog("Remove the old KB-Whisper models?", isPresented: $confirmRemoveLegacyKB) {
+                    Button("Remove \(transcriptionManager.formatBytes(legacy))", role: .destructive) {
+                        transcriptionManager.removeLegacyKBModels()
+                    }
+                } message: {
+                    Text("They aren't used anymore. Your transcripts aren't affected.")
+                }
+            }
             Divider().padding(.vertical, 2)
             Toggle(isOn: $settings.translateToEnglish) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Translate to English while transcribing")
-                    Text("WhisperKit only — uses Whisper's built-in translate task. Output is always English. Runs on-device.")
+                    Text("Uses Whisper's built-in translate task (also for Swedish audio). Output is always English. Runs on-device.")
                         .font(.caption).foregroundColor(.secondary)
                 }
             }
@@ -500,7 +526,7 @@ struct SettingsView: View {
                 .scrollContentBackground(.hidden)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.hairline, lineWidth: 1))
-            Text("Applies to WhisperKit (incl. KB-Whisper). Apple Speech doesn't support custom terms. Runs on-device.")
+            Text("Applies to the Whisper models. Pianissimo and Apple Speech don't support custom terms yet. Runs on-device.")
                 .font(.caption2).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
