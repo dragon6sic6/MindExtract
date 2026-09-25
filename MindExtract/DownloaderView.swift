@@ -1,13 +1,12 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - Download window
+// MARK: - Downloads
 //
 // Paste any link (or drop a file) to download the video or audio behind it, or
-// transcribe it. Lives in its own small window; transcripts open in the main one.
+// transcribe it. Transcripts open under Notes.
 
 struct DownloaderView: View {
-    @Environment(\.openWindow) private var openWindow
     @ObservedObject private var downloader = YTDLPWrapper.shared
     @Environment(\.openSettings) private var openSettings
     @StateObject private var settings = AppSettings.shared
@@ -99,14 +98,9 @@ struct DownloaderView: View {
                 historyDetailView
             }
         }
-        .frame(minWidth: 560, idealWidth: 640, minHeight: 480, idealHeight: 620)
         .background(DS.Colors.backdrop.ignoresSafeArea())
         .onAppear { checkPendingURL() }
         .onReceive(NotificationCenter.default.publisher(for: .showDownloads)) { _ in transcribeTab = .downloads }
-        // A transcription started here shows up in the main window.
-        .onChange(of: transcriptionManager.showTranscriptionView) { _, show in
-            if show { MainWindow.bringToFront(openWindow) }
-        }
         // Bridge downloader progress to the transcription view when downloading audio for transcription
         .onChange(of: downloader.state) { _, newState in
             if case .downloadingAudio = transcriptionManager.transcriptionState {

@@ -215,10 +215,6 @@ struct TranscriptionResultView: View {
     @State private var markedMoments: [Double] = []
     @State private var attendeeEmails: [String] = []
     // Auto-generate meeting notes once, after a fresh meeting finishes.
-    @State private var autoNotesPending = false
-    @State private var autoNotesRunning = false
-    @State private var autoNotesStatus: String?
-    @State private var autoNotesTask: Task<Void, Never>?
     // Memoized talk-time insights — recomputed only when segments or names change,
     // not on every render (the audio timer redraws this view ~10×/s).
     @State private var cachedInsights: MeetingInsights?
@@ -750,15 +746,6 @@ struct TranscriptionResultView: View {
                 persistAISidecar()
             }
         }
-        // A meeting may still be transcribing when the result view opens — kick
-        // off auto-notes once it completes.
-        .onChange(of: transcriptionManager.transcriptionState) { _, _ in
-            maybeAutoGenerateMeetingNotes()
-        }
-        // Retry auto-notes if the user configures an AI provider after the fact.
-        .onChange(of: aiBackend) { _, _ in
-            maybeAutoGenerateMeetingNotes()
-        }
         // Recompute talk-time insights only when the underlying data changes.
         .onChange(of: transcriptionManager.segments.count) { _, _ in refreshInsights() }
         .onChange(of: transcriptionManager.speakerNameOverrides) { _, _ in refreshInsights() }
@@ -777,7 +764,6 @@ struct TranscriptionResultView: View {
         }
         .onDisappear {
             audioPlayer.stop()
-            autoNotesTask?.cancel()
         }
     }
 
@@ -925,13 +911,6 @@ struct TranscriptionResultView: View {
             }
             Button("Translate…", systemImage: "character.book.closed") { showTranslate = true }
                 .disabled(!isCompleted)
-            if !RecipeStore.shared.recipes.isEmpty, transcriptionManager.lastSavedPath != nil {
-                Menu("Run Recipe", systemImage: "wand.and.stars") {
-                    ForEach(RecipeStore.shared.recipes) { r in
-                        Button(r.name) { runRecipe(r) }
-                    }
-                }
-            }
             Divider()
             if transcriptionManager.canRetranscribe {
                 Menu("Transcribe Again in", systemImage: "arrow.triangle.2.circlepath") {
@@ -1254,15 +1233,6 @@ struct TranscriptionResultView: View {
     private var summaryView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if let status = autoNotesStatus {
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text(status).font(.caption).foregroundColor(.secondary)
-                        Spacer()
-                    }
-                    .padding(10)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(DS.Colors.accent.opacity(0.08)))
-                }
                 // One canonical output. The format picker ("Summarize as…") chooses
                 // how it's shaped; the Brief is the default. We NEVER show the Brief
                 // next to an empty "Generate Summary" — that double-message was the mess.
@@ -1820,56 +1790,7 @@ struct TranscriptionResultView: View {
             attendeeEmails = transcriptionManager.pendingAttendeeEmails
             transcriptionManager.pendingAttendeeEmails = []
         }
-        // Auto-generate notes only for a fresh meeting (consumed once), when the
-        // setting is on and the two target templates aren't already present.
-        if transcriptionManager.consumePendingIsMeeting() {
-            let alreadyHasBrief = templateOutputs[PromptTemplateLibrary.meetingBriefID.uuidString] != nil
-            autoNotesPending = AppSettings.shared.autoGenerateMeetingNotes && !alreadyHasBrief
-        }
-        maybeAutoGenerateMeetingNotes()
-    }
-
-    /// The Meeting Brief, generated in the background right after a meeting
-    /// transcription completes, then cached + persisted like a manual run.
-    private func maybeAutoGenerateMeetingNotes() {
-        guard autoNotesPending, !autoNotesRunning, isCompleted else { return }
-        guard !transcriptionManager.liveTranscriptionText.isEmpty else { return }
-        // If the AI backend isn't set up yet, keep the request pending — an
-        // onChange(of: aiBackend) retries once the user configures a provider.
-        guard providerReady(aiBackend) else { return }
-        guard templateOutputs[PromptTemplateLibrary.meetingBriefID.uuidString] == nil else { return }
-        autoNotesPending = false
-        autoNotesRunning = true
-        let brief = PromptTemplateLibrary.meetingBrief
-        let transcript = transcriptionManager.liveTranscriptionText
-        autoNotesTask = Task {
-            autoNotesStatus = "Preparing your meeting brief…"
-            do {
-                let out = try await TemplateRunner.produce(brief, on: transcript)
-                if !Task.isCancelled {
-                    templateOutputs[brief.id.uuidString] = out
-                    persistAISidecar()
-                }
-            } catch { /* backend not ready / cancelled — user can run it manually */ }
-            autoNotesStatus = nil
-            autoNotesRunning = false
-        }
-    }
-
-    /// Run a saved recipe on this transcript (manual = all steps, interactive).
-    private func runRecipe(_ r: Recipe) {
-        guard let path = transcriptionManager.lastSavedPath else { return }
-        let ctx = RecipeRunner.Context(
-            transcript: transcriptionManager.liveTranscriptionText,
-            title: transcriptionManager.currentTranscriptionTitle,
-            path: path)
-        Task {
-            _ = await RecipeRunner.run(r, on: ctx, interactive: true)
-            // Reflect any new brief/format the recipe produced in the Summary tab.
-            if let sc = TranscriptAIStore.load(for: path) {
-                templateOutputs = sc.templateOutputs ?? templateOutputs
-            }
-        }
+        _ = transcriptionManager.consumePendingIsMeeting()
     }
 
     /// Persist the current summary + chat + translation next to the transcript file.

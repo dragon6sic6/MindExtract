@@ -41,12 +41,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         RecordingPillController.shared.activate()
         // Live captions while recording (if turned on).
         MeetingAutomation.shared.activate()
-        // Generate any missing meeting notes in the background shortly after
-        // launch (idempotent, capped).
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
-            TranscriptionManager.shared.backfillMeetingBriefs()
-        }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -152,10 +146,7 @@ final class MenuBarController {
         openTapped()
         MeetingRecorder.shared.stop()
     }
-    @objc private func downloadTapped() {
-        NSApp.activate(ignoringOtherApps: true)
-        MainWindow.opener?(id: DownloaderWindow.id)
-    }
+    @objc private func downloadTapped() { MainWindow.show(.downloads) }
     @objc private func openTapped() { MainWindow.show() }
 }
 
@@ -196,14 +187,6 @@ struct MindExtractApp: App {
             NotesCommands()
         }
 
-        // Download the video or audio behind any link — its own small window.
-        Window("Download", id: DownloaderWindow.id) {
-            DownloaderView()
-        }
-        .windowResizability(.contentMinSize)
-        .defaultSize(width: 640, height: 620)
-        .defaultPosition(.center)
-
         // Native Settings window (⌘,).
         Settings {
             SettingsView(downloader: .shared)
@@ -221,11 +204,11 @@ struct NotesCommands: Commands {
         let _ = { MainWindow.opener = openWindow }()
         CommandGroup(replacing: .newItem) {
             Button("New Note") {
-                MainWindow.show()
+                MainWindow.show(.notes)
                 MeetingRecorder.shared.startNote()
             }
             .keyboardShortcut("n", modifiers: .command)
-            Button("Download from Link…") { openWindow(id: DownloaderWindow.id) }
+            Button("Download from Link…") { MainWindow.show(.downloads) }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
         }
         CommandMenu("Note") {
@@ -240,8 +223,12 @@ struct NotesCommands: Commands {
                 .keyboardShortcut("m", modifiers: .command)
         }
         CommandGroup(before: .windowList) {
-            Button("Notes") { MainWindow.show() }
-                .keyboardShortcut("0", modifiers: .command)
+            Button("Notes") { MainWindow.show(.notes) }
+                .keyboardShortcut("1", modifiers: .command)
+            Button("Downloads") { MainWindow.show(.downloads) }
+                .keyboardShortcut("2", modifiers: .command)
+            Button("Dictation") { MainWindow.show(.dictation) }
+                .keyboardShortcut("3", modifiers: .command)
             Divider()
         }
     }

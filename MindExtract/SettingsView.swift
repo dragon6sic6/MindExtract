@@ -57,7 +57,6 @@ struct SettingsView: View {
     @ObservedObject var transcriptionManager = TranscriptionManager.shared
     @ObservedObject var dictation = DictationController.shared
     @ObservedObject private var recorder = MeetingRecorder.shared
-    @ObservedObject private var recipeStore = RecipeStore.shared
     /// Persisted so other parts of the app can deep-link a pane before opening Settings.
     @AppStorage("settingsCategory") private var category: SettingsCategory = .overview
     @State private var showResetConfirmation = false
@@ -66,7 +65,6 @@ struct SettingsView: View {
     @State private var ollamaModels: [String] = []
     @State private var ollamaDetectFailed = false
     @State private var keyTests: [String: KeyTestState] = [:]   // keyed by Keychain account
-    @State private var editingRecipe: Recipe?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -93,7 +91,7 @@ struct SettingsView: View {
             Button("Reset Settings", role: .destructive) { resetSettingsToDefaults() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Every preference goes back to its default. Your transcripts, recordings, recipes and API keys are not touched.")
+            Text("Every preference goes back to its default. Your transcripts, recordings and API keys are not touched.")
         }
         .confirmationDialog("Sign out of YouTube?", isPresented: $showYouTubeSignOutConfirm, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) { downloader.signOutYouTube() }
@@ -101,7 +99,6 @@ struct SettingsView: View {
         } message: {
             Text("You'll need to sign in again to download members-only or age-restricted videos.")
         }
-        .sheet(item: $editingRecipe) { r in RecipeEditorSheet(recipe: r) }
     }
 
     @ViewBuilder
@@ -167,7 +164,7 @@ struct SettingsView: View {
         Section {
             engineRow("Notes and titles after a recording", icon: "sparkles",
                       engine: aiEngineName, where: aiWhere, pane: .ai)
-            engineRow("Ask anything, follow-up email, recipes", icon: "bubble.left.and.text.bubble.right",
+            engineRow("Ask anything and follow-up email", icon: "bubble.left.and.text.bubble.right",
                       engine: aiEngineName, where: aiWhere, pane: .ai)
         } header: {
             Text("Writing with AI")
@@ -325,7 +322,11 @@ struct SettingsView: View {
                 }
             }
             LabeledContent("Your data") {
-                Button("Show in Finder") { NSWorkspace.shared.open(appDataFolder) }
+                Button("Show in Finder") {
+                    // Recordings and models live in one folder, the notes list in another.
+                    let notesList = appDataFolder.deletingLastPathComponent().appendingPathComponent("MindExtract")
+                    NSWorkspace.shared.activateFileViewerSelecting([appDataFolder, notesList])
+                }
             }
             DisclosureGroup("Acknowledgements") {
                 acknowledgementRow("Klang Pianissimo (Klang AI AB)", "CC BY 4.0", "https://huggingface.co/KlangAI/pianissimo-sv")
@@ -345,7 +346,7 @@ struct SettingsView: View {
                 Button("Reset…", role: .destructive) { showResetConfirmation = true }
             }
         } footer: {
-            Text("Transcripts, recordings, recipes and API keys are kept.")
+            Text("Transcripts, recordings and API keys are kept.")
         }
     }
 
@@ -608,7 +609,7 @@ struct SettingsView: View {
             Text("AI engine")
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Used for: notes and titles after a recording, Ask anything, follow-up emails and recipes. Not used for transcribing — that's Settings → Transcription.")
+                Text("Used for: notes and titles after a recording, Ask anything and follow-up emails. Not used for transcribing — that's Settings → Transcription.")
                 Label(settings.aiBackend.detail,
                       systemImage: [.apple, .ollama].contains(settings.aiBackend) ? "lock.fill" : "icloud.and.arrow.up")
                     .foregroundStyle([.apple, .ollama].contains(settings.aiBackend) ? .green : .orange)
@@ -620,26 +621,8 @@ struct SettingsView: View {
                 Text("Write notes after every recording")
                 Text("Notes, decisions and tasks — and a title — are ready when the transcript is.")
             }
-            ForEach(recipeStore.recipes) { r in
-                LabeledContent {
-                    HStack {
-                        Toggle("Automatic", isOn: Binding(
-                            get: { r.runOnEveryMeeting },
-                            set: { on in var x = r; x.runOnEveryMeeting = on; recipeStore.upsert(x) }))
-                            .labelsHidden()
-                            .help("Run automatically after every meeting")
-                        Button("Edit…") { editingRecipe = r }
-                    }
-                } label: {
-                    Text(verbatim: r.name)
-                    Text(verbatim: r.summary)
-                }
-            }
-            Button("New Recipe…") { editingRecipe = Recipe(name: String(localized: "New recipe")) }
         } header: {
-            Text("After meetings")
-        } footer: {
-            Text("A recipe is a fixed series of follow-up steps — like notes, then a recap email, then tasks in Reminders. Run it from a meeting, or switch it on to run after every meeting.")
+            Text("After a recording")
         }
     }
 

@@ -1,10 +1,38 @@
 import SwiftUI
 
-// MARK: - Main window: your notes
+// MARK: - Main window
 //
-// One list of everything you've recorded or imported, and the open note beside
-// it. "New Note" records (your voice, and the others in a call) with live text;
-// downloading from a link lives in its own small window.
+// MindExtract does three things, and each has its place in the sidebar:
+//   • Notes — record a meeting or a thought, live text, speakers, AI notes
+//   • Downloads — paste any link, download the video or audio, transcribe it
+//   • Dictation — hold right ⌥ anywhere and speak
+
+enum AppSection: String, CaseIterable, Identifiable {
+    case notes, downloads, dictation
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .notes: return "Notes"
+        case .downloads: return "Downloads"
+        case .dictation: return "Dictation"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .notes: return "note.text"
+        case .downloads: return "arrow.down.circle"
+        case .dictation: return "mic"
+        }
+    }
+}
+
+extension Notification.Name {
+    /// Switch the main window to a section (object: AppSection).
+    static let showSection = Notification.Name("showSection")
+}
 
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
@@ -12,18 +40,23 @@ struct ContentView: View {
     @StateObject private var settings = AppSettings.shared
     @ObservedObject private var tm = TranscriptionManager.shared
     @ObservedObject private var history = TranscriptionHistoryManager.shared
+    @ObservedObject private var downloads = HistoryManager.shared
     @ObservedObject private var recorder = MeetingRecorder.shared
     @ObservedObject private var appLock = AppLock.shared
 
-    /// File path of the open note, or `liveTag` for the one in progress (recording,
-    /// or being transcribed before it has a file).
-    @State private var selection: String?
+    @AppStorage("appSection") private var section: AppSection = .notes
+
+    /// File paths of the selected notes; `liveTag` stands for the one in progress
+    /// (recording, or being transcribed before it has a file).
+    @State private var selection: Set<String> = []
     private static let liveTag = "live-recording"
+    private var single: String? { selection.count == 1 ? selection.first : nil }
 
     @State private var searchText = ""
     @State private var searchHits: [TranscriptLibrary.SearchHit] = []
     @State private var renaming: TranscriptionHistoryItem?
     @State private var draftTitle = ""
+    @State private var pendingDelete: [TranscriptionHistoryItem] = []
 
     @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
     @State private var showWelcome = false
@@ -40,16 +73,16 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            sidebar
-                .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 360)
+            sectionList
+                .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 240)
         } detail: {
-            detail
+            sectionDetail
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .background(DS.Colors.backdrop.ignoresSafeArea())
                 .toolbar { toolbar }
         }
         .navigationTitle("")
-        .frame(minWidth: 760, minHeight: 540)
+        .frame(minWidth: 860, minHeight: 540)
         // "Recording finished" confirm sheet — shown wherever you stopped from.
         .sheet(item: $recorder.pendingRecording) { pending in
             TranscribeSheet(
@@ -80,25 +113,45 @@ struct ContentView: View {
             recorder.recoverInterruptedSessions()
             recorder.refreshPermissions()
             if !hasSeenWelcome && !showWelcome { showWelcome = true }
-            if isLive { selection = Self.liveTag }
-            // A link handed over at launch goes straight to the download window.
+            if isLive { show(.notes, select: Self.liveTag) }
+            // A link handed over at launch goes straight to Downloads.
             if UserDefaults.standard.string(forKey: "pendingURL")?.isEmpty == false {
-                openWindow(id: DownloaderWindow.id)
+                section = .downloads
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
             openSettings()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .showSection)) { note in
+            if let s = note.object as? AppSection { section = s }
+        }
         // Keep the list selection in step with what's open.
-        .onChange(of: selection) { _, path in open(path) }
+        .onChange(of: selection) { _, sel in
+            if sel.count == 1 { open(sel.first) }
+        }
+        // A transcript opened or started anywhere (e.g. from Downloads) shows in Notes.
         .onChange(of: tm.showTranscriptionView) { _, show in
-            if show { selection = tm.lastSavedPath ?? Self.liveTag }
+            if show { self.show(.notes, select: tm.lastSavedPath ?? Self.liveTag) }
         }
         .onChange(of: tm.lastSavedPath) { _, p in
-            if tm.showTranscriptionView, let p, selection != Self.liveTag || !isLive { selection = p }
+            if tm.showTranscriptionView, let p, single != Self.liveTag || !isLive { selection = [p] }
         }
         .onChange(of: recorder.isRecording) { _, recording in
-            if recording { selection = Self.liveTag }
+            if recording { show(.notes, select: Self.liveTag) }
+        }
+        .confirmationDialog(deleteTitle, isPresented: Binding(
+            get: { !pendingDelete.isEmpty },
+            set: { if !$0 { pendingDelete = [] } }), titleVisibility: .visible) {
+            Button("Move to Trash", role: .destructive) {
+                let paths = Set(pendingDelete.map(\.filePath))
+                selection.subtract(paths)
+                if let open = tm.lastSavedPath, paths.contains(open) { tm.showTranscriptionView = false }
+                history.moveToTrash(pendingDelete)
+                pendingDelete = []
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = [] }
+        } message: {
+            Text("The transcript and its recording go to the Trash. You can put them back from there.")
         }
         .sheet(isPresented: $showWelcome) {
             PermissionsOnboardingView(onDone: {
@@ -119,7 +172,7 @@ struct ContentView: View {
                 CommandPaletteView(
                     onOpenTranscript: { item in
                         showOverlay = false
-                        if item.fileExists { selection = item.filePath }
+                        if item.fileExists { show(.notes, select: item.filePath) }
                     },
                     onAsk: { query in
                         CorpusChat.shared.reset()
@@ -140,7 +193,46 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Sidebar
+    // MARK: - Sections
+
+    private var sectionList: some View {
+        List(selection: Binding(get: { Optional(section) }, set: { if let s = $0 { section = s } })) {
+            ForEach(AppSection.allCases) { s in
+                Label(s.title, systemImage: s.icon)
+                    .badge(badge(for: s))
+                    .tag(s)
+            }
+        }
+        .listStyle(.sidebar)
+    }
+
+    private func badge(for s: AppSection) -> Int {
+        switch s {
+        case .notes: return history.history.count
+        case .downloads: return downloads.history.count
+        case .dictation: return 0
+        }
+    }
+
+    @ViewBuilder
+    private var sectionDetail: some View {
+        switch section {
+        case .notes:
+            HStack(spacing: 0) {
+                notesColumn
+                    .frame(width: 280)
+                Divider()
+                noteDetail
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+        case .downloads:
+            DownloaderView()
+        case .dictation:
+            DictationPage()
+        }
+    }
+
+    // MARK: - Notes list
 
     /// Favorites pinned on top, the rest grouped by date.
     private var groups: [(label: String, items: [TranscriptionHistoryItem])] {
@@ -159,33 +251,43 @@ struct ContentView: View {
         return byTitle + searchHits.map(\.item).filter { !seen.contains($0.id) }
     }
 
-    private var sidebar: some View {
-        List(selection: $selection) {
-            if isInProgress {
-                liveRow.tag(Self.liveTag)
-            }
-            if searchText.isEmpty {
-                ForEach(groups, id: \.label) { group in
-                    Section(LocalizedStringKey(group.label)) {
-                        ForEach(group.items) { noteRow($0) }
+    private var notesColumn: some View {
+        VStack(spacing: 0) {
+            SearchField(text: $searchText, placeholder: String(localized: "Search notes"))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+            List(selection: $selection) {
+                if isInProgress {
+                    liveRow.tag(Self.liveTag)
+                }
+                if searchText.isEmpty {
+                    ForEach(groups, id: \.label) { group in
+                        Section(LocalizedStringKey(group.label)) {
+                            ForEach(group.items) { noteRow($0) }
+                        }
+                    }
+                } else {
+                    Section("Results") {
+                        ForEach(results) { noteRow($0) }
                     }
                 }
-            } else {
-                Section("Results") {
-                    ForEach(results) { noteRow($0) }
+            }
+            .listStyle(.inset)
+            .scrollContentBackground(.hidden)
+            .onDeleteCommand { requestDelete(paths: selection) }
+            .contextMenu(forSelectionType: String.self) { paths in
+                contextMenu(for: paths)
+            }
+            .overlay {
+                if history.history.isEmpty && !isLive {
+                    ContentUnavailableView("No notes yet", systemImage: "note.text",
+                                           description: Text("Press New Note to record a meeting or a thought."))
+                } else if !searchText.isEmpty && results.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
                 }
             }
         }
-        .listStyle(.sidebar)
-        .searchable(text: $searchText, placement: .sidebar, prompt: Text("Search notes"))
-        .overlay {
-            if history.history.isEmpty && !isLive {
-                ContentUnavailableView("No notes yet", systemImage: "note.text",
-                                       description: Text("Your notes and transcripts show up here."))
-            } else if !searchText.isEmpty && results.isEmpty {
-                ContentUnavailableView.search(text: searchText)
-            }
-        }
+        .background(DS.Colors.rowFill.opacity(0.5))
         .popover(item: $renaming) { item in
             VStack(alignment: .leading, spacing: 8) {
                 TextField("Title", text: $draftTitle)
@@ -199,6 +301,36 @@ struct ContentView: View {
                 }
             }
             .padding(12)
+        }
+    }
+
+    @ViewBuilder
+    private func contextMenu(for paths: Set<String>) -> some View {
+        let items = history.history.filter { paths.contains($0.filePath) }
+        if items.count == 1, let item = items.first {
+            let isFavorite = item.isFavorite ?? false
+            Button(isFavorite ? "Remove from Favorites" : "Add to Favorites") { history.toggleFavorite(item) }
+            Button("Rename…") { draftTitle = item.title; renaming = item }
+            if item.fileExists {
+                Divider()
+                Button("Show in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.filePath)])
+                }
+                Button("Copy Text") {
+                    if let text = item.transcriptionText {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
+                    }
+                }
+            }
+            Divider()
+        }
+        if !items.isEmpty {
+            Button(items.count == 1 ? String(localized: "Move to Trash…")
+                                    : String(localized: "Move \(items.count) Notes to Trash…"),
+                   role: .destructive) {
+                pendingDelete = items
+            }
         }
     }
 
@@ -248,44 +380,42 @@ struct ContentView: View {
         .tag(item.filePath)
         // While recording, the live note stays open.
         .disabled(isLive)
-        .contextMenu {
-            Button(isFavorite ? "Remove from Favorites" : "Add to Favorites") { history.toggleFavorite(item) }
-            Button("Rename…") { draftTitle = item.title; renaming = item }
-            if item.fileExists {
-                Divider()
-                Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.filePath)])
-                }
-                Button("Copy Text") {
-                    if let text = item.transcriptionText {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(text, forType: .string)
-                    }
-                }
-            }
-            Divider()
-            Button("Remove from List", role: .destructive) {
-                if selection == item.filePath { selection = nil }
-                history.removeFromHistory(item)
-            }
-        }
     }
 
-    // MARK: - Detail
+    // MARK: - Note detail
 
     @ViewBuilder
-    private var detail: some View {
-        if selection == Self.liveTag, isLive || (tm.showTranscriptionView && tm.currentTranscriptSource == .meeting) {
-            MeetingPage(onBack: { selection = nil })
-        } else if selection != nil, tm.showTranscriptionView {
+    private var noteDetail: some View {
+        if selection.count > 1 {
+            multipleSelected
+        } else if single == Self.liveTag, isLive || (tm.showTranscriptionView && tm.currentTranscriptSource == .meeting) {
+            MeetingPage(onBack: { selection = [] })
+        } else if single != nil, tm.showTranscriptionView {
             if tm.currentTranscriptSource == .meeting {
-                MeetingPage(onBack: { selection = nil })
+                MeetingPage(onBack: { selection = [] })
             } else {
                 TranscriptionResultView(transcriptionManager: tm)
             }
         } else {
             emptyState
         }
+    }
+
+    private var multipleSelected: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "square.stack")
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(.secondary)
+            Text("\(selection.count) notes selected")
+                .font(.title2.weight(.semibold))
+            Button(role: .destructive) {
+                requestDelete(paths: selection)
+            } label: {
+                Label("Move to Trash…", systemImage: "trash")
+            }
+            .controlSize(.large)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var emptyState: some View {
@@ -305,30 +435,15 @@ struct ContentView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 460)
             }
-            HStack(spacing: 12) {
-                Button {
-                    startNote()
-                } label: {
-                    Label("New Note", systemImage: "record.circle")
-                }
-                .buttonStyle(.glassProminent)
-                .tint(DS.Colors.recording)
-                .controlSize(.extraLarge)
-                .disabled(recorder.isBusy)
-                Button {
-                    openWindow(id: DownloaderWindow.id)
-                } label: {
-                    Label("Download from Link…", systemImage: "arrow.down.circle")
-                }
-                .buttonStyle(.glass)
-                .controlSize(.extraLarge)
+            Button {
+                startNote()
+            } label: {
+                Label("New Note", systemImage: "record.circle")
             }
-            if settings.dictationEnabled {
-                Label("Hold right ⌥ Option anywhere to dictate into any app.", systemImage: "mic")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 8)
-            }
+            .buttonStyle(.glassProminent)
+            .tint(DS.Colors.recording)
+            .controlSize(.extraLarge)
+            .disabled(recorder.isBusy)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -356,15 +471,6 @@ struct ContentView: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                openWindow(id: DownloaderWindow.id)
-            } label: {
-                Label("Download", systemImage: "arrow.down.circle")
-            }
-            .help("Download the video or audio behind a link (⇧⌘D)")
-        }
-        ToolbarSpacer(.fixed, placement: .primaryAction)
         ToolbarItem(placement: .primaryAction) {
             if recorder.isRecording {
                 Button {
@@ -395,8 +501,25 @@ struct ContentView: View {
 
     // MARK: - Actions
 
+    private var deleteTitle: String {
+        pendingDelete.count == 1
+            ? String(localized: "Move “\(pendingDelete[0].title)” to the Trash?")
+            : String(localized: "Move \(pendingDelete.count) notes to the Trash?")
+    }
+
+    private func requestDelete(paths: Set<String>) {
+        let items = history.history.filter { paths.contains($0.filePath) }
+        if !items.isEmpty { pendingDelete = items }
+    }
+
+    private func show(_ s: AppSection, select path: String) {
+        section = s
+        selection = [path]
+    }
+
     private func startNote() {
         guard !recorder.isBusy else { return }
+        section = .notes
         recorder.startNote()
     }
 
@@ -411,18 +534,14 @@ struct ContentView: View {
 
 // MARK: - Windows
 
-enum DownloaderWindow {
-    static let id = "downloader"
-}
-
 enum MainWindow {
     static let id = "main"
 
     /// Captured from the app's commands at launch, so AppKit code (menu bar,
-    /// recording pill, Dock) can reopen the notes window after it was closed.
+    /// recording pill, Dock) can reopen the main window after it was closed.
     @MainActor static var opener: OpenWindowAction?
 
-    /// Brings the notes window forward, opening it if it was closed.
+    /// Brings the main window forward, opening it if it was closed.
     @MainActor
     static func show() {
         NSApp.activate(ignoringOtherApps: true)
@@ -434,10 +553,12 @@ enum MainWindow {
         }
     }
 
+    /// Brings the main window forward on a given section.
     @MainActor
-    static func bringToFront(_ openWindow: OpenWindowAction) {
-        if opener == nil { opener = openWindow }
+    static func show(_ section: AppSection) {
+        UserDefaults.standard.set(section.rawValue, forKey: "appSection")
         show()
+        NotificationCenter.default.post(name: .showSection, object: section)
     }
 }
 

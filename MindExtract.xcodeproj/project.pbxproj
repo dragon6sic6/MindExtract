@@ -16,6 +16,7 @@
 		B1000E41 /* MeetingDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E42 /* MeetingDocumentView.swift */; };
 		B1000E3F /* PermissionsOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E40 /* PermissionsOnboardingView.swift */; };
 		B1000E3B /* AudioConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E3C /* AudioConverter.swift */; };
+		B1000E47 /* DictationPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E48 /* DictationPage.swift */; };
 		B1000E45 /* DownloaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E46 /* DownloaderView.swift */; };
 		B1000E43 /* MeetingText.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E44 /* MeetingText.swift */; };
 		B1000E37 /* TranscribeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E38 /* TranscribeSheet.swift */; };
@@ -35,7 +36,6 @@
 		B1000E03 /* Templates.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E04 /* Templates.swift */; };
 		B1000E05 /* MeetingRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E06 /* MeetingRecorder.swift */; };
 		B1000E09 /* LiveTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0A /* LiveTranscriber.swift */; };
-		B1000E27 /* Recipes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E28 /* Recipes.swift */; };
 		B1000E0D /* RemindersExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E0E /* RemindersExporter.swift */; };
 		B1000E0F /* CaptionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E10 /* CaptionOverlay.swift */; };
 		B1000E11 /* MeetingInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E12 /* MeetingInsights.swift */; };
@@ -86,7 +86,6 @@
 		B1000E04 /* Templates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Templates.swift; sourceTree = "<group>"; };
 		B1000E06 /* MeetingRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingRecorder.swift; sourceTree = "<group>"; };
 		B1000E0A /* LiveTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscriber.swift; sourceTree = "<group>"; };
-		B1000E28 /* Recipes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recipes.swift; sourceTree = "<group>"; };
 		B1000E0E /* RemindersExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersExporter.swift; sourceTree = "<group>"; };
 		B1000E10 /* CaptionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptionOverlay.swift; sourceTree = "<group>"; };
 		B1000E12 /* MeetingInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingInsights.swift; sourceTree = "<group>"; };
@@ -96,6 +95,7 @@
 		B1000E42 /* MeetingDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDocumentView.swift; sourceTree = "<group>"; };
 		B1000E40 /* PermissionsOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsOnboardingView.swift; sourceTree = "<group>"; };
 		B1000E3C /* AudioConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioConverter.swift; sourceTree = "<group>"; };
+		B1000E48 /* DictationPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationPage.swift; sourceTree = "<group>"; };
 		B1000E46 /* DownloaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloaderView.swift; sourceTree = "<group>"; };
 		B1000E44 /* MeetingText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingText.swift; sourceTree = "<group>"; };
 		B1000E38 /* TranscribeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeSheet.swift; sourceTree = "<group>"; };
@@ -176,7 +176,6 @@
 				B1000E04 /* Templates.swift */,
 				B1000E06 /* MeetingRecorder.swift */,
 				B1000E0A /* LiveTranscriber.swift */,
-				B1000E28 /* Recipes.swift */,
 				B1000E0E /* RemindersExporter.swift */,
 				B1000E10 /* CaptionOverlay.swift */,
 				B1000E12 /* MeetingInsights.swift */,
@@ -186,6 +185,7 @@
 				B1000E42 /* MeetingDocumentView.swift */,
 				B1000E40 /* PermissionsOnboardingView.swift */,
 				B1000E3C /* AudioConverter.swift */,
+				B1000E48 /* DictationPage.swift */,
 				B1000E46 /* DownloaderView.swift */,
 				B1000E44 /* MeetingText.swift */,
 				B1000E38 /* TranscribeSheet.swift */,
@@ -343,12 +343,12 @@
 				B1000E03 /* Templates.swift in Sources */,
 				B1000E05 /* MeetingRecorder.swift in Sources */,
 				B1000E09 /* LiveTranscriber.swift in Sources */,
-				B1000E27 /* Recipes.swift in Sources */,
 				B1000E29 /* PianissimoEngine.swift in Sources */,
 				B1000E2B /* Dictation.swift in Sources */,
 				B1000E41 /* MeetingDocumentView.swift in Sources */,
 				B1000E3F /* PermissionsOnboardingView.swift in Sources */,
 				B1000E3B /* AudioConverter.swift in Sources */,
+				B1000E47 /* DictationPage.swift in Sources */,
 				B1000E45 /* DownloaderView.swift in Sources */,
 				B1000E43 /* MeetingText.swift in Sources */,
 				B1000E37 /* TranscribeSheet.swift in Sources */,

@@ -115,6 +115,16 @@
         }
       }
     },
+    "%lld notes selected": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld anteckningar markerade"
+          }
+        }
+      }
+    },
     "%lld of %lld": {
       "localizations": {
         "sv": {
@@ -526,6 +536,16 @@
         }
       }
     },
+    "After a recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Efter en inspelning"
+          }
+        }
+      }
+    },
     "After allowing meeting audio in System Settings, restart MindExtract.": {
       "localizations": {
         "sv": {
@@ -814,6 +834,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fråga vad som helst om alla transkript du har sparat."
+          }
+        }
+      }
+    },
+    "Ask anything and follow-up email": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga vad som helst och uppföljningsmejl"
           }
         }
       }
@@ -1324,6 +1354,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rensa konversationen"
+          }
+        }
+      }
+    },
+    "Click here, hold right ⌥ and say something.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klicka här, håll in höger ⌥ och säg något."
           }
         }
       }
@@ -2398,6 +2438,16 @@
         }
       }
     },
+    "Every preference goes back to its default. Your transcripts, recordings and API keys are not touched.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla inställningar återställs. Dina transkript, inspelningar och API-nycklar påverkas inte."
+          }
+        }
+      }
+    },
     "Every preference goes back to its default. Your transcripts, recordings, recipes and API keys are not touched.": {
       "localizations": {
         "sv": {
@@ -2938,6 +2988,16 @@
         }
       }
     },
+    "Hold right ⌥ Option anywhere, speak, and let go. The text is typed where your cursor is — in any app.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Håll in höger ⌥ Option var som helst, prata och släpp. Texten skrivs där markören står – i vilken app som helst."
+          }
+        }
+      }
+    },
     "Hold right ⌥ Option to dictate": {
       "localizations": {
         "sv": {
@@ -3134,6 +3194,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Låt MindExtract transkribera dina möten"
+          }
+        }
+      }
+    },
+    "Lets MindExtract notice the key and type into other apps. It never reads what you type.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Låter MindExtract märka tangenten och skriva i andra appar. Den läser aldrig vad du skriver."
           }
         }
       }
@@ -3705,6 +3775,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "De flesta videor laddas ned utan inloggning. Logga bara in om YouTube stoppar en nedladdning, till exempel videor med åldersgräns eller för medlemmar."
+          }
+        }
+      }
+    },
+    "Move %lld Notes to Trash…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flytta %lld anteckningar till papperskorgen…"
+          }
+        }
+      }
+    },
+    "Move %lld notes to the Trash?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flytta %lld anteckningar till papperskorgen?"
+          }
+        }
+      }
+    },
+    "Move to Trash": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flytta till papperskorgen"
+          }
+        }
+      }
+    },
+    "Move to Trash…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flytta till papperskorgen…"
+          }
+        }
+      }
+    },
+    "Move “%@” to the Trash?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flytta ”%@” till papperskorgen?"
           }
         }
       }
@@ -4849,6 +4969,16 @@
         }
       }
     },
+    "Press New Note to record a meeting or a thought.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tryck på Ny anteckning för att spela in ett möte eller en tanke."
+          }
+        }
+      }
+    },
     "Press Record when a meeting starts. You'll get the transcript and notes here.": {
       "localizations": {
         "sv": {
@@ -4965,6 +5095,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sammanfattningsmejl, export och överlämning till AI körs bara när du kör receptet själv – aldrig automatiskt."
+          }
+        }
+      }
+    },
+    "Recent": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senaste"
           }
         }
       }
@@ -6479,6 +6619,16 @@
         }
       }
     },
+    "The audio is discarded right after. No AI rewrites your words.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ljudet raderas direkt efteråt. Ingen AI skriver om dina ord."
+          }
+        }
+      }
+    },
     "The download didn't finish. Try again.": {
       "localizations": {
         "sv": {
@@ -6555,6 +6705,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Webbplatsen blockerade nedladdningen. Försök igen om en stund – händer det igen, uppdatera MindExtract."
+          }
+        }
+      }
+    },
+    "The transcript and its recording go to the Trash. You can put them back from there.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriptet och inspelningen hamnar i papperskorgen. Du kan lägga tillbaka dem därifrån."
           }
         }
       }
@@ -6949,6 +7109,16 @@
         }
       }
     },
+    "Transcripts, recordings and API keys are kept.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript, inspelningar och API-nycklar behålls."
+          }
+        }
+      }
+    },
     "Transcripts, recordings, recipes and API keys are kept.": {
       "localizations": {
         "sv": {
@@ -7055,6 +7225,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prova att fråga"
+          }
+        }
+      }
+    },
+    "Try dictation here": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prova diktering här"
+          }
+        }
+      }
+    },
+    "Try it": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prova"
           }
         }
       }
@@ -7205,6 +7395,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Används för andra språk när Whisper är valt, och för live-text och diktering på andra språk."
+          }
+        }
+      }
+    },
+    "Used for: notes and titles after a recording, Ask anything and follow-up emails. Not used for transcribing — that's Settings → Transcription.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Används till: anteckningar och titlar efter en inspelning, Fråga vad som helst och uppföljningsmejl. Används inte till transkribering – det sköts i Inställningar → Transkribering."
           }
         }
       }

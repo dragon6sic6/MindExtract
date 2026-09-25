@@ -95,9 +95,9 @@ class TranscriptionManager: ObservableObject {
         return v
     }
 
-    // MARK: - Auto Meeting Brief (so the intelligence layer lights up without opening the transcript)
+    // MARK: - AI engine readiness
 
-    private func providerReadyForAutoBrief() -> Bool {
+    private func aiEngineConfigured() -> Bool {
         switch AppSettings.shared.aiBackend {
         case .apple: return true   // on-device; fails gracefully if AI is off
         case .ollama: return !AppSettings.shared.ollamaModel.isEmpty
@@ -110,10 +110,6 @@ class TranscriptionManager: ObservableObject {
         }
     }
 
-    /// After a MEETING transcription completes, generate the AI Meeting Brief in the
-    /// background and persist it to the sidecar — so the meeting notes
-    /// tools fill in even if the user never opens the transcript. The result view
-    /// defers to us (consumePendingIsMeeting), so this never double-runs.
     // MARK: - Meeting notes (enhanced)
 
     /// True when a finished recording can be transcribed without asking — some
@@ -144,7 +140,7 @@ class TranscriptionManager: ObservableObject {
     func generateEnhancedNotes(path: String, userNotes: String, segments: [TranscriptionSegmentData]) {
         guard !enhancingPaths.contains(path), !segments.isEmpty else { return }
         enhanceErrors[path] = nil
-        guard providerReadyForAutoBrief() else {
+        guard aiEngineConfigured() else {
             enhanceErrors[path] = String(localized: "The notes need an AI engine. Choose one in Settings → AI — Apple Intelligence works on this Mac.")
             return
         }
@@ -202,83 +198,6 @@ class TranscriptionManager: ObservableObject {
             .filter { audioExts.contains(($0 as NSString).pathExtension.lowercased()) && !["mic.m4a", "system.m4a"].contains($0.lowercased()) }
             .first
             .map { dir.appendingPathComponent($0).path }
-    }
-
-    private func autoGenerateMeetingBriefIfNeeded(transcript: String, path: String) {
-        guard AppSettings.shared.autoGenerateMeetingNotes, pendingIsMeeting else { return }
-        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.split(separator: " ").count >= 25 else { return }   // too short to be meaningful
-        guard providerReadyForAutoBrief() else { return }              // leave the flag for the view to retry
-        if let existing = TranscriptAIStore.load(for: path),
-           existing.templateOutputs?[PromptTemplateLibrary.meetingBriefID.uuidString] != nil { return }
-        _ = consumePendingIsMeeting()                                   // claim ownership
-        let suggestions = pendingSpeakerSuggestions                     // peek (view still consumes these)
-        let moments = pendingMarkedMoments
-        Task { @MainActor in
-            do {
-                let out = try await TemplateRunner.produce(PromptTemplateLibrary.meetingBrief, on: text)
-                var sidecar = TranscriptAIStore.load(for: path)
-                    ?? TranscriptAISidecar(summary: nil, chat: [], translation: nil, translationLanguageCode: nil,
-                                           templateOutputs: nil, userNotes: nil, speakerNames: nil,
-                                           speakerSuggestions: nil, markedMoments: nil, commitments: nil)
-                var outputs = sidecar.templateOutputs ?? [:]
-                outputs[PromptTemplateLibrary.meetingBriefID.uuidString] = out
-                sidecar.templateOutputs = outputs
-                if (sidecar.speakerSuggestions ?? []).isEmpty, !suggestions.isEmpty { sidecar.speakerSuggestions = suggestions }
-                if (sidecar.markedMoments ?? []).isEmpty, !moments.isEmpty { sidecar.markedMoments = moments }
-                TranscriptAIStore.save(sidecar, for: path)
-                appLog("[MindExtract] Auto-brief generated: \(path)")
-                // Run any "on every meeting" recipes — silent on-device steps only
-                // (format, reminders); interactive steps are reserved for manual runs.
-                let ctx = RecipeRunner.Context(transcript: text, title: self.currentTranscriptionTitle, path: path)
-                for r in RecipeStore.shared.autoRecipes {
-                    _ = await RecipeRunner.run(r, on: ctx, interactive: false)
-                }
-            } catch {
-                appLog("[MindExtract] Auto-brief failed: \(error.localizedDescription)")
-                self.markPendingMeeting()   // restore so the result view can retry on open
-            }
-        }
-    }
-
-    /// Generate briefs for recent meetings that don't have one yet, so existing
-    /// recordings get notes and a real title too (not just new
-    /// ones). Conservative: meetings only, provider-ready only, sequential, capped,
-    /// and never while a transcription is running. Idempotent — skips meetings that
-    /// already have a brief, so it's safe to call on every launch.
-    func backfillMeetingBriefs(limit: Int = 8) {
-        guard AppSettings.shared.autoGenerateMeetingNotes, providerReadyForAutoBrief(), !isTranscribing else { return }
-        let candidates = transcriptionHistory.history
-            .filter { ($0.sourceType == .meeting || MeetingText.isGenericTitle($0.title)) && $0.fileExists }
-            .prefix(limit)
-            .filter { item in
-                guard let text = item.transcriptionText, text.split(separator: " ").count >= 25 else { return false }
-                return TranscriptAIStore.load(for: item.filePath)?
-                    .templateOutputs?[PromptTemplateLibrary.meetingBriefID.uuidString] == nil
-            }
-        guard !candidates.isEmpty else { return }
-        Task { @MainActor in
-            for item in candidates {
-                guard !self.isTranscribing,
-                      let text = item.transcriptionText?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty
-                else { continue }
-                do {
-                    let out = try await TemplateRunner.produce(PromptTemplateLibrary.meetingBrief, on: text)
-                    var sidecar = TranscriptAIStore.load(for: item.filePath)
-                        ?? TranscriptAISidecar(summary: nil, chat: [], translation: nil, translationLanguageCode: nil,
-                                               templateOutputs: nil, userNotes: nil, speakerNames: nil,
-                                               speakerSuggestions: nil, markedMoments: nil, commitments: nil)
-                    var outputs = sidecar.templateOutputs ?? [:]
-                    outputs[PromptTemplateLibrary.meetingBriefID.uuidString] = out
-                    sidecar.templateOutputs = outputs
-                    TranscriptAIStore.save(sidecar, for: item.filePath)
-                    appLog("[MindExtract] Backfilled brief: \(item.title)")
-                } catch {
-                    appLog("[MindExtract] Backfill stopped (\(error.localizedDescription))")
-                    break   // provider problem → stop the run
-                }
-            }
-        }
     }
 
     private var whisperKit: WhisperKit?
@@ -1130,7 +1049,6 @@ class TranscriptionManager: ObservableObject {
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
                     self.notifyTranscriptionComplete()
                     self.finishMeetingExtras(path: outputPath)
-                    self.autoGenerateMeetingBriefIfNeeded(transcript: self.liveTranscriptionText, path: outputPath)
                     self.advanceBatchIfNeeded()
                     appLog("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
                 }
@@ -2194,7 +2112,6 @@ extension TranscriptionManager {
                 saveToHistory(title: currentTranscriptionTitle, filePath: outputPath)
                 notifyTranscriptionComplete()
                 finishMeetingExtras(path: outputPath)
-                autoGenerateMeetingBriefIfNeeded(transcript: liveTranscriptionText, path: outputPath)
                 advanceBatchIfNeeded()
                 cleanup()
             } catch {

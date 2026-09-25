@@ -581,7 +581,7 @@ class AppSettings: ObservableObject {
         return [(name: String(localized: "Automatic"), code: "auto")] + sorted
     }
 
-    /// Every preference "Reset all settings" restores. Transcripts, recipes, API keys
+    /// Every preference "Reset all settings" restores. Transcripts, API keys
     /// and sign-ins are not preferences and are never touched.
     static let resettableKeys = [
         "downloadSubtitles", "subtitleLanguage", "parallelDownloads", "playSoundOnComplete", "showNotifications",
@@ -786,6 +786,33 @@ class TranscriptionHistoryManager: ObservableObject {
     func removeFromHistory(_ item: TranscriptionHistoryItem) {
         history.removeAll { $0.id == item.id }
         TranscriptLibrary.shared.evict(path: item.filePath)
+        saveHistory()
+    }
+
+    /// Moves notes to the Trash (recoverable there): the transcript and its
+    /// sidecars — and for a recording, its whole session folder with the audio.
+    /// A downloaded video next to a transcript is a download, not the note, so
+    /// it stays.
+    func moveToTrash(_ items: [TranscriptionHistoryItem]) {
+        let fm = FileManager.default
+        let recordings = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("com.mindact.mindextract/Recordings", isDirectory: true)
+            .standardizedFileURL.path
+        for item in items {
+            let file = URL(fileURLWithPath: item.filePath)
+            let dir = file.deletingLastPathComponent()
+            if dir.deletingLastPathComponent().standardizedFileURL.path == recordings {
+                try? fm.trashItem(at: dir, resultingItemURL: nil)
+            } else {
+                for suffix in ["", ".segments.json", ".mindex-ai.json"] {
+                    let url = URL(fileURLWithPath: item.filePath + suffix)
+                    if fm.fileExists(atPath: url.path) { try? fm.trashItem(at: url, resultingItemURL: nil) }
+                }
+            }
+            TranscriptLibrary.shared.evict(path: item.filePath)
+        }
+        let ids = Set(items.map(\.id))
+        history.removeAll { ids.contains($0.id) }
         saveHistory()
     }
 
