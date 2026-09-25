@@ -225,6 +225,11 @@ struct TranscriptAISidecar: Codable {
     // (task + owner + due), then user-owned (editable/deletable). Persisted so the
     // Today view's commitment list is stable and curation survives reopen.
     var commitments: [MeetingCommitment]?
+    // AI-enhanced version of the user's live notes (user words vs AI additions,
+    // with source timestamps into the recording).
+    var enhancedNotes: EnhancedNotes?
+    // Seconds into the recording when the user confirmed everyone agreed to it.
+    var consentConfirmedAt: Double?
 }
 
 enum TranscriptAIStore {

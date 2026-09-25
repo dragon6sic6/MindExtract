@@ -107,6 +107,7 @@ final class ActiveMeetingDetector: ObservableObject {
         } else if previous != nil {
             nudgedApp = nil   // call ended — allow a fresh nudge next time
             MeetingPromptController.shared.callEnded()
+            RecordingPillController.shared.callEnded()
         }
     }
 

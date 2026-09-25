@@ -747,6 +747,12 @@ struct TranscriptHistoryRow: View {
         .rowChrome()
         .contentShape(Rectangle())
         .onTapGesture { onOpen() }
+        // Reachable with VoiceOver / Full Keyboard Access: the row itself opens the
+        // transcript, while its action buttons stay separate elements.
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(item.title)
+        .accessibilityAction { onOpen() }
         .contextMenu {
             if item.fileExists {
                 Button("Open Transcript", action: onOpen)

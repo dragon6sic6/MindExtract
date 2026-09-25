@@ -59,6 +59,11 @@ class TranscriptionManager: ObservableObject {
     /// Notes the user typed during a meeting recording, handed to the next
     /// transcript so the result view can save + AI-merge them. Consumed once.
     var pendingMeetingNotes: String?
+    /// Notes + consent from the meeting being transcribed, consumed on completion
+    /// (independently of the view, which consumes `pendingMeetingNotes` early).
+    var pendingMeetingExtras: (notes: String, consentAt: Double?)?
+    /// Transcript paths whose enhanced notes are being written right now.
+    @Published private(set) var enhancingPaths: Set<String> = []
     /// Separate mic/system tracks from a meeting recording, for channel-aware
     /// "you vs them" speaker attribution. Consumed (and the files deleted) once.
     var pendingChannelSources: (mic: String, system: String)?
@@ -100,6 +105,78 @@ class TranscriptionManager: ObservableObject {
     /// background and persist it to the sidecar — so commitments, People and the MCP
     /// tools fill in even if the user never opens the transcript. The result view
     /// defers to us (consumePendingIsMeeting), so this never double-runs.
+    // MARK: - Meeting notes (enhanced)
+
+    /// True when a finished recording can be transcribed without asking — some
+    /// engine is ready. Otherwise the confirm sheet appears (it offers downloads).
+    var canAutoTranscribe: Bool {
+        useAppleSpeech() || !downloadedModels.isEmpty
+    }
+
+    /// Saves the meeting's notes + consent next to the transcript, then writes the
+    /// enhanced notes in the background when the user took notes.
+    private func finishMeetingExtras(path: String) {
+        guard let extras = pendingMeetingExtras else { return }
+        pendingMeetingExtras = nil
+        var sidecar = TranscriptAIStore.load(for: path)
+            ?? TranscriptAISidecar(summary: nil, chat: [], translation: nil, translationLanguageCode: nil,
+                                   templateOutputs: nil, userNotes: nil, speakerNames: nil,
+                                   speakerSuggestions: nil, markedMoments: nil)
+        let notes = extras.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !notes.isEmpty, (sidecar.userNotes ?? "").isEmpty { sidecar.userNotes = notes }
+        if let at = extras.consentAt { sidecar.consentConfirmedAt = at }
+        TranscriptAIStore.save(sidecar, for: path)
+        if !notes.isEmpty, AppSettings.shared.autoGenerateMeetingNotes, providerReadyForAutoBrief() {
+            generateEnhancedNotes(path: path, userNotes: notes, segments: segments)
+        }
+    }
+
+    /// Writes (or rewrites) the enhanced notes for a transcript and saves them.
+    func generateEnhancedNotes(path: String, userNotes: String, segments: [TranscriptionSegmentData]) {
+        guard !enhancingPaths.contains(path), !segments.isEmpty else { return }
+        enhancingPaths.insert(path)
+        let backend = AIBackends.current()
+        Task { @MainActor in
+            defer {
+                self.enhancingPaths.remove(path)
+                NotificationCenter.default.post(name: .enhancedNotesUpdated, object: path)
+            }
+            do {
+                let notes = try await EnhancedNotesGenerator.generate(userNotes: userNotes, segments: segments, backend: backend)
+                guard !notes.isEmpty else { return }
+                var sidecar = TranscriptAIStore.load(for: path)
+                    ?? TranscriptAISidecar(summary: nil, chat: [], translation: nil, translationLanguageCode: nil,
+                                           templateOutputs: nil, userNotes: nil, speakerNames: nil,
+                                           speakerSuggestions: nil, markedMoments: nil)
+                sidecar.enhancedNotes = notes
+                if (sidecar.userNotes ?? "").isEmpty, !userNotes.isEmpty { sidecar.userNotes = userNotes }
+                TranscriptAIStore.save(sidecar, for: path)
+                appLog("[MindExtract] Enhanced notes written: \(path)")
+            } catch {
+                appLog("[MindExtract] Enhanced notes failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// The recording that belongs to a transcript: same base name next to it, or
+    /// the combined mix in a meeting folder (never the raw mic/system tracks).
+    nonisolated static func audioBeside(transcript path: String) -> String? {
+        let fm = FileManager.default
+        let url = URL(fileURLWithPath: path)
+        let dir = url.deletingLastPathComponent()
+        let base = url.deletingPathExtension().lastPathComponent
+        let audioExts = ["m4a", "wav", "mp3", "caf", "aac"]
+        for ext in audioExts {
+            let candidate = dir.appendingPathComponent(base).appendingPathExtension(ext)
+            if fm.fileExists(atPath: candidate.path) { return candidate.path }
+        }
+        guard let files = try? fm.contentsOfDirectory(atPath: dir.path), files.contains("mic.m4a") else { return nil }
+        return files
+            .filter { audioExts.contains(($0 as NSString).pathExtension.lowercased()) && !["mic.m4a", "system.m4a"].contains($0.lowercased()) }
+            .first
+            .map { dir.appendingPathComponent($0).path }
+    }
+
     private func autoGenerateMeetingBriefIfNeeded(transcript: String, path: String) {
         guard AppSettings.shared.autoGenerateMeetingNotes, pendingIsMeeting else { return }
         let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1051,6 +1128,7 @@ class TranscriptionManager: ObservableObject {
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
                     self.notifyTranscriptionComplete()
+                    self.finishMeetingExtras(path: outputPath)
                     self.autoGenerateMeetingBriefIfNeeded(transcript: self.liveTranscriptionText, path: outputPath)
                     self.advanceBatchIfNeeded()
                     appLog("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
@@ -1676,9 +1754,10 @@ class TranscriptionManager: ObservableObject {
             // Clear any prior transcript's custom speaker names; restoreAISidecar
             // repopulates them from this item's sidecar.
             self.speakerNameOverrides = [:]
-            // The temp audio for a past transcription is gone — clear any stale
-            // path so the player bar hides instead of trying to play the wrong file.
-            self.audioFilePath = nil
+            // Play the recording kept next to the transcript (meetings keep theirs);
+            // otherwise hide the player rather than play a stale temp file.
+            self.audioFilePath = Self.audioBeside(transcript: item.filePath)
+            self.currentTranscriptSource = item.sourceType ?? .file
             self.segments = loadedSegments ?? []
             if let segs = loadedSegments, let last = segs.last {
                 self.audioDuration = last.end
@@ -1901,7 +1980,11 @@ extension TranscriptionManager {
         activeOutputPath = outputPath
         // Swedish goes to Pianissimo when it's installed — unless the user explicitly
         // chose Apple Speech as their engine.
-        let pianissimoForSwedish = language == "sv" && isModelDownloaded(.pianissimo)
+        // Apple Speech treats "auto" as the Mac's language — so a Swedish Mac on
+        // "auto" is Swedish audio in practice, and Pianissimo should take it.
+        let appleAuto = language == "auto" && useAppleSpeech()
+            && Locale.current.language.languageCode?.identifier == "sv"
+        let pianissimoForSwedish = (language == "sv" || appleAuto) && isModelDownloaded(.pianissimo)
             && AppSettings.shared.transcriptionEngine != .appleSpeech
         if pianissimoForSwedish {
             runWhisperKit(audioPath: audioPath, model: .pianissimo, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
@@ -2042,6 +2125,7 @@ extension TranscriptionManager {
                 transcriptionState = .completed(outputPath: outputPath)
                 saveToHistory(title: currentTranscriptionTitle, filePath: outputPath)
                 notifyTranscriptionComplete()
+                finishMeetingExtras(path: outputPath)
                 autoGenerateMeetingBriefIfNeeded(transcript: liveTranscriptionText, path: outputPath)
                 advanceBatchIfNeeded()
                 cleanup()

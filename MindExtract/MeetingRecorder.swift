@@ -57,6 +57,14 @@ final class MeetingRecorder: ObservableObject {
     private var sessionAttendeeEmails: [String] = []   // calendar attendee emails → recap email recipients
     /// Notes the user jots during the meeting — merged with the transcript by AI.
     @Published var liveNotes = ""
+    /// The meeting's title, editable in the notepad while recording.
+    @Published var liveTitle = ""
+    /// Seconds into the recording when the user confirmed everyone agreed to it.
+    @Published private(set) var consentAt: TimeInterval?
+    /// Calendar attendees of the current session (for the notepad header).
+    var attendees: [String] { sessionAttendees }
+    /// When the current recording started.
+    var startedAt: Date? { startDate }
 
     var isRecording: Bool { if case .recording = state { return true }; return false }
     var isBusy: Bool {
@@ -249,6 +257,8 @@ final class MeetingRecorder: ObservableObject {
         self.sessionAttendeeEmails = attendeeEmails
         markedMoments = []
         liveNotes = notesPrefill
+        liveTitle = meetingTitle ?? ""
+        consentAt = nil
         state = .starting
         level = 0
         Task { await startCapture() }
@@ -379,7 +389,8 @@ final class MeetingRecorder: ObservableObject {
             state = .idle
             return
         }
-        let title = sessionTitle ?? Self.recordingTitle(startDate ?? Date())
+        let edited = liveTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = edited.isEmpty ? (sessionTitle ?? Self.recordingTitle(startDate ?? Date())) : edited
         await handler.finalize()
         output = nil
 
@@ -396,13 +407,37 @@ final class MeetingRecorder: ObservableObject {
             state = .error("Recording saved, but couldn't be prepared for transcription.", .capture)
             return
         }
-        // Don't auto-commit — let the user name it, transcribe, or discard. Their
-        // meeting audio is theirs; nothing irreversible happens without a tap.
-        pendingRecording = PendingRecording(url: finalURL, title: title, duration: lastDuration, dir: dir, notes: liveNotes)
-        // Bring MindExtract to the front so the "Recording finished" sheet is seen —
-        // recording is often stopped from the menu bar with another app focused.
+        let pending = PendingRecording(url: finalURL, title: title, duration: lastDuration, dir: dir, notes: liveNotes)
+        // Bring MindExtract to the front so the result (or the confirm sheet) is
+        // seen — recording is often stopped from the menu bar in another app.
         NSApp.activate(ignoringOtherApps: true)
         NSApp.windows.first { $0.canBecomeKey }?.makeKeyAndOrderFront(nil)
+        // Straight to transcription (language auto-detected, Swedish → Pianissimo),
+        // like Granola. The sheet remains for users who asked for it, and when no
+        // engine is ready yet (it offers the model download).
+        if AppSettings.shared.confirmBeforeTranscribing || !TranscriptionManager.shared.canAutoTranscribe {
+            pendingRecording = pending
+        } else {
+            commit(pending, title: pending.title, language: liveLanguage, model: Self.autoModel(for: liveLanguage))
+        }
+    }
+
+    /// The model to hand the pipeline when the user wasn't asked: the language's
+    /// recommendation if downloaded, else the default, else any downloaded model.
+    /// (runTranscription still routes Swedish to Pianissimo and detects "auto".)
+    static func autoModel(for language: String) -> WhisperModel {
+        let tm = TranscriptionManager.shared
+        let rec = WhisperModel.recommended(for: language)
+        if tm.isModelDownloaded(rec) { return rec }
+        let def = AppSettings.shared.defaultWhisperModel
+        if tm.isModelDownloaded(def) { return def }
+        return tm.downloadedModels.first { $0.usesWhisperKit } ?? tm.downloadedModels.first ?? def
+    }
+
+    /// Marks that everyone in the meeting agreed to the recording.
+    func confirmConsent() {
+        guard isRecording else { return }
+        consentAt = elapsed
     }
 
     /// Transcribe the pending recording with the chosen title, spoken language,
@@ -412,10 +447,15 @@ final class MeetingRecorder: ObservableObject {
     func confirmPending(title: String, language: String, model: WhisperModel) {
         guard let pending = pendingRecording else { return }
         pendingRecording = nil
+        commit(pending, title: title, language: language, model: model)
+    }
+
+    private func commit(_ pending: PendingRecording, title: String, language: String, model: WhisperModel) {
         let name = title.trimmingCharacters(in: .whitespaces).isEmpty ? pending.title : title
         // Hand the user's live notes to the transcript so AI can merge them.
         let trimmedNotes = pending.notes.trimmingCharacters(in: .whitespacesAndNewlines)
         TranscriptionManager.shared.pendingMeetingNotes = trimmedNotes.isEmpty ? nil : trimmedNotes
+        TranscriptionManager.shared.pendingMeetingExtras = (notes: trimmedNotes, consentAt: consentAt)
         // Hand the separate mic/system tracks for channel-aware "you vs them".
         let fm = FileManager.default
         let mic = pending.dir.appendingPathComponent("mic.m4a")

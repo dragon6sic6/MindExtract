@@ -52,6 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         }
         // Push-to-talk dictation (hold right ⌥ Option).
         DictationController.shared.refresh()
+        // Floating pill + auto-stop while recording in another app.
+        RecordingPillController.shared.activate()
         // Light up the intelligence layer on existing meetings: generate any missing
         // AI briefs in the background shortly after launch (idempotent, capped).
         Task { @MainActor in

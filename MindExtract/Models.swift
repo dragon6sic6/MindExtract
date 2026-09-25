@@ -510,6 +510,11 @@ class AppSettings: ObservableObject {
     @AppStorage("dictationEnabled") var dictationEnabled: Bool = true
     /// "system" (default), "light" or "dark".
     @AppStorage("appAppearance") var appAppearance: String = "system"
+    /// Show the "Recording finished" sheet (name, language, model) instead of
+    /// transcribing straight away.
+    @AppStorage("confirmBeforeTranscribing") var confirmBeforeTranscribing: Bool = false
+    /// Stop recording (after a cancellable countdown) when the detected call ends.
+    @AppStorage("autoStopWhenCallEnds") var autoStopWhenCallEnds: Bool = true
     /// "sv" → Pianissimo; other codes → Whisper; "auto" detects per dictation.
     @AppStorage("dictationLanguage") var dictationLanguage: String = "sv"
 

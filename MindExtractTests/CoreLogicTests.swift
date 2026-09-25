@@ -376,4 +376,82 @@ final class CoreLogicTests: XCTestCase {
             print("DICTATION \(seconds)s in \(String(format: "%.2f", CFAbsoluteTimeGetCurrent() - t))s: \(text)")
         }
     }
+
+    // MARK: Enhanced notes parsing
+
+    func testEnhancedNotesMarkUserWordsAndTimestamps() {
+        let md = """
+        ## Beslut
+        - Sara tar fram kostnadsjämförelse — presenteras 9 oktober. [10:08]
+        - **Lanseringen** ligger kvar i november [1:02:14]
+
+        ## Åtgärder
+        1. Anna — stäm av budgeten med ekonomi — i dag [03:05]
+        """
+        let notes = "- sara tar fram kostnadsjämförelse\nbudget"
+        let sections = EnhancedNotesGenerator.parse(md, userNotes: notes)
+        XCTAssertEqual(sections.map(\.heading), ["Beslut", "Åtgärder"])
+        let first = sections[0].lines[0]
+        XCTAssertEqual(first.parts.first?.isUser, true)
+        XCTAssertEqual(first.parts.first?.text, "Sara tar fram kostnadsjämförelse")
+        XCTAssertEqual(first.parts.last?.isUser, false)
+        XCTAssertEqual(first.at, 608)
+        XCTAssertFalse(first.text.contains("["), "citation removed from visible text")
+        XCTAssertEqual(sections[0].lines[1].at, 3734)
+        XCTAssertEqual(sections[0].lines[1].text, "Lanseringen ligger kvar i november")
+        XCTAssertEqual(sections[1].lines[0].at, 185)
+        XCTAssertEqual(sections[1].lines[0].parts.count, 1, "no user note in this line")
+    }
+
+    func testEnhancedNotesCitationListsAndPunctuation() {
+        let (text, at) = EnhancedNotesGenerator.extractTimestamp("Anna jagar ekonomin i dag [00:02, 00:09] .")
+        XCTAssertEqual(text, "Anna jagar ekonomin i dag.")
+        XCTAssertEqual(at, 2)
+        let (task, due) = EnhancedNotesGenerator.extractTimestamp("Sara — kostnadsjämförelse — [08:08]")
+        XCTAssertEqual(task, "Sara — kostnadsjämförelse")
+        XCTAssertEqual(due, 488)
+        XCTAssertEqual(EnhancedNotesGenerator.extractTimestamp("Ingen tid här").1, nil)
+    }
+
+    func testEnhancedNotesWithoutHeadingsOrTimestamps() {
+        let sections = EnhancedNotesGenerator.parse("- Point one\n* Point two", userNotes: "")
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections[0].heading, "")
+        XCTAssertEqual(sections[0].lines.map(\.text), ["Point one", "Point two"])
+        XCTAssertNil(sections[0].lines[0].at)
+    }
+
+    func testTimestampedTranscriptAndClock() {
+        XCTAssertEqual(EnhancedNotesGenerator.clock(65), "01:05")
+        XCTAssertEqual(EnhancedNotesGenerator.clock(3725), "1:02:05")
+        let segs = [TranscriptionSegmentData(start: 12, end: 15, text: "Hej", speaker: "You", words: [], avgLogprob: 0)]
+        XCTAssertEqual(EnhancedNotesGenerator.timestampedTranscript(segs), "[00:12] You: Hej")
+    }
+
+    /// Opt-in: runs enhanced notes on the configured AI backend (set ENHANCE_E2E=1).
+    func testEnhancedNotesEndToEnd() async throws {
+        guard ProcessInfo.processInfo.environment["ENHANCE_E2E"] != nil else { throw XCTSkip("Set ENHANCE_E2E to run") }
+        let lines: [(Float, String, String)] = [
+            (2, "You", "Då kör vi, alla är på plats. Första punkten är budgeten för fjärde kvartalet."),
+            (9, "Anna", "Ekonomi har inte återkommit om budgeten än. Jag jagar dem i dag, annars riskerar vi att rekryteringen skjuts till nästa år."),
+            (185, "Johan", "Lanseringsplanen – jag siktar på att skicka ett utkast på fredag."),
+            (488, "Sara", "Jag kan ta fram en kostnadsjämförelse mellan en extern konsult och en intern resurs till nästa styrgrupp den nionde oktober."),
+            (671, "Anna", "Vi måste räkna med att juli blir tunt bemannat, så planen behöver vara klar före semestrarna."),
+            (854, "You", "Bra, då bestämmer vi att lanseringen ligger kvar i november."),
+        ]
+        let segs = lines.map { TranscriptionSegmentData(start: $0.0, end: $0.0 + 8, text: $0.2, speaker: $0.1, words: [], avgLogprob: 0) }
+        let notes = "budget q4 – ekonomi har inte återkommit\njohan: lanseringsplan klar fre?\nkonsult vs intern → Sara kollar kostnad"
+        let t = CFAbsoluteTimeGetCurrent()
+        let backend: AIBackend = ProcessInfo.processInfo.environment["ENHANCE_E2E"] == "apple" ? AppleIntelligenceBackend() : AIBackends.current()
+        let result = try await EnhancedNotesGenerator.generate(userNotes: notes, segments: segs, backend: backend)
+        print("ENHANCED (\(result.badge), \(String(format: "%.1f", CFAbsoluteTimeGetCurrent() - t))s)")
+        for s in result.sections {
+            print("ENHANCED ## \(s.heading)")
+            for l in s.lines {
+                let marked = l.parts.map { $0.isUser ? "«\($0.text)»" : $0.text }.joined()
+                print("ENHANCED - \(marked) \(l.at.map { "@\(EnhancedNotesGenerator.clock($0))" } ?? "")")
+            }
+        }
+        XCTAssertFalse(result.isEmpty)
+    }
 }

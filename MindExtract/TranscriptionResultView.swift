@@ -97,6 +97,7 @@ enum SpeakerColors {
 // MARK: - Tab Selection
 
 enum TranscriptionTab: String, CaseIterable {
+    case notes = "Notes"
     case text = "Text"
     case timeline = "Timeline"
     case summary = "Summary"
@@ -263,7 +264,18 @@ struct TranscriptionResultView: View {
     }
 
     private var availableTabs: [TranscriptionTab] {
-        TranscriptionTab.allCases.filter { $0 != .chat || chatAvailable }
+        TranscriptionTab.allCases.filter {
+            switch $0 {
+            case .chat: return chatAvailable
+            case .notes: return isMeetingTranscript
+            default: return true
+            }
+        }
+    }
+
+    /// Meetings (and anything with live notes) open on the Notes tab.
+    private var isMeetingTranscript: Bool {
+        transcriptionManager.currentTranscriptSource == .meeting || !(userNotes ?? "").isEmpty
     }
 
     private func commitRename(for speaker: String) {
@@ -650,6 +662,18 @@ struct TranscriptionResultView: View {
             // lets you ask *about* it; tap another tab to jump back to reading.
             Group {
                 switch selectedTab {
+                case .notes:
+                    MeetingNotesPanel(
+                        path: transcriptionManager.lastSavedPath,
+                        userNotes: userNotes,
+                        segments: transcriptionManager.segments,
+                        isTranscribing: !isCompleted,
+                        hasAudio: transcriptionManager.audioFilePath != nil,
+                        onSeek: { time in
+                            audioPlayer.seek(to: time)
+                            if !audioPlayer.isPlaying { audioPlayer.togglePlayPause() }
+                        }
+                    )
                 case .text:
                     textView
                 case .timeline:
@@ -1774,6 +1798,11 @@ struct TranscriptionResultView: View {
     /// singletons to it (they're shared across transcripts).
     private func restoreAISidecar() {
         let saved = transcriptionManager.lastSavedPath.flatMap { TranscriptAIStore.load(for: $0) }
+        defer {
+            // Meetings open on their notes; everything else on the text.
+            if isMeetingTranscript { selectedTab = .notes }
+            else if selectedTab == .notes { selectedTab = .text }
+        }
         summarizer.bind(toText: transcriptionManager.liveTranscriptionText,
                         restoredSummary: saved?.summary)
         translator.bind(toText: transcriptionManager.liveTranscriptionText)
@@ -1875,20 +1904,24 @@ struct TranscriptionResultView: View {
         let translation = translator.currentTranslation
         let speakerNames = transcriptionManager.speakerNameOverrides.filter { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
         guard summary != nil || translation != nil || !templateOutputs.isEmpty || !chat.messages.isEmpty || userNotes != nil || !speakerNames.isEmpty || !speakerSuggestions.isEmpty || !markedMoments.isEmpty else { return }
-        TranscriptAIStore.save(
-            TranscriptAISidecar(
-                summary: summary,
-                chat: chat.messages,
-                translation: translation,
-                translationLanguageCode: translation != nil ? translateTargetLanguage : nil,
-                templateOutputs: templateOutputs.isEmpty ? nil : templateOutputs,
-                userNotes: userNotes,
-                speakerNames: speakerNames.isEmpty ? nil : speakerNames,
-                speakerSuggestions: speakerSuggestions.isEmpty ? nil : speakerSuggestions,
-                markedMoments: markedMoments.isEmpty ? nil : markedMoments
-            ),
-            for: path
-        )
+        // Merge into what's on disk: fields this view doesn't own (commitments,
+        // enhanced notes, consent) are written by others and must survive.
+        var sidecar = TranscriptAIStore.load(for: path)
+            ?? TranscriptAISidecar(summary: nil, chat: [], translation: nil, translationLanguageCode: nil,
+                                   templateOutputs: nil, userNotes: nil, speakerNames: nil,
+                                   speakerSuggestions: nil, markedMoments: nil)
+        sidecar.summary = summary
+        sidecar.chat = chat.messages
+        sidecar.translation = translation
+        sidecar.translationLanguageCode = translation != nil ? translateTargetLanguage : nil
+        // Background jobs (the auto brief) may have added outputs since this view loaded.
+        let mergedOutputs = (sidecar.templateOutputs ?? [:]).merging(templateOutputs) { _, mine in mine }
+        sidecar.templateOutputs = mergedOutputs.isEmpty ? nil : mergedOutputs
+        sidecar.userNotes = userNotes ?? sidecar.userNotes
+        sidecar.speakerNames = speakerNames.isEmpty ? nil : speakerNames
+        sidecar.speakerSuggestions = speakerSuggestions.isEmpty ? sidecar.speakerSuggestions : speakerSuggestions
+        sidecar.markedMoments = markedMoments.isEmpty ? sidecar.markedMoments : markedMoments
+        TranscriptAIStore.save(sidecar, for: path)
     }
 
     @ViewBuilder

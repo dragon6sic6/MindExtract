@@ -660,6 +660,23 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(!MeetingRecorder.isSupported)
+                Divider().padding(.vertical, 2)
+                Toggle(isOn: $settings.autoStopWhenCallEnds) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Stop when the call ends")
+                        Text("When the call app stops using the microphone, MindExtract stops recording after a short countdown you can cancel.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                .disabled(!MeetingRecorder.isSupported)
+                Divider().padding(.vertical, 2)
+                Toggle(isOn: $settings.confirmBeforeTranscribing) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Ask before transcribing")
+                        Text("Off: a finished recording is transcribed right away — language is detected and Swedish uses Pianissimo. On: choose name, language and model first.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
             }
 
             SettingsSection(title: "Live Captions", icon: "captions.bubble") {

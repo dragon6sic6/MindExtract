@@ -32,7 +32,10 @@ struct RecordingView: View {
 
     var body: some View {
         Group {
-            if MeetingRecorder.isSupported {
+            if MeetingRecorder.isSupported && recorder.isRecording {
+                // Notepad-first while recording (MeetingNotepadView.swift).
+                MeetingNotepadView()
+            } else if MeetingRecorder.isSupported {
                 content
             } else {
                 unsupported
@@ -95,9 +98,7 @@ struct RecordingView: View {
                     .frame(maxWidth: 460)
             }
 
-            if recorder.isRecording {
-                recordingPanel
-            } else if recorder.state == .finishing {
+            if recorder.state == .finishing {
                 finalizingPanel
             } else {
                 idlePanel
@@ -317,116 +318,6 @@ struct RecordingView: View {
                 .frame(maxWidth: 380)
         }
         .padding(.vertical, 20)
-    }
-
-    // MARK: Recording
-
-    private var recordingPanel: some View {
-        VStack(spacing: 18) {
-            Text(Self.formatElapsed(recorder.elapsed))
-                .font(.system(size: 40, weight: .light, design: .monospaced))
-                .foregroundColor(.primary)
-
-            LevelMeter(level: recorder.level)
-                .frame(width: 260, height: 8)
-
-            HStack(spacing: 16) {
-                sourceTag("Microphone", active: recorder.micActive)
-                sourceTag("Meeting audio", active: recorder.systemActive)
-            }
-
-            if live.isActive {
-                liveTranscriptView
-                Button {
-                    captionOverlay.toggle(transcriber: live)
-                } label: {
-                    Label(captionOverlay.isVisible ? "Hide floating captions" : "Show floating captions",
-                          systemImage: captionOverlay.isVisible ? "rectangle.slash" : "captions.bubble")
-                        .font(.caption)
-                }
-                .secondaryGlassButton()
-                .controlSize(.small)
-                .help("Show live captions in a floating window that stays on top of Zoom/Teams")
-            }
-
-            // Bookmark "this matters" → jumps appear in the Brief afterwards.
-            Button {
-                recorder.markMoment()
-            } label: {
-                Label(recorder.markedMoments.isEmpty ? "Mark moment  ⌘M" : "Mark moment  ⌘M  ·  \(recorder.markedMoments.count)",
-                      systemImage: "flag.fill")
-                    .font(.caption)
-            }
-            .secondaryGlassButton()
-            .controlSize(.small)
-            .help("Bookmark this moment — you can jump back to it in the Brief")
-
-            liveNotesView
-
-            Button {
-                recorder.stop()
-            } label: {
-                Label("Stop & Transcribe", systemImage: "stop.fill")
-                    .frame(maxWidth: 260)
-            }
-            .primaryGlassButton()
-            .controlSize(.large)
-        }
-    }
-
-    private var liveNotesView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "pencil.line").font(.system(size: 11)).foregroundStyle(DS.Colors.accent)
-                Text("Your notes — AI merges these with the transcript")
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
-            }
-            TextEditor(text: $recorder.liveNotes)
-                .font(.system(size: 13))
-                .frame(width: 520, height: 90)
-                .padding(8)
-                .scrollContentBackground(.hidden)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(DS.Colors.hairline, lineWidth: 1))
-        }
-    }
-
-    private var liveTranscriptView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "waveform").font(.system(size: 11)).foregroundStyle(DS.Colors.accent)
-                Text(live.displayText.isEmpty ? (live.status.isEmpty ? "Listening…" : live.status) : "Live transcript")
-                    .font(.system(size: 11, weight: .medium)).foregroundColor(.secondary)
-            }
-            ScrollViewReader { proxy in
-                ScrollView {
-                    Text(live.displayText.isEmpty ? " " : live.displayText)
-                        .font(.system(size: 13))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                        .id("liveBottom")
-                }
-                .frame(width: 520, height: 150)
-                .onChange(of: live.displayText) { _, _ in
-                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("liveBottom", anchor: .bottom) }
-                }
-            }
-            .padding(10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(DS.Colors.hairline, lineWidth: 1))
-        }
-    }
-
-    private func sourceTag(_ title: String, active: Bool) -> some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(active ? Color.green : Color.secondary.opacity(0.4))
-                .frame(width: 8, height: 8)
-            Text(title)
-                .font(.caption)
-                .foregroundColor(active ? .primary : .secondary)
-        }
     }
 
     // MARK: Permissions
@@ -742,23 +633,6 @@ struct RecordingConfirmSheet: View {
             }
         } else {
             appleSupported = false   // no Apple Speech below macOS 26
-        }
-    }
-}
-
-// MARK: - Level meter
-
-private struct LevelMeter: View {
-    let level: Double
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color.primary.opacity(0.08))
-                Capsule()
-                    .fill(LinearGradient(colors: [DS.Colors.accent, .green], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: max(2, geo.size.width * level))
-                    .animation(.easeOut(duration: 0.1), value: level)
-            }
         }
     }
 }
