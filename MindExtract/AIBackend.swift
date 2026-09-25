@@ -41,16 +41,16 @@ enum AIBackendChoice: String, CaseIterable, Codable, Identifiable {
 
     var detail: String {
         switch self {
-        case .apple: return "Built into macOS 26 — fully on-device, nothing leaves your Mac"
-        case .ollama: return "Use models you've downloaded with Ollama (Gemma, Mistral, Llama…) — fully local"
-        case .openAI: return "Cloud — transcript text is sent to OpenAI"
-        case .anthropic: return "Cloud — transcript text is sent to Anthropic"
-        case .gemini: return "Cloud — transcript text is sent to Google"
-        case .grok: return "Cloud — transcript text is sent to xAI"
-        case .mistral: return "Cloud — European provider (EU-hosted). Transcript text is sent to Mistral"
-        case .groq: return "Cloud — fast open-model inference. Transcript text is sent to Groq"
-        case .openRouter: return "Cloud — an aggregator: your transcript goes to OpenRouter and is then forwarded to whichever model you pick (two hops)"
-        case .custom: return "Your own endpoint — the transcript is sent wherever you point it. You're in control; use a server you trust"
+        case .apple: return String(localized: "Built into macOS 26 — fully on-device, nothing leaves your Mac")
+        case .ollama: return String(localized: "Use models you've downloaded with Ollama (Gemma, Mistral, Llama…) — fully local")
+        case .openAI: return String(localized: "Cloud — transcript text is sent to OpenAI")
+        case .anthropic: return String(localized: "Cloud — transcript text is sent to Anthropic")
+        case .gemini: return String(localized: "Cloud — transcript text is sent to Google")
+        case .grok: return String(localized: "Cloud — transcript text is sent to xAI")
+        case .mistral: return String(localized: "Cloud — European provider (EU-hosted). Transcript text is sent to Mistral")
+        case .groq: return String(localized: "Cloud — fast open-model inference. Transcript text is sent to Groq")
+        case .openRouter: return String(localized: "Cloud — an aggregator: your transcript goes to OpenRouter and is then forwarded to whichever model you pick (two hops)")
+        case .custom: return String(localized: "Your own endpoint — the transcript is sent wherever you point it. You're in control; use a server you trust")
         }
     }
 

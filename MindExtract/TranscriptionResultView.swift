@@ -1020,7 +1020,7 @@ struct TranscriptionResultView: View {
         }
     }
 
-    private func statusPill(text: String, showSpinner: Bool) -> some View {
+    private func statusPill(text: LocalizedStringKey, showSpinner: Bool) -> some View {
         HStack(spacing: 6) {
             if showSpinner {
                 ProgressView()

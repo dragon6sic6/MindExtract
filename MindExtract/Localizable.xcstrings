@@ -1,0 +1,6333 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "": {},
+    "\n\n": {},
+    "%@ (%@) downloads once, then works offline.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (%@) laddas ned en gång och fungerar sedan utan internet."
+          }
+        }
+      }
+    },
+    "%@ (Text)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (text)"
+          }
+        }
+      }
+    },
+    "%@ call": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@-samtal"
+          }
+        }
+      }
+    },
+    "%@ isn't set up — pick a ready model or configure it in Settings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ är inte konfigurerad – välj en modell som är redo eller ställ in den i Inställningar"
+          }
+        }
+      }
+    },
+    "%@ meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@-möte"
+          }
+        }
+      }
+    },
+    "%@ · %@ download": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@ att ladda ned"
+          }
+        }
+      }
+    },
+    "%@%@": {},
+    "%lld": {},
+    "%lld File%@ Selected": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld filer valda"
+          }
+        }
+      }
+    },
+    "%lld meetings · last %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld möten · senast %@"
+          }
+        }
+      }
+    },
+    "%lld min read": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min läsning"
+          }
+        }
+      }
+    },
+    "%lld of %lld": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld av %lld"
+          }
+        }
+      }
+    },
+    "%lld open": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld öppna"
+          }
+        }
+      }
+    },
+    "%lld segments": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld avsnitt"
+          }
+        }
+      }
+    },
+    "%lld speakers · %@ spoken": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld talare · %@ tal"
+          }
+        }
+      }
+    },
+    "%lld words": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ord"
+          }
+        }
+      }
+    },
+    "%lld%%": {},
+    "%lldm %llds": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min %lld s"
+          }
+        }
+      }
+    },
+    "%lldm %llds elapsed — larger files and first-time model loading take longer": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min %lld s har gått – större filer och första inläsningen av en modell tar längre tid"
+          }
+        }
+      }
+    },
+    "%llds": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld s"
+          }
+        }
+      }
+    },
+    "%llds elapsed": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld s har gått"
+          }
+        }
+      }
+    },
+    "1080p max": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Högst 1080p"
+          }
+        }
+      }
+    },
+    "15 minutes before": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 minuter innan"
+          }
+        }
+      }
+    },
+    "3 meetings · last 9 days ago · 4 open": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 möten · senast för 9 dagar sedan · 4 öppna"
+          }
+        }
+      }
+    },
+    "30 minutes before": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 minuter innan"
+          }
+        }
+      }
+    },
+    "5 minutes before": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 minuter innan"
+          }
+        }
+      }
+    },
+    "720p max": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Högst 720p"
+          }
+        }
+      }
+    },
+    "A floating window with the live text, on top of Zoom and Teams.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ett svävande fönster med texten i realtid, ovanpå Zoom och Teams."
+          }
+        }
+      }
+    },
+    "A recipe is a fixed series of follow-up steps — like notes, then a recap email, then tasks in Reminders. Run it from a meeting, or switch it on to run after every meeting.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ett recept är en fast serie uppföljningssteg – till exempel anteckningar, sedan ett sammanfattningsmejl och sist uppgifter i Påminnelser. Kör det från ett möte, eller slå på det så körs det efter varje möte."
+          }
+        }
+      }
+    },
+    "AI": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI"
+          }
+        }
+      }
+    },
+    "AI Model Required": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En talmodell behövs"
+          }
+        }
+      }
+    },
+    "AI engine": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI-motor"
+          }
+        }
+      }
+    },
+    "AI model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI-modell"
+          }
+        }
+      }
+    },
+    "AI model — switch provider for answers": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI-modell – byt tjänst för svaren"
+          }
+        }
+      }
+    },
+    "API key": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API-nyckel"
+          }
+        }
+      }
+    },
+    "About MindExtract": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Om MindExtract"
+          }
+        }
+      }
+    },
+    "About you": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Om dig"
+          }
+        }
+      }
+    },
+    "Accessibility": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hjälpmedel"
+          }
+        }
+      }
+    },
+    "Accessibility lets MindExtract notice the key and type into other apps — it never reads what you type. Shortcuts like ⌥2 for @ keep working. Audio is discarded right after.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hjälpmedel låter MindExtract känna av tangenten och skriva i andra appar – det du skriver läses aldrig. Kortkommandon som ⌥2 för @ fungerar som vanligt. Ljudet kastas direkt efteråt."
+          }
+        }
+      }
+    },
+    "Acknowledgements": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tack till"
+          }
+        }
+      }
+    },
+    "Add Account…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lägg till konto…"
+          }
+        }
+      }
+    },
+    "Add More": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lägg till fler"
+          }
+        }
+      }
+    },
+    "Add action items to Reminders": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lägg till uppgifter i Påminnelser"
+          }
+        }
+      }
+    },
+    "Add to Favorites": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lägg till i favoriter"
+          }
+        }
+      }
+    },
+    "Add to Reminders": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lägg till i Påminnelser"
+          }
+        }
+      }
+    },
+    "Add to queue and load another video": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lägg i kön och läs in en till video"
+          }
+        }
+      }
+    },
+    "Adding…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lägger till…"
+          }
+        }
+      }
+    },
+    "Advanced": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avancerat"
+          }
+        }
+      }
+    },
+    "After a 20-second countdown you can cancel.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Efter en nedräkning på 20 sekunder som du kan avbryta."
+          }
+        }
+      }
+    },
+    "After allowing meeting audio in System Settings, restart MindExtract.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starta om MindExtract när du har tillåtit mötesljud i Systeminställningar."
+          }
+        }
+      }
+    },
+    "After meetings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Efter möten"
+          }
+        }
+      }
+    },
+    "All": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla"
+          }
+        }
+      }
+    },
+    "All formats…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla format…"
+          }
+        }
+      }
+    },
+    "Allowed": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tillåtet"
+          }
+        }
+      }
+    },
+    "Allow…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tillåt…"
+          }
+        }
+      }
+    },
+    "Also download subtitles": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda även ned undertexter"
+          }
+        }
+      }
+    },
+    "Anna Lindqvist": {},
+    "Answers cite which transcript they came from. Try:": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svaren anger vilket transkript de kommer från. Prova:"
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utseende"
+          }
+        }
+      }
+    },
+    "Apple": {},
+    "Apple's built-in speech recognition. No download needed.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apples inbyggda taligenkänning. Inget behöver laddas ned."
+          }
+        }
+      }
+    },
+    "Ask": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga"
+          }
+        }
+      }
+    },
+    "Ask AI across all transcripts": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga AI om alla transkript"
+          }
+        }
+      }
+    },
+    "Ask About This": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga om det här"
+          }
+        }
+      }
+    },
+    "Ask Claude about your meetings — catch up, prepare for a person, turn tasks into tickets. Read-only; Claude only sees what you ask about.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga Claude om dina möten – kom ikapp, förbered dig inför någon, gör uppgifter till ärenden. Bara läsning; Claude ser bara det du frågar om."
+          }
+        }
+      }
+    },
+    "Ask about anything you've recorded…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga om vad som helst du har spelat in…"
+          }
+        }
+      }
+    },
+    "Ask about this transcript…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga om transkriptet…"
+          }
+        }
+      }
+    },
+    "Ask across all transcripts": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga om alla transkript"
+          }
+        }
+      }
+    },
+    "Ask anything across every transcript you've saved.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga vad som helst om alla transkript du har sparat."
+          }
+        }
+      }
+    },
+    "Ask anything — the AI answers from the transcript.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga vad som helst – AI:n svarar utifrån transkriptet."
+          }
+        }
+      }
+    },
+    "Ask before transcribing": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga innan transkribering"
+          }
+        }
+      }
+    },
+    "Audio": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ljud"
+          }
+        }
+      }
+    },
+    "Audio only": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bara ljud"
+          }
+        }
+      }
+    },
+    "Audio tools are missing — transcription is unavailable": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ljudverktyg saknas – transkribering är inte tillgänglig"
+          }
+        }
+      }
+    },
+    "Audio tools are missing, so transcription is unavailable. Reinstall MindExtract to fix it.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ljudverktyg saknas, så transkribering är inte tillgänglig. Installera om MindExtract för att åtgärda det."
+          }
+        }
+      }
+    },
+    "Automatic": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatiskt"
+          }
+        }
+      }
+    },
+    "Automatic detects the language of each recording. You can always transcribe again in another language.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatiskt känner av språket i varje inspelning. Du kan alltid transkribera igen på ett annat språk."
+          }
+        }
+      }
+    },
+    "Automatic follows your Mac's light or dark mode and accent color.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatiskt följer din Macs ljusa eller mörka läge och accentfärg."
+          }
+        }
+      }
+    },
+    "Available when the transcript is ready": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tillgängligt när transkriptet är klart"
+          }
+        }
+      }
+    },
+    "Back to the Library": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tillbaka till Biblioteket"
+          }
+        }
+      }
+    },
+    "Best Swedish — trained by Klang AI, fast and punctuated": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bäst på svenska – tränad av Klang AI, snabb och med skiljetecken"
+          }
+        }
+      }
+    },
+    "Best accuracy, requires more RAM": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bäst precision, kräver mer minne"
+          }
+        }
+      }
+    },
+    "Best available": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bästa tillgängliga"
+          }
+        }
+      }
+    },
+    "Better accuracy, moderate speed": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bättre precision, måttlig hastighet"
+          }
+        }
+      }
+    },
+    "Birthdays": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Födelsedagar"
+          }
+        }
+      }
+    },
+    "Bookmark this moment (⌘M)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markera det här ögonblicket (⌘M)"
+          }
+        }
+      }
+    },
+    "Brief": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sammanfattning"
+          }
+        }
+      }
+    },
+    "Brief (default)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sammanfattning (förval)"
+          }
+        }
+      }
+    },
+    "Built into macOS 26 — fully on-device, nothing leaves your Mac": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbyggt i macOS 26 – helt på enheten, inget lämnar din Mac"
+          }
+        }
+      }
+    },
+    "Business name": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Företagsnamn"
+          }
+        }
+      }
+    },
+    "Calendar": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kalender"
+          }
+        }
+      }
+    },
+    "Calendar access": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kalenderåtkomst"
+          }
+        }
+      }
+    },
+    "Calendars": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kalendrar"
+          }
+        }
+      }
+    },
+    "Call ended · stopping in %lld s": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Samtalet är slut · stoppar om %lld s"
+          }
+        }
+      }
+    },
+    "Call in progress": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pågående samtal"
+          }
+        }
+      }
+    },
+    "Calls": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Samtal"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avbryt"
+          }
+        }
+      }
+    },
+    "Cancel this download": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avbryt nedladdningen"
+          }
+        }
+      }
+    },
+    "Cancel transcription": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avbryt transkriberingen"
+          }
+        }
+      }
+    },
+    "Captions": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textning"
+          }
+        }
+      }
+    },
+    "Change Language": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Byt språk"
+          }
+        }
+      }
+    },
+    "Change…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ändra…"
+          }
+        }
+      }
+    },
+    "Chat with this transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chatta med transkriptet"
+          }
+        }
+      }
+    },
+    "Check for Updates…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök efter uppdateringar…"
+          }
+        }
+      }
+    },
+    "Choose": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Välj"
+          }
+        }
+      }
+    },
+    "Choose a cookies file": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Välj en cookie-fil"
+          }
+        }
+      }
+    },
+    "Choose a logo": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Välj en logotyp"
+          }
+        }
+      }
+    },
+    "Choose quality and download": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Välj kvalitet och ladda ned"
+          }
+        }
+      }
+    },
+    "Choose…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Välj…"
+          }
+        }
+      }
+    },
+    "Claude Desktop": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Desktop"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rensa"
+          }
+        }
+      }
+    },
+    "Clear All": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rensa allt"
+          }
+        }
+      }
+    },
+    "Clear all download history?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rensa hela nedladdningshistoriken?"
+          }
+        }
+      }
+    },
+    "Clear and start over": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rensa och börja om"
+          }
+        }
+      }
+    },
+    "Clear download history": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rensa nedladdningshistoriken"
+          }
+        }
+      }
+    },
+    "Clear search": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rensa sökningen"
+          }
+        }
+      }
+    },
+    "Clear this conversation": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rensa konversationen"
+          }
+        }
+      }
+    },
+    "Click to play from here": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klicka för att spela upp härifrån"
+          }
+        }
+      }
+    },
+    "Close (esc)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stäng (esc)"
+          }
+        }
+      }
+    },
+    "Close search (Esc)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stäng sökningen (Esc)"
+          }
+        }
+      }
+    },
+    "Cloud — European provider (EU-hosted). Transcript text is sent to Mistral": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moln – europeisk leverantör (i EU). Transkriptets text skickas till Mistral"
+          }
+        }
+      }
+    },
+    "Cloud — an aggregator: your transcript goes to OpenRouter and is then forwarded to whichever model you pick (two hops)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moln – en mellanhand: transkriptet skickas till OpenRouter och vidare till den modell du väljer (två steg)"
+          }
+        }
+      }
+    },
+    "Cloud — fast open-model inference. Transcript text is sent to Groq": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moln – snabba öppna modeller. Transkriptets text skickas till Groq"
+          }
+        }
+      }
+    },
+    "Cloud — transcript text is sent to Anthropic": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moln – transkriptets text skickas till Anthropic"
+          }
+        }
+      }
+    },
+    "Cloud — transcript text is sent to Google": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moln – transkriptets text skickas till Google"
+          }
+        }
+      }
+    },
+    "Cloud — transcript text is sent to OpenAI": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moln – transkriptets text skickas till OpenAI"
+          }
+        }
+      }
+    },
+    "Cloud — transcript text is sent to xAI": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moln – transkriptets text skickas till xAI"
+          }
+        }
+      }
+    },
+    "Code to enter": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod att ange"
+          }
+        }
+      }
+    },
+    "Completed": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klar"
+          }
+        }
+      }
+    },
+    "Completed (%lld)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klara (%lld)"
+          }
+        }
+      }
+    },
+    "Confirm consent": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bekräfta samtycke"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anslut"
+          }
+        }
+      }
+    },
+    "Connect your calendar in Settings → Calendar to see meetings and prep for them.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anslut din kalender i Inställningar → Kalender för att se möten och förbereda dig."
+          }
+        }
+      }
+    },
+    "Connected": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ansluten"
+          }
+        }
+      }
+    },
+    "Consent confirmed · %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Samtycke bekräftat · %@"
+          }
+        }
+      }
+    },
+    "Converting media to audio for transcription": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gör om filen till ljud för transkribering"
+          }
+        }
+      }
+    },
+    "Cookies file": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cookie-fil"
+          }
+        }
+      }
+    },
+    "Copied": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopierat"
+          }
+        }
+      }
+    },
+    "Copied!": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopierat!"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera"
+          }
+        }
+      }
+    },
+    "Copy Setup": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera inställning"
+          }
+        }
+      }
+    },
+    "Copy Text": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera text"
+          }
+        }
+      }
+    },
+    "Copy Transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera transkript"
+          }
+        }
+      }
+    },
+    "Copy URL": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera länk"
+          }
+        }
+      }
+    },
+    "Copy a hand-off prompt for my AI": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera en instruktion till min AI"
+          }
+        }
+      }
+    },
+    "Copy brief": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera sammanfattningen"
+          }
+        }
+      }
+    },
+    "Copy notice in English": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera meddelande på engelska"
+          }
+        }
+      }
+    },
+    "Copy notice in Swedish": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera meddelande på svenska"
+          }
+        }
+      }
+    },
+    "Copy text": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera text"
+          }
+        }
+      }
+    },
+    "Copy with timestamp": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera med tidsstämpel"
+          }
+        }
+      }
+    },
+    "Couldn't reach Ollama. Make sure the Ollama app is running.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunde inte nå Ollama. Kontrollera att Ollama-appen är igång."
+          }
+        }
+      }
+    },
+    "Couldn't reach the server": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunde inte nå servern"
+          }
+        }
+      }
+    },
+    "Couldn't update Claude's settings.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunde inte uppdatera Claudes inställningar."
+          }
+        }
+      }
+    },
+    "Create a reminder for each action item in your Reminders app": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skapa en påminnelse för varje uppgift i appen Påminnelser"
+          }
+        }
+      }
+    },
+    "Dark": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mörkt"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radera"
+          }
+        }
+      }
+    },
+    "Delete model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radera modellen"
+          }
+        }
+      }
+    },
+    "Delete “%@”": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radera ”%@”"
+          }
+        }
+      }
+    },
+    "Deselect All": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avmarkera alla"
+          }
+        }
+      }
+    },
+    "Dictation": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diktering"
+          }
+        }
+      }
+    },
+    "Discard Recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kasta inspelningen"
+          }
+        }
+      }
+    },
+    "Discard this recording?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kasta den här inspelningen?"
+          }
+        }
+      }
+    },
+    "Discard…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kasta…"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stäng"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klar"
+          }
+        }
+      }
+    },
+    "Done. Quit Claude (⌘Q) and open it again.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klart. Avsluta Claude (⌘Q) och öppna det igen."
+          }
+        }
+      }
+    },
+    "Download": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned"
+          }
+        }
+      }
+    },
+    "Download %lld Video%@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned %lld videor"
+          }
+        }
+      }
+    },
+    "Download Again": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned igen"
+          }
+        }
+      }
+    },
+    "Download All": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned alla"
+          }
+        }
+      }
+    },
+    "Download Another": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned en till"
+          }
+        }
+      }
+    },
+    "Download a Model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned en modell"
+          }
+        }
+      }
+    },
+    "Download a WhisperKit model to start transcribing locally on your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned en talmodell för att transkribera på din Mac."
+          }
+        }
+      }
+    },
+    "Download and Transcribe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned och transkribera"
+          }
+        }
+      }
+    },
+    "Download and transcribe only content you have the right to use.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned och transkribera bara material som du har rätt att använda."
+          }
+        }
+      }
+    },
+    "Download audio only (MP3)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda bara ned ljudet (MP3)"
+          }
+        }
+      }
+    },
+    "Download completed!": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningen är klar!"
+          }
+        }
+      }
+    },
+    "Download the selected videos as audio (MP3)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned de markerade videorna som ljud (MP3)"
+          }
+        }
+      }
+    },
+    "Download this video": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned den här videon"
+          }
+        }
+      }
+    },
+    "Downloadable Whisper models. Supports the most languages.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningsbara Whisper-modeller. Klarar flest språk."
+          }
+        }
+      }
+    },
+    "Downloaded": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdat"
+          }
+        }
+      }
+    },
+    "Downloaded videos appear here": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdade videor visas här"
+          }
+        }
+      }
+    },
+    "Downloading %@…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laddar ned %@…"
+          }
+        }
+      }
+    },
+    "Downloading audio": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laddar ned ljud"
+          }
+        }
+      }
+    },
+    "Downloading audio…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laddar ned ljud…"
+          }
+        }
+      }
+    },
+    "Downloading isn't available — a component is missing. Reinstall MindExtract to fix this.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdning är inte tillgänglig eftersom en komponent saknas. Installera om MindExtract för att åtgärda det."
+          }
+        }
+      }
+    },
+    "Downloads at a time": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningar samtidigt"
+          }
+        }
+      }
+    },
+    "Draft a recap email": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv ett utkast till sammanfattningsmejl"
+          }
+        }
+      }
+    },
+    "Due": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klart senast"
+          }
+        }
+      }
+    },
+    "Duplicate “%@”…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicera ”%@”…"
+          }
+        }
+      }
+    },
+    "Earlier": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidigare"
+          }
+        }
+      }
+    },
+    "Edit commitment": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redigera uppgift"
+          }
+        }
+      }
+    },
+    "Edit recipe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redigera recept"
+          }
+        }
+      }
+    },
+    "Edit transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redigera transkript"
+          }
+        }
+      }
+    },
+    "Edit “%@”…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redigera ”%@”…"
+          }
+        }
+      }
+    },
+    "Editing — press Return to save": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redigering – tryck på Retur för att spara"
+          }
+        }
+      }
+    },
+    "Editing — tap a line to fix it, press Return to save": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redigering – klicka på en rad för att rätta den, tryck på Retur för att spara"
+          }
+        }
+      }
+    },
+    "Edit…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redigera…"
+          }
+        }
+      }
+    },
+    "Email": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-post"
+          }
+        }
+      }
+    },
+    "Email recap": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mejla sammanfattning"
+          }
+        }
+      }
+    },
+    "Engine": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motor"
+          }
+        }
+      }
+    },
+    "Enhance notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbättra anteckningar"
+          }
+        }
+      }
+    },
+    "Enhance notes writes structured notes — decisions, action items and key points — from the transcript alone.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbättra anteckningar skriver strukturerade anteckningar – beslut, uppgifter och viktiga punkter – utifrån transkriptet."
+          }
+        }
+      }
+    },
+    "Enter a key first": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ange en nyckel först"
+          }
+        }
+      }
+    },
+    "Every preference goes back to its default. Your transcripts, recordings, recipes and API keys are not touched.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla inställningar återgår till förval. Dina transkript, inspelningar, recept och API-nycklar påverkas inte."
+          }
+        }
+      }
+    },
+    "Everyone agreed to the recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla har godkänt inspelningen"
+          }
+        }
+      }
+    },
+    "Everyone agreed to the recording · %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla godkände inspelningen · %@"
+          }
+        }
+      }
+    },
+    "Everyone you meet gets a thread automatically — your meetings together, what's still open both ways, and the topics that keep coming up. No typing, nothing leaves your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla du träffar får automatiskt en egen tråd – era möten, vad som är öppet åt båda hållen och ämnen som återkommer. Inget att skriva, inget lämnar din Mac."
+          }
+        }
+      }
+    },
+    "Everything stays on your Mac. For encryption of the files on disk, turn on FileVault in System Settings → Privacy & Security.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allt stannar på din Mac. Slå på FileVault i Systeminställningar → Integritet och säkerhet för att kryptera filerna på disken."
+          }
+        }
+      }
+    },
+    "Everything stays on your Mac. Nothing is uploaded unless you choose a cloud AI provider.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allt stannar på din Mac. Inget laddas upp om du inte väljer en AI-tjänst i molnet."
+          }
+        }
+      }
+    },
+    "Everything still open, so you walk in ready": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allt som fortfarande är öppet, så att du går in förberedd"
+          }
+        }
+      }
+    },
+    "Export": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportera"
+          }
+        }
+      }
+    },
+    "Export the brief as Markdown": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportera sammanfattningen som Markdown"
+          }
+        }
+      }
+    },
+    "Extracting audio": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tar ut ljudet"
+          }
+        }
+      }
+    },
+    "Extracting audio…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tar ut ljudet…"
+          }
+        }
+      }
+    },
+    "Fading": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svalnar"
+          }
+        }
+      }
+    },
+    "Fastest, basic accuracy": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snabbast, grundläggande precision"
+          }
+        }
+      }
+    },
+    "Favorite": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorit"
+          }
+        }
+      }
+    },
+    "Favorites": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favoriter"
+          }
+        }
+      }
+    },
+    "File": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fil"
+          }
+        }
+      }
+    },
+    "Filter and sort": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtrera och sortera"
+          }
+        }
+      }
+    },
+    "Find Models": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hitta modeller"
+          }
+        }
+      }
+    },
+    "Find in Transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök i transkriptet"
+          }
+        }
+      }
+    },
+    "First load compiles the model — larger models may take a few minutes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Första gången förbereds modellen – större modeller kan ta några minuter"
+          }
+        }
+      }
+    },
+    "Floating captions on top of Zoom/Teams": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svävande textning ovanpå Zoom och Teams"
+          }
+        }
+      }
+    },
+    "Focus": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fokus"
+          }
+        }
+      }
+    },
+    "Focus: show only what to do now": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fokus: visa bara det som ska göras nu"
+          }
+        }
+      }
+    },
+    "Found %lld Videos": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld videor hittades"
+          }
+        }
+      }
+    },
+    "General": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allmänt"
+          }
+        }
+      }
+    },
+    "Generate": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv"
+          }
+        }
+      }
+    },
+    "Generate Summary": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv sammanfattning"
+          }
+        }
+      }
+    },
+    "Generate “%@” from this transcript using your selected AI model. %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv ”%@” utifrån transkriptet med din valda AI-modell. %@"
+          }
+        }
+      }
+    },
+    "Get an API key": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skaffa en API-nyckel"
+          }
+        }
+      }
+    },
+    "Go": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gå"
+          }
+        }
+      }
+    },
+    "Good afternoon": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "God eftermiddag"
+          }
+        }
+      }
+    },
+    "Good balance of speed and accuracy": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bra balans mellan hastighet och precision"
+          }
+        }
+      }
+    },
+    "Good evening": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "God kväll"
+          }
+        }
+      }
+    },
+    "Good morning": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "God morgon"
+          }
+        }
+      }
+    },
+    "Google or Microsoft account": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google- eller Microsoft-konto"
+          }
+        }
+      }
+    },
+    "Happening now": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pågår nu"
+          }
+        }
+      }
+    },
+    "Happening now: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pågår nu: %@"
+          }
+        }
+      }
+    },
+    "Hi": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hej"
+          }
+        }
+      }
+    },
+    "Hide captions": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dölj textning"
+          }
+        }
+      }
+    },
+    "Hide prep": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dölj förberedelse"
+          }
+        }
+      }
+    },
+    "Hide the transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dölj transkriptet"
+          }
+        }
+      }
+    },
+    "Hide transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dölj transkript"
+          }
+        }
+      }
+    },
+    "Hides a colleague's events on a shared calendar.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Döljer en kollegas händelser i en delad kalender."
+          }
+        }
+      }
+    },
+    "High accuracy, slower": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hög precision, långsammare"
+          }
+        }
+      }
+    },
+    "Hold right ⌥ Option to dictate": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Håll in höger ⌥ Alternativ för att diktera"
+          }
+        }
+      }
+    },
+    "Hold the key anywhere, speak, let go — the text is typed where your cursor is.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Håll in tangenten var som helst, prata och släpp – texten skrivs där markören står."
+          }
+        }
+      }
+    },
+    "Import": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importera"
+          }
+        }
+      }
+    },
+    "Import File or Link…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importera fil eller länk…"
+          }
+        }
+      }
+    },
+    "Into": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Till"
+          }
+        }
+      }
+    },
+    "Join": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anslut"
+          }
+        }
+      }
+    },
+    "Join & Record": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anslut och spela in"
+          }
+        }
+      }
+    },
+    "Jot down cues — a name, a number, a decision. When the meeting ends, MindExtract writes the rest from the transcript.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv korta stödord – ett namn, en siffra, ett beslut. När mötet är slut skriver MindExtract resten utifrån transkriptet."
+          }
+        }
+      }
+    },
+    "Keep recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortsätt spela in"
+          }
+        }
+      }
+    },
+    "Kept until you quit, in case the text landed where there was no text field.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sparas tills du avslutar, ifall texten hamnade där det inte fanns något textfält."
+          }
+        }
+      }
+    },
+    "Key moments": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Viktiga ögonblick"
+          }
+        }
+      }
+    },
+    "Key rejected (HTTP %lld)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nyckeln nekades (HTTP %lld)"
+          }
+        }
+      }
+    },
+    "Labels who said what. You can rename speakers afterwards.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visar vem som sa vad. Du kan döpa om talarna efteråt."
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Språk"
+          }
+        }
+      }
+    },
+    "Language (e.g. Norwegian, Polish, Thai…)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Språk (t.ex. norska, polska, thai…)"
+          }
+        }
+      }
+    },
+    "Last met": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Träffades senast"
+          }
+        }
+      }
+    },
+    "Later today": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senare idag"
+          }
+        }
+      }
+    },
+    "Library": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bibliotek"
+          }
+        }
+      }
+    },
+    "Light": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ljust"
+          }
+        }
+      }
+    },
+    "Link": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Länk"
+          }
+        }
+      }
+    },
+    "Links and videos": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Länkar och videor"
+          }
+        }
+      }
+    },
+    "Listening…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lyssnar…"
+          }
+        }
+      }
+    },
+    "Live captions": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Livetextning"
+          }
+        }
+      }
+    },
+    "Live transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript i realtid"
+          }
+        }
+      }
+    },
+    "Load": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Läs in"
+          }
+        }
+      }
+    },
+    "Loading %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Läser in %@"
+          }
+        }
+      }
+    },
+    "Loading %@ model…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Läser in modellen %@…"
+          }
+        }
+      }
+    },
+    "Loading qualities…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Läser in kvaliteter…"
+          }
+        }
+      }
+    },
+    "Loading…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Läser in…"
+          }
+        }
+      }
+    },
+    "Locks MindExtract when you switch away, so client or patient material isn't visible on an unlocked Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Låser MindExtract när du byter app, så att klient- eller patientmaterial inte syns på en olåst Mac."
+          }
+        }
+      }
+    },
+    "Logo": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logotyp"
+          }
+        }
+      }
+    },
+    "Long transcripts are processed in parts — this can take a minute.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Långa transkript bearbetas i delar – det kan ta en minut."
+          }
+        }
+      }
+    },
+    "Long transcripts are summarized in parts — this can take a minute.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Långa transkript sammanfattas i delar – det kan ta en minut."
+          }
+        }
+      }
+    },
+    "Longest monologue: %@ · %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Längsta monolog: %@ · %@"
+          }
+        }
+      }
+    },
+    "MP3": {},
+    "Manage…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hantera…"
+          }
+        }
+      }
+    },
+    "Mark": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markera"
+          }
+        }
+      }
+    },
+    "Mark Moment": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markera ögonblick"
+          }
+        }
+      }
+    },
+    "Mark · %lld": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markera · %lld"
+          }
+        }
+      }
+    },
+    "Masks names, emails and phone numbers. Auto-detection may miss some — review before sharing.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Döljer namn, e-postadresser och telefonnummer. Den automatiska sökningen kan missa något – granska innan du delar."
+          }
+        }
+      }
+    },
+    "Maybe later": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanske senare"
+          }
+        }
+      }
+    },
+    "Meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Möte"
+          }
+        }
+      }
+    },
+    "Meeting Brief": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mötessammanfattning"
+          }
+        }
+      }
+    },
+    "Meeting audio": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mötesljud"
+          }
+        }
+      }
+    },
+    "Meeting title": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mötets titel"
+          }
+        }
+      }
+    },
+    "Meeting titles and participants are filled in, and Today shows what's coming up.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mötestitlar och deltagare fylls i, och Idag visar vad som är på gång."
+          }
+        }
+      }
+    },
+    "Meetings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Möten"
+          }
+        }
+      }
+    },
+    "Microphone": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofon"
+          }
+        }
+      }
+    },
+    "Microphone to use": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofon att använda"
+          }
+        }
+      }
+    },
+    "MindExtract Help": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MindExtract-hjälp"
+          }
+        }
+      }
+    },
+    "MindExtract is locked": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MindExtract är låst"
+          }
+        }
+      }
+    },
+    "MindExtract needs permission to record": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MindExtract behöver tillåtelse att spela in"
+          }
+        }
+      }
+    },
+    "MindExtract reads the calendars on your Mac and never writes to them. Accounts added in System Settings → Internet Accounts appear automatically.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MindExtract läser kalendrarna på din Mac och skriver aldrig i dem. Konton som läggs till i Systeminställningar → Internetkonton visas automatiskt."
+          }
+        }
+      }
+    },
+    "MindExtract records your microphone and the other participants' audio. No bot joins the call, and nothing leaves your Mac. \"System default\" follows AirPods and headsets automatically.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MindExtract spelar in din mikrofon och de andra deltagarnas ljud. Ingen bot ansluter och inget lämnar din Mac. ”Systemets förval” följer AirPods och headset automatiskt."
+          }
+        }
+      }
+    },
+    "Missing": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saknas"
+          }
+        }
+      }
+    },
+    "Model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modell"
+          }
+        }
+      }
+    },
+    "Model for other languages": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modell för andra språk"
+          }
+        }
+      }
+    },
+    "Models run on your Mac. Pianissimo gives the best Swedish; Whisper handles every other language. Pianissimo by Klang AI AB, CC BY 4.0.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modellerna körs på din Mac. Pianissimo ger bäst svenska, Whisper klarar alla andra språk. Pianissimo av Klang AI AB, CC BY 4.0."
+          }
+        }
+      }
+    },
+    "More": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mer"
+          }
+        }
+      }
+    },
+    "More actions": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fler åtgärder"
+          }
+        }
+      }
+    },
+    "More models": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fler modeller"
+          }
+        }
+      }
+    },
+    "Most videos download without signing in. Sign in only if YouTube blocks a download, for example age-restricted or members-only videos.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De flesta videor laddas ned utan inloggning. Logga bara in om YouTube stoppar en nedladdning, till exempel videor med åldersgräns eller för medlemmar."
+          }
+        }
+      }
+    },
+    "My Templates": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mina mallar"
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Namn"
+          }
+        }
+      }
+    },
+    "Names and terms": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Namn och termer"
+          }
+        }
+      }
+    },
+    "Near-best accuracy, optimized speed": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nästan bäst precision, snabbare"
+          }
+        }
+      }
+    },
+    "Need meeting minutes, a SOAP note, or your own format? Choose a template above ↑": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Behöver du ett protokoll, en journalanteckning eller ett eget format? Välj en mall ovan ↑"
+          }
+        }
+      }
+    },
+    "New": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ny"
+          }
+        }
+      }
+    },
+    "New Recipe…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nytt recept…"
+          }
+        }
+      }
+    },
+    "New Recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ny inspelning"
+          }
+        }
+      }
+    },
+    "New Template…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ny mall…"
+          }
+        }
+      }
+    },
+    "New recipe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nytt recept"
+          }
+        }
+      }
+    },
+    "Next 3 days": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kommande 3 dagar"
+          }
+        }
+      }
+    },
+    "Next 7 days": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kommande 7 dagar"
+          }
+        }
+      }
+    },
+    "Next match (⌘G)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nästa träff (⌘G)"
+          }
+        }
+      }
+    },
+    "Next: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nästa: %@"
+          }
+        }
+      }
+    },
+    "No Downloads": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inga nedladdningar"
+          }
+        }
+      }
+    },
+    "No bot joins the call. MindExtract records your microphone and the meeting audio on this Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingen bot ansluter till samtalet. MindExtract spelar in din mikrofon och mötesljudet på den här Macen."
+          }
+        }
+      }
+    },
+    "No longer used. %@ on disk.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Används inte längre. %@ på disken."
+          }
+        }
+      }
+    },
+    "No meetings yet": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inga möten än"
+          }
+        }
+      }
+    },
+    "No notes for this meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inga anteckningar för det här mötet"
+          }
+        }
+      }
+    },
+    "No results": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inga resultat"
+          }
+        }
+      }
+    },
+    "No results for \"%@\"": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inga resultat för ”%@”"
+          }
+        }
+      }
+    },
+    "No transcripts match the filter.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inga transkript matchar filtret."
+          }
+        }
+      }
+    },
+    "None": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingen"
+          }
+        }
+      }
+    },
+    "Not a task — remove": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingen uppgift – ta bort"
+          }
+        }
+      }
+    },
+    "Not now": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inte nu"
+          }
+        }
+      }
+    },
+    "Not signed in": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inte inloggad"
+          }
+        }
+      }
+    },
+    "Notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteckningar"
+          }
+        }
+      }
+    },
+    "Notes, decisions and tasks are ready when you open the meeting — and Today fills in by itself.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteckningar, beslut och uppgifter är klara när du öppnar mötet – och Idag fylls i av sig självt."
+          }
+        }
+      }
+    },
+    "Nothing here": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Här finns inget"
+          }
+        }
+      }
+    },
+    "Nothing on your calendar. Hit Record whenever a conversation starts.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inget i kalendern. Klicka på Spela in när ett samtal börjar."
+          }
+        }
+      }
+    },
+    "Nothing open. Everything you committed to is done.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inget öppet. Allt du lovade är klart."
+          }
+        }
+      }
+    },
+    "Notice when I'm in a call": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Märk när jag är i ett samtal"
+          }
+        }
+      }
+    },
+    "Notifications": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notiser"
+          }
+        }
+      }
+    },
+    "Notify me when a download finishes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meddela mig när en nedladdning är klar"
+          }
+        }
+      }
+    },
+    "Notify me when a transcript is ready": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meddela mig när ett transkript är klart"
+          }
+        }
+      }
+    },
+    "Now": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nu"
+          }
+        }
+      }
+    },
+    "Nudge everyone who owes me (%lld)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Påminn alla som är skyldiga mig något (%lld)"
+          }
+        }
+      }
+    },
+    "Nudge…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Påminn…"
+          }
+        }
+      }
+    },
+    "Off: a recording is transcribed as soon as you stop, in the language that's spoken.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Av: en inspelning transkriberas direkt när du stoppar, på det språk som talas."
+          }
+        }
+      }
+    },
+    "Offer to record": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erbjud inspelning"
+          }
+        }
+      }
+    },
+    "Old KB-Whisper models": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gamla KB-Whisper-modeller"
+          }
+        }
+      }
+    },
+    "On My Mac": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "På min Mac"
+          }
+        }
+      }
+    },
+    "Only meetings I'm part of": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bara möten jag deltar i"
+          }
+        }
+      }
+    },
+    "Open": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna"
+          }
+        }
+      }
+    },
+    "Open Downloads Folder": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna mappen för nedladdningar"
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna Inställningar"
+          }
+        }
+      }
+    },
+    "Open a transcript to preview this template.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna ett transkript för att förhandsgranska mallen."
+          }
+        }
+      }
+    },
+    "Open commitments": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna uppgifter"
+          }
+        }
+      }
+    },
+    "Open last meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna senaste mötet"
+          }
+        }
+      }
+    },
+    "Open meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna mötet"
+          }
+        }
+      }
+    },
+    "Open notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna anteckningar"
+          }
+        }
+      }
+    },
+    "Open the original in your browser": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna originalet i webbläsaren"
+          }
+        }
+      }
+    },
+    "Open the sign-in page again": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna inloggningssidan igen"
+          }
+        }
+      }
+    },
+    "Open with these people": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppet med de här personerna"
+          }
+        }
+      }
+    },
+    "Open your notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna dina anteckningar"
+          }
+        }
+      }
+    },
+    "Operation Timed Out": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Åtgärden tog för lång tid"
+          }
+        }
+      }
+    },
+    "Other AI apps": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Andra AI-appar"
+          }
+        }
+      }
+    },
+    "Other…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annat…"
+          }
+        }
+      }
+    },
+    "Our story": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vår historik"
+          }
+        }
+      }
+    },
+    "Output Log": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logg"
+          }
+        }
+      }
+    },
+    "Overview, key points and action items — generated with your selected AI model. %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Översikt, viktiga punkter och uppgifter – skrivna med din valda AI-modell. %@"
+          }
+        }
+      }
+    },
+    "Own": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Egen"
+          }
+        }
+      }
+    },
+    "PDF letterhead": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brevhuvud för PDF"
+          }
+        }
+      }
+    },
+    "PDF — formatted": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF – formaterad"
+          }
+        }
+      }
+    },
+    "Paste (⌘V)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in (⌘V)"
+          }
+        }
+      }
+    },
+    "Paste a meeting link to record it": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in en möteslänk för att spela in"
+          }
+        }
+      }
+    },
+    "Paste a video or website URL…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in en länk till en video eller webbsida…"
+          }
+        }
+      }
+    },
+    "Paste your key": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in din nyckel"
+          }
+        }
+      }
+    },
+    "Pause": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausa"
+          }
+        }
+      }
+    },
+    "Pause (Space)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausa (mellanslag)"
+          }
+        }
+      }
+    },
+    "People": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personer"
+          }
+        }
+      }
+    },
+    "People you'll meet soon": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personer du snart träffar"
+          }
+        }
+      }
+    },
+    "People, places, companies and jargon to spell correctly — one per line. Used by the Whisper models.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personer, platser, företag och facktermer som ska stavas rätt – en per rad. Används av Whisper-modellerna."
+          }
+        }
+      }
+    },
+    "Pianissimo (Swedish)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pianissimo (svenska)"
+          }
+        }
+      }
+    },
+    "Picks the best engine for each language. Swedish uses Pianissimo when it's downloaded.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Väljer den bästa motorn för varje språk. Svenska använder Pianissimo när den är nedladdad."
+          }
+        }
+      }
+    },
+    "Plain Text (.txt)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vanlig text (.txt)"
+          }
+        }
+      }
+    },
+    "Play (Space)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela upp (mellanslag)"
+          }
+        }
+      }
+    },
+    "Play a sound": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela upp ett ljud"
+          }
+        }
+      }
+    },
+    "Play from here": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela upp härifrån"
+          }
+        }
+      }
+    },
+    "Play this moment of the recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela upp det här ögonblicket i inspelningen"
+          }
+        }
+      }
+    },
+    "Playback speed": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uppspelningshastighet"
+          }
+        }
+      }
+    },
+    "Polish with transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förfina med transkriptet"
+          }
+        }
+      }
+    },
+    "Polished Notes (Text)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förfinade anteckningar (text)"
+          }
+        }
+      }
+    },
+    "Prep": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbered"
+          }
+        }
+      }
+    },
+    "Prep for %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förberedelse inför %@"
+          }
+        }
+      }
+    },
+    "Prep me": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbered mig"
+          }
+        }
+      }
+    },
+    "Preparing the model for your Mac…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbereder modellen för din Mac…"
+          }
+        }
+      }
+    },
+    "Press Record when a meeting starts. You'll get the transcript and notes here.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klicka på Spela in när ett möte börjar. Transkript och anteckningar hamnar här."
+          }
+        }
+      }
+    },
+    "Preview": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förhandsvisning"
+          }
+        }
+      }
+    },
+    "Previous match (⇧⌘G)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Föregående träff (⇧⌘G)"
+          }
+        }
+      }
+    },
+    "Privacy": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integritet"
+          }
+        }
+      }
+    },
+    "Questions asked": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ställda frågor"
+          }
+        }
+      }
+    },
+    "Queue · %lld video%@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kö · %lld videor"
+          }
+        }
+      }
+    },
+    "Quick Actions": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snabbåtgärder"
+          }
+        }
+      }
+    },
+    "Quick actions": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snabbåtgärder"
+          }
+        }
+      }
+    },
+    "Raised %lld× since %@ · still open": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tagits upp %lld gånger sedan %@ · fortfarande öppen"
+          }
+        }
+      }
+    },
+    "Ready": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klar"
+          }
+        }
+      }
+    },
+    "Recap, export and AI hand-off run only when you run the recipe by hand — never automatically.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sammanfattningsmejl, export och överlämning till AI körs bara när du kör receptet själv – aldrig automatiskt."
+          }
+        }
+      }
+    },
+    "Recent dictations": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senaste dikteringar"
+          }
+        }
+      }
+    },
+    "Recent recaps": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senaste sammanfattningar"
+          }
+        }
+      }
+    },
+    "Reconnect": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hör av dig igen"
+          }
+        }
+      }
+    },
+    "Record": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in"
+          }
+        }
+      }
+    },
+    "Record %@ Meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in %@-möte"
+          }
+        }
+      }
+    },
+    "Record a meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in ett möte"
+          }
+        }
+      }
+    },
+    "Record a meeting on this Mac": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in ett möte på den här Macen"
+          }
+        }
+      }
+    },
+    "Record a meeting or import a file or link — every transcript ends up here.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in ett möte eller importera en fil eller länk – alla transkript hamnar här."
+          }
+        }
+      }
+    },
+    "Record a meeting, or import audio, video or a link": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in ett möte eller importera ljud, video eller en länk"
+          }
+        }
+      }
+    },
+    "Record any of these meetings and their thread starts building.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in något av de här mötena så börjar tråden byggas upp."
+          }
+        }
+      }
+    },
+    "Record next meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in nästa möte"
+          }
+        }
+      }
+    },
+    "Record this meeting? It stays on your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in mötet? Det stannar på din Mac."
+          }
+        }
+      }
+    },
+    "Recorded": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inspelade"
+          }
+        }
+      }
+    },
+    "Recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inspelning"
+          }
+        }
+      }
+    },
+    "Recording finished · %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inspelningen är klar · %@"
+          }
+        }
+      }
+    },
+    "Records as soon as a call starts, without asking.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spelar in så fort ett samtal börjar, utan att fråga."
+          }
+        }
+      }
+    },
+    "Recurring topics": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Återkommande ämnen"
+          }
+        }
+      }
+    },
+    "Redacted transcript (PDF)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avidentifierat transkript (PDF)"
+          }
+        }
+      }
+    },
+    "Redacted transcript (Text)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avidentifierat transkript (text)"
+          }
+        }
+      }
+    },
+    "Regenerate": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv om"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort"
+          }
+        }
+      }
+    },
+    "Remove %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort %@"
+          }
+        }
+      }
+    },
+    "Remove All": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort allt"
+          }
+        }
+      }
+    },
+    "Remove All from Library…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort allt från Biblioteket…"
+          }
+        }
+      }
+    },
+    "Remove everything from the Library?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort allt från Biblioteket?"
+          }
+        }
+      }
+    },
+    "Remove file": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort filen"
+          }
+        }
+      }
+    },
+    "Remove from Favorites": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort från favoriter"
+          }
+        }
+      }
+    },
+    "Remove from History": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort från historiken"
+          }
+        }
+      }
+    },
+    "Remove from Library": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort från Biblioteket"
+          }
+        }
+      }
+    },
+    "Remove from queue": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort från kön"
+          }
+        }
+      }
+    },
+    "Remove the old KB-Whisper models?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta bort de gamla KB-Whisper-modellerna?"
+          }
+        }
+      }
+    },
+    "Rename": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Byt namn"
+          }
+        }
+      }
+    },
+    "Rename %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Byt namn på %@"
+          }
+        }
+      }
+    },
+    "Rename speaker": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Byt namn på talare"
+          }
+        }
+      }
+    },
+    "Rename…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Byt namn…"
+          }
+        }
+      }
+    },
+    "Require Touch ID or password": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kräv Touch ID eller lösenord"
+          }
+        }
+      }
+    },
+    "Reschedule": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ändra datum"
+          }
+        }
+      }
+    },
+    "Reschedule…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ändra datum…"
+          }
+        }
+      }
+    },
+    "Reset": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Återställ"
+          }
+        }
+      }
+    },
+    "Reset Settings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Återställ inställningar"
+          }
+        }
+      }
+    },
+    "Reset all settings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Återställ alla inställningar"
+          }
+        }
+      }
+    },
+    "Reset all settings?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Återställa alla inställningar?"
+          }
+        }
+      }
+    },
+    "Reset…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Återställ…"
+          }
+        }
+      }
+    },
+    "Restart": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starta om"
+          }
+        }
+      }
+    },
+    "Results": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resultat"
+          }
+        }
+      }
+    },
+    "Resume": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortsätt"
+          }
+        }
+      }
+    },
+    "Run Recipe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kör recept"
+          }
+        }
+      }
+    },
+    "Run automatically after each meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kör automatiskt efter varje möte"
+          }
+        }
+      }
+    },
+    "Run automatically after every meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kör automatiskt efter varje möte"
+          }
+        }
+      }
+    },
+    "Run on this transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kör på det här transkriptet"
+          }
+        }
+      }
+    },
+    "Run to see the result on the current transcript before saving.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kör för att se resultatet på det aktuella transkriptet innan du sparar."
+          }
+        }
+      }
+    },
+    "Runs on your Mac. Nothing is uploaded.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Körs på din Mac. Inget laddas upp."
+          }
+        }
+      }
+    },
+    "Sample": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exempel"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara"
+          }
+        }
+      }
+    },
+    "Save subtitles when available": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara undertexter när de finns"
+          }
+        }
+      }
+    },
+    "Save to": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara i"
+          }
+        }
+      }
+    },
+    "Save transcripts as": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara transkript som"
+          }
+        }
+      }
+    },
+    "Saving each to Transcripts as it finishes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varje fil sparas i Biblioteket när den är klar"
+          }
+        }
+      }
+    },
+    "Saving the recording…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sparar inspelningen…"
+          }
+        }
+      }
+    },
+    "Search & Ask": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök och fråga"
+          }
+        }
+      }
+    },
+    "Search & Ask…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök och fråga…"
+          }
+        }
+      }
+    },
+    "Search all transcripts, or ask a question…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök i alla transkript eller ställ en fråga…"
+          }
+        }
+      }
+    },
+    "Search in all transcripts": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök i alla transkript"
+          }
+        }
+      }
+    },
+    "Search inside all transcripts, or ask a question across them (⌘K)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök i alla transkript eller ställ en fråga om dem (⌘K)"
+          }
+        }
+      }
+    },
+    "Search people": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök personer"
+          }
+        }
+      }
+    },
+    "Searching your transcripts…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Söker i dina transkript…"
+          }
+        }
+      }
+    },
+    "Select All": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markera alla"
+          }
+        }
+      }
+    },
+    "Server address": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serveradress"
+          }
+        }
+      }
+    },
+    "Set due date": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ange slutdatum"
+          }
+        }
+      }
+    },
+    "Set the server address first": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ange serveradressen först"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inställningar"
+          }
+        }
+      }
+    },
+    "Shared": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delad"
+          }
+        }
+      }
+    },
+    "Show": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa"
+          }
+        }
+      }
+    },
+    "Show all transcripts": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa alla transkript"
+          }
+        }
+      }
+    },
+    "Show favorites only": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa bara favoriter"
+          }
+        }
+      }
+    },
+    "Show in Finder": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa i Finder"
+          }
+        }
+      }
+    },
+    "Show live captions": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa livetextning"
+          }
+        }
+      }
+    },
+    "Shown at the top of PDFs": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visas överst i PDF:er"
+          }
+        }
+      }
+    },
+    "Shows a small prompt, and a notification when MindExtract is in the background.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visar en liten fråga, och en notis när MindExtract ligger i bakgrunden."
+          }
+        }
+      }
+    },
+    "Sign In…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logga in…"
+          }
+        }
+      }
+    },
+    "Sign Out": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logga ut"
+          }
+        }
+      }
+    },
+    "Sign Out…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logga ut…"
+          }
+        }
+      }
+    },
+    "Sign in to YouTube": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logga in på YouTube"
+          }
+        }
+      }
+    },
+    "Sign out of YouTube?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logga ut från YouTube?"
+          }
+        }
+      }
+    },
+    "Signed in": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inloggad"
+          }
+        }
+      }
+    },
+    "Snooze %lld overdue to tomorrow": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skjut upp %lld försenade till imorgon"
+          }
+        }
+      }
+    },
+    "Snooze to tomorrow": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skjut upp till imorgon"
+          }
+        }
+      }
+    },
+    "Sort by": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sortera efter"
+          }
+        }
+      }
+    },
+    "Space used": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använt utrymme"
+          }
+        }
+      }
+    },
+    "Speech model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talmodell"
+          }
+        }
+      }
+    },
+    "Speech models": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talmodeller"
+          }
+        }
+      }
+    },
+    "Spoken language": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talat språk"
+          }
+        }
+      }
+    },
+    "Start recording automatically": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Börja spela in automatiskt"
+          }
+        }
+      }
+    },
+    "Starting soon": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Börjar snart"
+          }
+        }
+      }
+    },
+    "Stays on this Mac": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stannar på den här Macen"
+          }
+        }
+      }
+    },
+    "Stop": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stoppa"
+          }
+        }
+      }
+    },
+    "Stop and transcribe the recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stoppa och transkribera inspelningen"
+          }
+        }
+      }
+    },
+    "Stop and write the notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stoppa och skriv anteckningarna"
+          }
+        }
+      }
+    },
+    "Stop when the call ends": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stoppa när samtalet är slut"
+          }
+        }
+      }
+    },
+    "Stop · %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stoppa · %@"
+          }
+        }
+      }
+    },
+    "Subscribed": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prenumererad"
+          }
+        }
+      }
+    },
+    "Subtitle language": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Språk för undertexter"
+          }
+        }
+      }
+    },
+    "Subtitles (.srt)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undertexter (.srt)"
+          }
+        }
+      }
+    },
+    "Suggest a meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Föreslå ett möte"
+          }
+        }
+      }
+    },
+    "Suggestions": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förslag"
+          }
+        }
+      }
+    },
+    "Summarize as": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sammanfatta som"
+          }
+        }
+      }
+    },
+    "Summarize this transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sammanfatta transkriptet"
+          }
+        }
+      }
+    },
+    "Summary": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sammanfattning"
+          }
+        }
+      }
+    },
+    "Summary (Text)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sammanfattning (text)"
+          }
+        }
+      }
+    },
+    "Supports YouTube, Vimeo, X, TikTok, and 1000+ sites — plus local files": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fungerar med YouTube, Vimeo, X, TikTok och över 1 000 andra webbplatser – och med filer på datorn"
+          }
+        }
+      }
+    },
+    "System default": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Systemets förval"
+          }
+        }
+      }
+    },
+    "Talk time": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taltid"
+          }
+        }
+      }
+    },
+    "Tap Enhance notes to fill in the details from the transcript.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klicka på Förbättra anteckningar för att fylla i detaljerna från transkriptet."
+          }
+        }
+      }
+    },
+    "Tap the sample to explore a person": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klicka på exemplet för att utforska en person"
+          }
+        }
+      }
+    },
+    "Task": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uppgift"
+          }
+        }
+      }
+    },
+    "Tell participants you're recording, then mark that they agreed. Saved with the meeting.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berätta att du spelar in och markera sedan att alla har godkänt. Sparas med mötet."
+          }
+        }
+      }
+    },
+    "Tell speakers apart": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skilj på talare"
+          }
+        }
+      }
+    },
+    "Test": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Testa"
+          }
+        }
+      }
+    },
+    "Text": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text"
+          }
+        }
+      }
+    },
+    "The audio is deleted. This can't be undone.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ljudet raderas. Det går inte att ångra."
+          }
+        }
+      }
+    },
+    "The key works": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nyckeln fungerar"
+          }
+        }
+      }
+    },
+    "The list is cleared. Transcript files stay on your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listan töms. Transkriptfilerna finns kvar på din Mac."
+          }
+        }
+      }
+    },
+    "The other participants — audio only, never video.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De andra deltagarna – bara ljud, aldrig video."
+          }
+        }
+      }
+    },
+    "The selected model isn't installed in Ollama.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den valda modellen är inte installerad i Ollama."
+          }
+        }
+      }
+    },
+    "The transcript is written in English, whatever language is spoken.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriptet skrivs på engelska, oavsett vilket språk som talas."
+          }
+        }
+      }
+    },
+    "Their turn": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deras tur"
+          }
+        }
+      }
+    },
+    "They aren't used anymore. Your transcripts aren't affected.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De används inte längre. Dina transkript påverkas inte."
+          }
+        }
+      }
+    },
+    "Thinking…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tänker…"
+          }
+        }
+      }
+    },
+    "This Week": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den här veckan"
+          }
+        }
+      }
+    },
+    "This cannot be undone.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det här går inte att ångra."
+          }
+        }
+      }
+    },
+    "Timeline": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidslinje"
+          }
+        }
+      }
+    },
+    "Title": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel"
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idag"
+          }
+        }
+      }
+    },
+    "Today and tomorrow": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idag och imorgon"
+          }
+        }
+      }
+    },
+    "Today shows": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idag visar"
+          }
+        }
+      }
+    },
+    "Topics": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ämnen"
+          }
+        }
+      }
+    },
+    "Topics group recurring meetings (same title across dates) into project threads. They'll appear once you've recorded a meeting more than once.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ämnen samlar återkommande möten (samma titel vid olika tillfällen) i projekttrådar. De visas när du har spelat in ett möte mer än en gång."
+          }
+        }
+      }
+    },
+    "Transcribe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribera"
+          }
+        }
+      }
+    },
+    "Transcribe Again in": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribera igen på"
+          }
+        }
+      }
+    },
+    "Transcribe after downloading": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribera efter nedladdning"
+          }
+        }
+      }
+    },
+    "Transcribe all %lld files": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribera alla %lld filer"
+          }
+        }
+      }
+    },
+    "Transcribe something": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribera något"
+          }
+        }
+      }
+    },
+    "Transcribes one after another, using your default language": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberar en i taget, med ditt förvalda språk"
+          }
+        }
+      }
+    },
+    "Transcribing": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberar"
+          }
+        }
+      }
+    },
+    "Transcribing %lld of %lld…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberar %lld av %lld…"
+          }
+        }
+      }
+    },
+    "Transcribing audio…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberar…"
+          }
+        }
+      }
+    },
+    "Transcribing…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberar…"
+          }
+        }
+      }
+    },
+    "Transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript"
+          }
+        }
+      }
+    },
+    "Transcription": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribering"
+          }
+        }
+      }
+    },
+    "Transcription complete · Click to view": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberingen är klar · Klicka för att visa"
+          }
+        }
+      }
+    },
+    "Transcription uses WhisperKit, which runs locally on your Mac. Download a model once to start transcribing.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberingen sker på din Mac. Ladda ned en talmodell en gång för att komma igång."
+          }
+        }
+      }
+    },
+    "Transcripts": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript"
+          }
+        }
+      }
+    },
+    "Transcripts, recordings, recipes and API keys are kept.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript, inspelningar, recept och API-nycklar behålls."
+          }
+        }
+      }
+    },
+    "Translate": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Översätt"
+          }
+        }
+      }
+    },
+    "Translate the full transcript into another language using your selected AI model. %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Översätt hela transkriptet till ett annat språk med din valda AI-modell. %@"
+          }
+        }
+      }
+    },
+    "Translate this transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Översätt transkriptet"
+          }
+        }
+      }
+    },
+    "Translate to English": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Översätt till engelska"
+          }
+        }
+      }
+    },
+    "Translate…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Översätt…"
+          }
+        }
+      }
+    },
+    "Translation — %@ (Text)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Översättning – %@ (text)"
+          }
+        }
+      }
+    },
+    "Try Again": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Försök igen"
+          }
+        }
+      }
+    },
+    "Try again": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Försök igen"
+          }
+        }
+      }
+    },
+    "Try again with %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Försök igen med %@"
+          }
+        }
+      }
+    },
+    "Try asking": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prova att fråga"
+          }
+        }
+      }
+    },
+    "Turn anything spoken into searchable, private text — entirely on your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gör allt som sägs till sökbar, privat text – helt på din Mac."
+          }
+        }
+      }
+    },
+    "Turn off calendars that aren't yours, like shared or subscribed ones.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stäng av kalendrar som inte är dina, till exempel delade eller prenumererade."
+          }
+        }
+      }
+    },
+    "Turns (times this person took the floor)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inlägg (antal gånger personen tog ordet)"
+          }
+        }
+      }
+    },
+    "Type to search every transcript, or ask a question across all of them.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv för att söka i alla transkript eller ställa en fråga om dem."
+          }
+        }
+      }
+    },
+    "Unlock": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lås upp"
+          }
+        }
+      }
+    },
+    "Up to %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upp till %@"
+          }
+        }
+      }
+    },
+    "Upcoming": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kommande"
+          }
+        }
+      }
+    },
+    "Update": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uppdatera"
+          }
+        }
+      }
+    },
+    "Use a browser's sign-in": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använd inloggning från en webbläsare"
+          }
+        }
+      }
+    },
+    "Use models you've downloaded with Ollama (Gemma, Mistral, Llama…) — fully local": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använd modeller som du har laddat ned med Ollama (Gemma, Mistral, Llama…) – helt lokalt"
+          }
+        }
+      }
+    },
+    "Use my calendar": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använd min kalender"
+          }
+        }
+      }
+    },
+    "Use your meetings in Claude": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använd dina möten i Claude"
+          }
+        }
+      }
+    },
+    "Used to tell which tasks from your meetings are yours and which you're waiting on. Stays on your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Används för att skilja dina uppgifter från dem du väntar på från andra. Stannar på din Mac."
+          }
+        }
+      }
+    },
+    "Uses the spoken language from Transcription settings.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använder det talade språket från inställningarna för transkribering."
+          }
+        }
+      }
+    },
+    "Version": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        }
+      }
+    },
+    "Video call": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videosamtal"
+          }
+        }
+      }
+    },
+    "Video call in your browser": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videosamtal i webbläsaren"
+          }
+        }
+      }
+    },
+    "Video quality": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videokvalitet"
+          }
+        }
+      }
+    },
+    "View": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa"
+          }
+        }
+      }
+    },
+    "Waiting for sign-in…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Väntar på inloggning…"
+          }
+        }
+      }
+    },
+    "Waiting for transcription…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Väntar på transkribering…"
+          }
+        }
+      }
+    },
+    "Waiting on others": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Väntar på andra"
+          }
+        }
+      }
+    },
+    "Waiting…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Väntar…"
+          }
+        }
+      }
+    },
+    "Welcome to MindExtract": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Välkommen till MindExtract"
+          }
+        }
+      }
+    },
+    "What I wrote": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det jag skrev"
+          }
+        }
+      }
+    },
+    "When it starts": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "När det börjar"
+          }
+        }
+      }
+    },
+    "While and after recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Under och efter inspelning"
+          }
+        }
+      }
+    },
+    "Whisper": {},
+    "Write full notes from your cues and the transcript — with your AI engine from Settings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv fullständiga anteckningar från dina stödord och transkriptet – med AI-motorn i Inställningar"
+          }
+        }
+      }
+    },
+    "Write notes after every meeting": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv anteckningar efter varje möte"
+          }
+        }
+      }
+    },
+    "Writing your notes from the transcript…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriver dina anteckningar utifrån transkriptet…"
+          }
+        }
+      }
+    },
+    "Yesterday": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Igår"
+          }
+        }
+      }
+    },
+    "You'll need to sign in again to download members-only or age-restricted videos.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du behöver logga in igen för att ladda ned videor för medlemmar eller med åldersgräns."
+          }
+        }
+      }
+    },
+    "You're all set. Hit Record whenever a conversation starts.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allt är klart. Klicka på Spela in när ett samtal börjar."
+          }
+        }
+      }
+    },
+    "YouTube": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube"
+          }
+        }
+      }
+    },
+    "Your data": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dina data"
+          }
+        }
+      }
+    },
+    "Your full name": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ditt fullständiga namn"
+          }
+        }
+      }
+    },
+    "Your library is empty": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biblioteket är tomt"
+          }
+        }
+      }
+    },
+    "Your meeting notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dina mötesanteckningar"
+          }
+        }
+      }
+    },
+    "Your name and logo on exported PDFs you hand to clients. PNG or JPG.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ditt namn och din logotyp på PDF:er som du lämnar till klienter. PNG eller JPG."
+          }
+        }
+      }
+    },
+    "Your notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dina anteckningar"
+          }
+        }
+      }
+    },
+    "Your notes appear here when the transcript is ready.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dina anteckningar visas här när transkriptet är klart."
+          }
+        }
+      }
+    },
+    "Your own endpoint — the transcript is sent wherever you point it. You're in control; use a server you trust": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Din egen server – transkriptet skickas dit du anger. Du bestämmer; använd en server du litar på"
+          }
+        }
+      }
+    },
+    "Your people, remembered for you": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dina kontakter – ihågkomna åt dig"
+          }
+        }
+      }
+    },
+    "Your story with %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Din historik med %@"
+          }
+        }
+      }
+    },
+    "Your transcripts are private. Unlock with Touch ID or your password.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dina transkript är privata. Lås upp med Touch ID eller ditt lösenord."
+          }
+        }
+      }
+    },
+    "Your turn": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Din tur"
+          }
+        }
+      }
+    },
+    "Your voice.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Din röst."
+          }
+        }
+      }
+    },
+    "Yours": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dina"
+          }
+        }
+      }
+    },
+    "Zoom, Teams, Meet and others — also in the browser. Only checks which app uses the microphone, never what's said.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom, Teams, Meet med flera – även i webbläsaren. Kontrollerar bara vilken app som använder mikrofonen, aldrig vad som sägs."
+          }
+        }
+      }
+    },
+    "^[%lld speaker](inflect: true) · click to rename": {
+      "localizations": {
+        "sv": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld talare · klicka för att byta namn"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld talare · klicka för att byta namn"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "^[%lld transcript](inflect: true) searched": {
+      "localizations": {
+        "sv": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld transcript genomsökt"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld transkript genomsökta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "added from the transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tillagt från transkriptet"
+          }
+        }
+      }
+    },
+    "e.g. Weekly Standup Notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "t.ex. Veckomöte"
+          }
+        }
+      }
+    },
+    "e.g. llama3.2": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "t.ex. llama3.2"
+          }
+        }
+      }
+    },
+    "last seen": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "senast"
+          }
+        }
+      }
+    },
+    "meetings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "möten"
+          }
+        }
+      }
+    },
+    "name@company.com": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "namn@företag.se"
+          }
+        }
+      }
+    },
+    "now": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nu"
+          }
+        }
+      }
+    },
+    "open": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "öppna"
+          }
+        }
+      }
+    },
+    "or drop a video / audio file here to transcribe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "eller släpp en video- eller ljudfil här för att transkribera"
+          }
+        }
+      }
+    },
+    "plays that moment": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "spelar upp det ögonblicket"
+          }
+        }
+      }
+    },
+    "your notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dina anteckningar"
+          }
+        }
+      }
+    },
+    "·": {},
+    "· %@": {},
+    "· %lld selected": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· %lld valda"
+          }
+        }
+      }
+    },
+    "“%@”": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "”%@”"
+          }
+        }
+      }
+    },
+    "•": {},
+    "↩": {}
+  },
+  "version": "1.0"
+}

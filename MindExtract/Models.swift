@@ -294,7 +294,7 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return "Medium"
         case .largev3: return "Large v3"
         case .largev3turbo: return "Large v3 Turbo"
-        case .pianissimo: return "Pianissimo (Swedish)"
+        case .pianissimo: return String(localized: "Pianissimo (Swedish)")
         }
     }
 
@@ -324,13 +324,13 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
 
     var description: String {
         switch self {
-        case .tiny: return "Fastest, basic accuracy"
-        case .base: return "Good balance of speed and accuracy"
-        case .small: return "Better accuracy, moderate speed"
-        case .medium: return "High accuracy, slower"
-        case .largev3: return "Best accuracy, requires more RAM"
-        case .largev3turbo: return "Near-best accuracy, optimized speed"
-        case .pianissimo: return "Best Swedish — trained by Klang AI, fast and punctuated"
+        case .tiny: return String(localized: "Fastest, basic accuracy")
+        case .base: return String(localized: "Good balance of speed and accuracy")
+        case .small: return String(localized: "Better accuracy, moderate speed")
+        case .medium: return String(localized: "High accuracy, slower")
+        case .largev3: return String(localized: "Best accuracy, requires more RAM")
+        case .largev3turbo: return String(localized: "Near-best accuracy, optimized speed")
+        case .pianissimo: return String(localized: "Best Swedish — trained by Klang AI, fast and punctuated")
         }
     }
 
@@ -378,8 +378,8 @@ enum TranscriptionOutputFormat: String, CaseIterable, Codable {
 
     var displayName: String {
         switch self {
-        case .txt: return "Plain Text (.txt)"
-        case .srt: return "Subtitles (.srt)"
+        case .txt: return String(localized: "Plain Text (.txt)")
+        case .srt: return String(localized: "Subtitles (.srt)")
         case .vtt: return "WebVTT (.vtt)"
         case .json: return "JSON (.json)"
         }
@@ -447,7 +447,7 @@ enum CookieBrowser: String, CaseIterable, Codable {
 
     var displayName: String {
         switch self {
-        case .none: return "None"
+        case .none: return String(localized: "None")
         case .safari: return "Safari"
         case .chrome: return "Chrome"
         case .firefox: return "Firefox"
@@ -474,10 +474,10 @@ enum DownloadQuality: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
     var displayName: String {
         switch self {
-        case .best: return "Best available"
-        case .hd1080: return "1080p max"
-        case .hd720: return "720p max"
-        case .audioOnly: return "Audio only"
+        case .best: return String(localized: "Best available")
+        case .hd1080: return String(localized: "1080p max")
+        case .hd720: return String(localized: "720p max")
+        case .audioOnly: return String(localized: "Audio only")
         }
     }
 }

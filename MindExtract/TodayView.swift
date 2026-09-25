@@ -31,10 +31,10 @@ struct TodayView: View {
     private var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
         switch h {
-        case 5..<12: return "Good morning"
-        case 12..<17: return "Good afternoon"
-        case 17..<22: return "Good evening"
-        default: return "Hi"
+        case 5..<12: return String(localized: "Good morning")
+        case 12..<17: return String(localized: "Good afternoon")
+        case 17..<22: return String(localized: "Good evening")
+        default: return String(localized: "Hi")
         }
     }
 
@@ -184,7 +184,7 @@ struct TodayView: View {
 
     @ViewBuilder
     private var meetingsSection: some View {
-        let title = settings.todayLookaheadDays > 0 ? "Upcoming" : "Today"
+        let title: LocalizedStringKey = settings.todayLookaheadDays > 0 ? "Upcoming" : "Today"
         sectionHeader(title, systemImage: "calendar", count: meetings.count)
         if !calendar.accessGranted {
             calmCard(icon: "calendar.badge.exclamationmark",
@@ -250,7 +250,7 @@ struct TodayView: View {
         }
     }
 
-    private func commitmentGroup(title: String, systemImage: String, items: [TrackedActionItem]) -> some View {
+    private func commitmentGroup(title: LocalizedStringKey, systemImage: String, items: [TrackedActionItem]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(title, systemImage: systemImage).font(.caption.weight(.semibold)).foregroundColor(.secondary).padding(.leading, 2)
             VStack(spacing: 0) {
@@ -401,11 +401,11 @@ struct TodayView: View {
         if let item = TranscriptionHistoryManager.shared.history.first(where: { $0.id == id }) { onOpenTranscript(item) }
     }
 
-    private func sectionHeader(_ title: String, systemImage: String, count: Int?) -> some View {
-        SectionHeader(LocalizedStringKey(title), count: count)
+    private func sectionHeader(_ title: LocalizedStringKey, systemImage: String, count: Int?) -> some View {
+        SectionHeader(title, count: count)
     }
 
-    private func calmCard(icon: String, text: String) -> some View {
+    private func calmCard(icon: String, text: LocalizedStringKey) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon).foregroundColor(.secondary)
             Text(text).font(.callout).foregroundColor(.secondary)

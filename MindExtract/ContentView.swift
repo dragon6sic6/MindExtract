@@ -14,12 +14,12 @@ enum SidebarItem: String, Hashable {
     /// The name shown in the window title (and in the sidebar for top-level items).
     var title: String {
         switch self {
-        case .today: return "Today"
-        case .record: return "Meetings"
-        case .transcripts: return "Library"
-        case .people: return "People"
-        case .download: return "Import"
-        case .history: return "Downloads"
+        case .today: return String(localized: "Today")
+        case .record: return String(localized: "Meetings")
+        case .transcripts: return String(localized: "Library")
+        case .people: return String(localized: "People")
+        case .download: return String(localized: "Import")
+        case .history: return String(localized: "Downloaded")
         }
     }
 }

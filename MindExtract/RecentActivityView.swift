@@ -151,7 +151,7 @@ struct RecentActivityView: View {
         .padding()
     }
 
-    private func emptyState(icon: String, title: String, subtitle: String) -> some View {
+    private func emptyState(icon: String, title: LocalizedStringKey, subtitle: LocalizedStringKey) -> some View {
         VStack(spacing: 8) {
             Spacer()
             Image(systemName: icon)

@@ -24,6 +24,7 @@
 		B1000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000013 /* Models.swift */; };
 		B1000004 /* YTDLPWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000014 /* YTDLPWrapper.swift */; };
 		B1000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000015 /* Assets.xcassets */; };
+		B1000E39 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B1000E3A /* Localizable.xcstrings */; };
 		B1000D01 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D02 /* DesignSystem.swift */; };
 		B1000D03 /* Summarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D04 /* Summarizer.swift */; };
 		B1000E01 /* Translator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E02 /* Translator.swift */; };
@@ -81,6 +82,7 @@
 		B1000013 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		B1000014 /* YTDLPWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YTDLPWrapper.swift; sourceTree = "<group>"; };
 		B1000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B1000E3A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		B1000016 /* MindExtract.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MindExtract.entitlements; sourceTree = "<group>"; };
 		B1000D02 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		B1000D04 /* Summarizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Summarizer.swift; sourceTree = "<group>"; };
@@ -214,6 +216,7 @@
 				B1000013 /* Models.swift */,
 				B1000014 /* YTDLPWrapper.swift */,
 				B1000015 /* Assets.xcassets */,
+				B1000E3A /* Localizable.xcstrings */,
 				B1000016 /* MindExtract.entitlements */,
 				B1000021 /* Resources */,
 			);
@@ -298,6 +301,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				sv,
 				Base,
 			);
 			mainGroup = B1000030;
@@ -322,6 +326,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B1000005 /* Assets.xcassets in Resources */,
+				B1000E39 /* Localizable.xcstrings in Resources */,
 				B1000007 /* ytdlp in Resources */,
 				B1000061 /* ffmpeg in Resources */,
 			);

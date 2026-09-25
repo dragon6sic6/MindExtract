@@ -820,7 +820,7 @@ struct SettingsView: View {
         switch cal.type {
         case .birthday: kind = String(localized: "Birthdays")
         case .subscription: kind = String(localized: "Subscribed")
-        default: kind = cal.allowsContentModifications ? String(localized: "Yours") : String(localized: "Shared")
+        default: kind = cal.allowsContentModifications ? String(localized: "Own") : String(localized: "Shared")
         }
         return "\(source) · \(kind)"
     }

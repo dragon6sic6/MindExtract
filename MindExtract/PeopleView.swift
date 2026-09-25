@@ -202,7 +202,7 @@ struct PeopleView: View {
             .background(Capsule().fill(Color.orange.opacity(0.18))).foregroundColor(.orange)
     }
 
-    private func emptyState(icon: String, text: String) -> some View {
+    private func emptyState(icon: String, text: LocalizedStringKey) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon).font(.system(size: 38)).foregroundColor(.secondary.opacity(0.5))
             Text(text).font(.callout).foregroundColor(.secondary)
@@ -351,7 +351,7 @@ private struct PersonDetail: View {
         }
     }
 
-    private func stat(_ value: String, _ label: String) -> some View {
+    private func stat(_ value: String, _ label: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(value).font(.system(size: 15, weight: .semibold, design: .rounded))
             Text(label).font(.caption2).foregroundColor(.secondary)
@@ -396,9 +396,9 @@ private struct PersonDetail: View {
         return "Met recently"
     }
 
-    private func commitments(_ title: String, systemImage: String, items: [TrackedActionItem]) -> some View {
+    private func commitments(_ title: LocalizedStringKey, systemImage: String, items: [TrackedActionItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(LocalizedStringKey(title))
+            SectionHeader(title)
             VStack(spacing: 0) {
                 ForEach(items) { item in
                     HStack(alignment: .top, spacing: 10) {
