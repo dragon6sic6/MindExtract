@@ -66,44 +66,54 @@ struct MeetingDocumentView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                document
-                    .frame(maxWidth: DS.Layout.readingWidth, alignment: .leading)
-                    .padding(.horizontal, DS.Layout.pageHorizontal)
-                    .padding(.top, 12)
-                    .padding(.bottom, 180)
-                    .frame(maxWidth: .infinity)
-            }
+        // A plain side-by-side panel rather than .inspector: in a narrow window the
+        // inspector's split-view constraints loop until AppKit aborts.
+        HStack(spacing: 0) {
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    document
+                        .frame(maxWidth: DS.Layout.readingWidth, alignment: .leading)
+                        .padding(.horizontal, DS.Layout.pageHorizontal)
+                        .padding(.top, 12)
+                        .padding(.bottom, 180)
+                        .frame(maxWidth: .infinity)
+                }
 
-            VStack(spacing: 10) {
-                if showAnswers && (!chat.messages.isEmpty || chat.isAnswering) {
-                    answersPanel
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                if phase == .finished, transcriptReady, enhanced == nil, !isProcessing, enhanceError == nil {
-                    Button {
-                        writeNotes()
-                    } label: {
-                        Label("Write Notes", systemImage: "sparkles")
-                            .font(.body.weight(.semibold))
-                            .padding(.horizontal, 6)
+                VStack(spacing: 10) {
+                    if showAnswers && (!chat.messages.isEmpty || chat.isAnswering) {
+                        answersPanel
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                    .buttonStyle(.glassProminent)
-                    .controlSize(.large)
-                    .keyboardShortcut(.defaultAction)
+                    if phase == .finished, transcriptReady, enhanced == nil, !isProcessing, enhanceError == nil {
+                        Button {
+                            writeNotes()
+                        } label: {
+                            Label("Write Notes", systemImage: "sparkles")
+                                .font(.body.weight(.semibold))
+                                .padding(.horizontal, 6)
+                        }
+                        .buttonStyle(.glassProminent)
+                        .controlSize(.large)
+                        .keyboardShortcut(.defaultAction)
+                    }
+                    bottomBar
                 }
-                bottomBar
+                .frame(maxWidth: 760)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+                .animation(.snappy(duration: 0.25), value: showAnswers)
             }
-            .frame(maxWidth: 760)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 16)
-            .animation(.snappy(duration: 0.25), value: showAnswers)
+            .frame(maxWidth: .infinity)
+
+            if showTranscript {
+                Divider()
+                transcriptPanel
+                    .frame(width: 300)
+                    .background(DS.Colors.rowFill)
+                    .transition(.move(edge: .trailing))
+            }
         }
-        .inspector(isPresented: $showTranscript) {
-            transcriptPanel
-                .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
-        }
+        .animation(.snappy(duration: 0.25), value: showTranscript)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {

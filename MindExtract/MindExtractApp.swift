@@ -167,7 +167,7 @@ struct MindExtractApp: App {
     @StateObject private var settings = AppSettings.shared
 
     var body: some Scene {
-        WindowGroup(id: MainWindow.id) {
+        Window("MindExtract", id: MainWindow.id) {
             // Follows the system appearance (light/dark) and accent color unless
             // the user picked one in Settings → General.
             ContentView()

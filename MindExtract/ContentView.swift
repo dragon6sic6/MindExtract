@@ -100,12 +100,6 @@ struct ContentView: View {
         .onChange(of: recorder.isRecording) { _, recording in
             if recording { selection = Self.liveTag }
         }
-        .onChange(of: recorder.state) { _, _ in
-            // The recording was discarded or failed: leave the live row.
-            if !isLive, selection == Self.liveTag, recorder.pendingRecording == nil, !tm.isTranscribing {
-                selection = nil
-            }
-        }
         .sheet(isPresented: $showWelcome) {
             PermissionsOnboardingView(onDone: {
                 hasSeenWelcome = true

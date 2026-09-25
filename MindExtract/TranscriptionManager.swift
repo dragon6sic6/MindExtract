@@ -1649,6 +1649,7 @@ class TranscriptionManager: ObservableObject {
         currentTranscriptionTitle = title
         liveTranscriptionText = ""
         lastSavedPath = nil
+        segments = []   // never show the previous note's transcript while this one runs
         currentModelUsed = model
         DispatchQueue.main.async {
             // During a batch we transcribe in the background — don't yank the user
