@@ -528,7 +528,7 @@ private struct MeetingRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.md).fill(Color.black.opacity(0.15)))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.md).fill(Color.primary.opacity(0.05)))
     }
 }
 

@@ -1,56 +1,6 @@
 import SwiftUI
 import AppKit
 
-/// Hides the window's title text and makes the titlebar transparent for a clean,
-/// unified dark look (traffic lights + toolbar remain).
-struct WindowConfigurator: NSViewRepresentable {
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async { context.coordinator.attach(to: view.window) }
-        return view
-    }
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { context.coordinator.attach(to: nsView.window) }
-    }
-
-    @MainActor
-    final class Coordinator {
-        private weak var window: NSWindow?
-        private var observer: NSObjectProtocol?
-
-        func attach(to window: NSWindow?) {
-            guard let window else { return }
-            if window !== self.window {
-                if let observer { NotificationCenter.default.removeObserver(observer) }
-                self.window = window
-                // AppKit re-derives the title (to the bundle name) on every toolbar
-                // refresh, so pin it hidden on each window update rather than once.
-                observer = NotificationCenter.default.addObserver(
-                    forName: NSWindow.didUpdateNotification, object: window, queue: .main
-                ) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.hideTitle() }
-                }
-            }
-            hideTitle()
-        }
-
-        private func hideTitle() {
-            guard let window else { return }
-            window.titleVisibility = .hidden
-            // Keep a standard (non-transparent) titlebar so AppKit owns the strip —
-            // this preserves native double-click-to-zoom and titlebar dragging.
-            window.titlebarAppearsTransparent = false
-            // performZoom is a no-op unless the window is resizable.
-            window.styleMask.insert(.resizable)
-            // Keep a non-empty accessible name (VoiceOver / Window menu) while the
-            // title text stays visually hidden.
-            if window.title.isEmpty { window.title = "MindExtract" }
-        }
-    }
-}
-
 /// A translucent vibrancy background (like Messages / Finder). With `.behindWindow`
 /// blending the desktop shows through, so the app is never flat white.
 struct VisualEffectBackground: NSViewRepresentable {
@@ -72,8 +22,9 @@ struct VisualEffectBackground: NSViewRepresentable {
 }
 
 /// Central design tokens so spacing, radius, typography and color are consistent
-/// across the app instead of inline literals. Leans on native macOS materials and
-/// the system look for a clean, premium, HIG-aligned feel.
+/// across the app instead of inline literals. Everything adapts to light/dark mode,
+/// Increase Contrast and the user's accent color. Liquid Glass is reserved for the
+/// controls layer (toolbar, floating bars, HUDs) — content sits on plain surfaces.
 enum DS {
 
     // MARK: - Spacing (4-pt grid)
@@ -99,8 +50,8 @@ enum DS {
     /// One source of truth for functional color. The app uses the system accent
     /// for primary actions and a small, consistent set of category hues.
     enum Colors {
-        /// Messages-style blue accent (replaces the loud system magenta).
-        static let accent = Color(red: 0.0, green: 0.48, blue: 1.0)
+        /// Follows the user's system accent color (System Settings → Appearance).
+        static let accent = Color.accentColor
         static let download = accent
         static let audio = Color(red: 0.55, green: 0.40, blue: 0.92)      // calm violet
         static let transcription = Color(red: 0.95, green: 0.55, blue: 0.20) // warm amber
@@ -112,53 +63,57 @@ enum DS {
         /// Card / grouped surface — adapts to light/dark automatically.
         static let surface = Color(nsColor: .controlBackgroundColor)
 
-        // Dark Messages-style canon (the app is dark-only):
-        /// The app backdrop behind all content.
-        static let backdrop = Color(red: 0.11, green: 0.11, blue: 0.12)
-        /// Standard row/card fill floating on the backdrop.
-        static let rowFill = Color.white.opacity(0.04)
+        /// Recording — the only place red is used as a brand color.
+        static let recording = Color.red
+
+        // Adaptive surfaces (light + dark + increased contrast, from AppKit):
+        /// The content backdrop — the same "paper" as Notes/Mail.
+        static let backdrop = Color(nsColor: .textBackgroundColor)
+        /// Standard row/card fill on the backdrop.
+        static let rowFill = Color(nsColor: .quinarySystemFill)
         /// Hairline stroke around rows/cards.
-        static let hairline = Color.white.opacity(0.07)
-        /// Text-input fill (capsule fields).
-        static let inputFill = Color.white.opacity(0.06)
+        static let hairline = Color(nsColor: .separatorColor)
+        /// Text-input fill.
+        static let inputFill = Color(nsColor: .quaternarySystemFill)
         /// Text-input stroke.
-        static let inputStroke = Color.white.opacity(0.12)
+        static let inputStroke = Color(nsColor: .separatorColor)
     }
 
     // MARK: - Typography ramp (semantic, scales with system)
     enum Typography {
-        static let largeTitle = Font.system(.largeTitle, design: .rounded).weight(.bold)
-        static let title = Font.system(.title2, design: .rounded).weight(.semibold)
+        static let largeTitle = Font.system(.largeTitle).weight(.bold)
+        static let title = Font.system(.title2).weight(.semibold)
         static let section = Font.system(.headline)
         static let body = Font.system(.body)
         static let callout = Font.system(.callout)
         static let caption = Font.system(.caption)
         static let mono = Font.system(.caption, design: .monospaced)
         /// List/row titles across the app (History, Transcripts, etc.).
-        static let rowTitle = Font.system(size: 14, weight: .medium)
+        static let rowTitle = Font.system(.body).weight(.medium)
         /// Transcript reading text.
         static let readingBody = Font.system(size: 14)
     }
 }
 
 extension View {
-    /// Liquid Glass surface on macOS 26+, with a graceful material fallback on
-    /// earlier macOS. Apply to floating panels, cards and control bars — not to
-    /// plain content — for an Apple-style glass look.
-    @ViewBuilder
+    /// Liquid Glass — for the controls layer only (floating bars, HUDs, overlays
+    /// above content). Never on content cards; use `contentCard` for those.
     func glassSurface(cornerRadius: CGFloat = DS.Radius.card, tint: Color? = nil) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        if #available(macOS 26.0, *) {
-            self.glassEffect(tint.map { Glass.regular.tint($0) } ?? .regular, in: shape)
-        } else {
-            self.background(.regularMaterial, in: shape)
-                .overlay(shape.fill(tint?.opacity(0.16) ?? .clear))
-        }
+        return self.glassEffect(tint.map { Glass.regular.tint($0) } ?? .regular, in: shape)
     }
 
-    /// Pads content then wraps it in a Liquid Glass card.
+    /// A content-layer card: quiet adaptive fill + hairline, no glass.
+    func contentCard(padding: CGFloat = DS.Spacing.lg, cornerRadius: CGFloat = DS.Radius.lg, tint: Color? = nil) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return self.padding(padding)
+            .background(shape.fill(tint?.opacity(0.08) ?? DS.Colors.rowFill))
+            .overlay(shape.strokeBorder(DS.Colors.hairline, lineWidth: 0.5))
+    }
+
+    /// Kept for existing call sites — now a content card (glass is for controls).
     func glassCard(padding: CGFloat = DS.Spacing.lg, cornerRadius: CGFloat = DS.Radius.card, tint: Color? = nil) -> some View {
-        self.padding(padding).glassSurface(cornerRadius: cornerRadius, tint: tint)
+        self.contentCard(padding: padding, cornerRadius: cornerRadius, tint: tint)
     }
 
 }
@@ -174,7 +129,7 @@ extension View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(selected ? DS.Colors.accent.opacity(0.55) : DS.Colors.hairline, lineWidth: 1)
+                    .strokeBorder(selected ? DS.Colors.accent.opacity(0.55) : DS.Colors.hairline, lineWidth: 0.5)
             )
     }
 
@@ -219,74 +174,24 @@ struct SearchField: View {
     }
 }
 
-// MARK: - Crisp button styles
-// Glass blur reads as "out of focus" on small text, so buttons are crisp:
-// primary = solid accent capsule (like the Messages send button), secondary =
-// quiet neutral capsule with a hairline. Glass stays on large surfaces only.
-
-struct SolidAccentButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        Styled(configuration: configuration)
-    }
-    private struct Styled: View {
-        let configuration: Configuration
-        @Environment(\.isEnabled) private var isEnabled
-        var body: some View {
-            configuration.label
-                .lineLimit(1)
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(
-                    (isEnabled ? DS.Colors.accent : Color.secondary.opacity(0.3))
-                        .opacity(configuration.isPressed ? 0.75 : 1),
-                    in: Capsule()
-                )
-                .contentShape(Capsule())
-        }
-    }
-}
-
-struct QuietCapsuleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        Styled(configuration: configuration)
-    }
-    private struct Styled: View {
-        let configuration: Configuration
-        @Environment(\.isEnabled) private var isEnabled
-        var body: some View {
-            configuration.label
-                .lineLimit(1)
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.white.opacity(configuration.isPressed ? 0.14 : 0.08), in: Capsule())
-                .overlay(Capsule().strokeBorder(DS.Colors.hairline, lineWidth: 1))
-                .contentShape(Capsule())
-                .opacity(isEnabled ? 1 : 0.45)
-        }
-    }
-}
+// MARK: - Buttons
+// Native macOS 26 buttons: they pick up the accent color, Increase Contrast and
+// the system's Liquid Glass treatment automatically.
 
 extension View {
-    /// Primary action button — crisp solid accent capsule. (Name kept from the
-    /// earlier glass era so call sites didn't need to change.)
+    /// Primary action — prominent capsule in the accent color.
     func primaryGlassButton() -> some View {
-        self.buttonStyle(SolidAccentButtonStyle())
+        self.buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
     }
 
-    /// Secondary action button — quiet neutral capsule.
+    /// Secondary action — standard bordered capsule.
     func secondaryGlassButton() -> some View {
-        self.buttonStyle(QuietCapsuleButtonStyle())
+        self.buttonStyle(.bordered).buttonBorderShape(.capsule)
     }
 
-    /// A `Menu` styled to match `secondaryGlassButton()` — same quiet capsule,
-    /// so dropdown actions (Export, etc.) look identical to plain buttons next
-    /// to them instead of falling back to the system's bordered menu chrome.
+    /// A `Menu` that matches `secondaryGlassButton()`.
     func secondaryMenu() -> some View {
-        self.menuStyle(.button).buttonStyle(QuietCapsuleButtonStyle())
+        self.menuStyle(.button).buttonStyle(.bordered).buttonBorderShape(.capsule)
     }
 
     /// One-line chrome text that never wraps mid-word — for toolbar/header

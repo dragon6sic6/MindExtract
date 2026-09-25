@@ -19,6 +19,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         super.init()
     }
 
+    /// Applies the Settings → General appearance to every window and panel.
+    static func applyAppearance(_ value: String) {
+        switch value {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        default: NSApp.appearance = nil
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         updaterController.startUpdater()
         // Register the notification delegate + category FIRST, so the very first
@@ -244,10 +253,11 @@ struct MindExtractApp: App {
 
     var body: some Scene {
         WindowGroup {
+            // Follows the system appearance (light/dark) and accent color unless
+            // the user picked one in Settings → General.
             ContentView()
-                .tint(DS.Colors.accent)
-                .preferredColorScheme(.dark)
-                .onAppear { NSApp.appearance = NSAppearance(named: .darkAqua) }
+                .onAppear { AppDelegate.applyAppearance(settings.appAppearance) }
+                .onChange(of: settings.appAppearance) { _, value in AppDelegate.applyAppearance(value) }
                 .onReceive(NotificationCenter.default.publisher(for: .checkForUpdates)) { _ in
                     appDelegate.updaterController.checkForUpdates(nil)
                 }
@@ -259,12 +269,6 @@ struct MindExtractApp: App {
                 Button("Check for Updates…") {
                     appDelegate.updaterController.checkForUpdates(nil)
                 }
-            }
-            CommandGroup(replacing: .appSettings) {
-                Button("Settings…") {
-                    NotificationCenter.default.post(name: .openSettings, object: nil)
-                }
-                .keyboardShortcut(",", modifiers: .command)
             }
             CommandGroup(replacing: .help) {
                 Button("MindExtract Help") {
@@ -287,12 +291,19 @@ struct MindExtractApp: App {
                     .keyboardShortcut("1", modifiers: .command)
                 Button("Meetings") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.record) }
                     .keyboardShortcut("2", modifiers: .command)
-                Button("Transcribe") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.download) }
-                    .keyboardShortcut("3", modifiers: .command)
                 Button("Library") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.transcripts) }
-                    .keyboardShortcut("4", modifiers: .command)
+                    .keyboardShortcut("3", modifiers: .command)
                 Button("People") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.people) }
+                    .keyboardShortcut("4", modifiers: .command)
+                Divider()
+                Button("Import File or Link…") { NotificationCenter.default.post(name: .navigate, object: SidebarItem.download) }
+                    .keyboardShortcut("i", modifiers: .command)
             }
+        }
+
+        // Native Settings window (⌘,).
+        Settings {
+            SettingsView(downloader: .shared)
         }
     }
 }

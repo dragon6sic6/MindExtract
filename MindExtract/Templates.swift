@@ -248,7 +248,7 @@ struct TemplateEditorView: View {
                                             .frame(width: 34, height: 34)
                                             .background(
                                                 RoundedRectangle(cornerRadius: 8)
-                                                    .fill(template.icon == symbol ? DS.Colors.accent.opacity(0.25) : Color.white.opacity(0.05))
+                                                    .fill(template.icon == symbol ? DS.Colors.accent.opacity(0.25) : Color.primary.opacity(0.05))
                                             )
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 8)
@@ -348,7 +348,7 @@ struct TemplateEditorView: View {
                 }
                 .frame(maxHeight: 150)
                 .padding(8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.inputStroke, lineWidth: 1))
             case .failed(let m):
                 Text(m).font(.caption).foregroundColor(.orange)
@@ -384,7 +384,7 @@ struct TemplateEditorView: View {
             .font(.system(size: 13))
             .frame(minHeight: minHeight)
             .padding(6)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.inputStroke, lineWidth: 1))
             .scrollContentBackground(.hidden)
     }

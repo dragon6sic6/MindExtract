@@ -19,12 +19,8 @@ struct RecordingView: View {
 
     /// The model used for the live preview — the recommended model for the chosen
     /// language, but only if it's already downloaded (live needs it immediately).
-    /// Pianissimo can't stream, so Swedish previews with a downloaded Whisper model.
     private var liveModel: WhisperModel? {
-        let rec = WhisperModel.recommended(for: startLanguage)
-        if rec.usesWhisperKit { return transcriptionManager.downloadedModels.contains(rec) ? rec : nil }
-        return [WhisperModel.small, .base, .largev3turbo, .medium, .tiny, .largev3]
-            .first { transcriptionManager.downloadedModels.contains($0) }
+        MeetingRecorder.defaultLiveModel(for: startLanguage)
     }
 
     private func resolvedStartLanguage() -> String {
@@ -201,7 +197,7 @@ struct RecordingView: View {
                     }
                 }
                 .padding(8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.hairline, lineWidth: 1))
                 if let provider = meetingProvider(from: meetingLinkInput) {
                     Button {
@@ -390,7 +386,7 @@ struct RecordingView: View {
                 .frame(width: 520, height: 90)
                 .padding(8)
                 .scrollContentBackground(.hidden)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.05)))
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(DS.Colors.hairline, lineWidth: 1))
         }
     }
@@ -417,7 +413,7 @@ struct RecordingView: View {
                 }
             }
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.05)))
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(DS.Colors.hairline, lineWidth: 1))
         }
     }
@@ -757,7 +753,7 @@ private struct LevelMeter: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.08))
+                Capsule().fill(Color.primary.opacity(0.08))
                 Capsule()
                     .fill(LinearGradient(colors: [DS.Colors.accent, .green], startPoint: .leading, endPoint: .trailing))
                     .frame(width: max(2, geo.size.width * level))

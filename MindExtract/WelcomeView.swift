@@ -86,7 +86,7 @@ struct WelcomeView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.04)))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(DS.Colors.hairline, lineWidth: 1))
     }
 }

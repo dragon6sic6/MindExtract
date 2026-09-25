@@ -508,6 +508,8 @@ class AppSettings: ObservableObject {
     /// Push-to-talk dictation: hold right ⌥ Option anywhere, speak, release → text
     /// is typed at the cursor. Needs Accessibility permission to see the key.
     @AppStorage("dictationEnabled") var dictationEnabled: Bool = true
+    /// "system" (default), "light" or "dark".
+    @AppStorage("appAppearance") var appAppearance: String = "system"
     /// "sv" → Pianissimo; other codes → Whisper; "auto" detects per dictation.
     @AppStorage("dictationLanguage") var dictationLanguage: String = "sv"
 

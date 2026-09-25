@@ -76,6 +76,7 @@ enum MCPSetup {
 /// Top-level Settings categories, shown as an in-pane navigator (the app already
 /// owns the main window sidebar, so this is a lightweight second column).
 enum SettingsCategory: String, CaseIterable, Identifiable {
+    case general = "General"
     case today = "Today"
     case transcription = "Transcription"
     case dictation = "Dictation"
@@ -90,6 +91,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var icon: String {
         switch self {
+        case .general: return "gearshape"
         case .today: return "sun.max"
         case .recipes: return "wand.and.stars"
         case .transcription: return "text.bubble"
@@ -112,7 +114,8 @@ struct SettingsView: View {
     @ObservedObject private var calendar = MeetingCalendar.shared
     @ObservedObject private var recorder = MeetingRecorder.shared
     @ObservedObject private var activeMeeting = ActiveMeetingDetector.shared
-    @State private var category: SettingsCategory = .transcription
+    /// Persisted so other parts of the app can deep-link a pane before opening Settings.
+    @AppStorage("settingsCategory") private var category: SettingsCategory = .transcription
     @State private var showAdvancedAuth = false
     @State private var showResetConfirmation = false
     @State private var confirmRemoveLegacyKB = false
@@ -281,18 +284,25 @@ struct SettingsView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            categoryNavigator
-                .frame(width: 190)
+            List(SettingsCategory.allCases, selection: Binding(
+                get: { Optional(category) },
+                set: { if let c = $0 { category = c } })) { c in
+                Label(c.rawValue, systemImage: c.icon).tag(c)
+            }
+            .listStyle(.sidebar)
+            .frame(width: 210)
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     categoryContent
                 }
-                .padding(20)
+                .padding(24)
                 .frame(maxWidth: 640, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .navigationTitle(category.rawValue)
+        .frame(minWidth: 780, idealWidth: 860, minHeight: 560, idealHeight: 660)
         .onAppear {
             transcriptionManager.loadDownloadedModels()
             calendar.refreshAccessStatus()
@@ -312,34 +322,10 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Category navigator
-
-    private var categoryNavigator: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(SettingsCategory.allCases) { c in
-                Button { category = c } label: {
-                    HStack(spacing: 9) {
-                        Image(systemName: c.icon).frame(width: 18)
-                        Text(c.rawValue).font(.system(size: 13))
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 7)
-                        .fill(category == c ? DS.Colors.accent.opacity(0.18) : Color.clear))
-                    .foregroundColor(category == c ? DS.Colors.accent : .primary)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
-        }
-        .padding(.vertical, 14).padding(.horizontal, 10)
-        .frame(maxHeight: .infinity, alignment: .top)
-    }
-
     @ViewBuilder
     private var categoryContent: some View {
         switch category {
+        case .general: generalPane
         case .today: todayPane
         case .recipes: recipesPane
         case .transcription: transcriptionPane
@@ -528,7 +514,7 @@ struct SettingsView: View {
                 .frame(height: 90)
                 .padding(6)
                 .scrollContentBackground(.hidden)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.hairline, lineWidth: 1))
             Text("Applies to the Whisper models. Pianissimo and Apple Speech don't support custom terms yet. Runs on-device.")
                 .font(.caption2).foregroundColor(.secondary)
@@ -1118,6 +1104,20 @@ struct SettingsView: View {
     // MARK: - About pane
 
     @ViewBuilder
+    private var generalPane: some View {
+        SettingsSection(title: "Appearance", icon: "circle.lefthalf.filled") {
+            Picker("Appearance", selection: $settings.appAppearance) {
+                Text("Match System").tag("system")
+                Text("Light").tag("light")
+                Text("Dark").tag("dark")
+            }
+            .pickerStyle(.segmented)
+            Text("MindExtract follows your Mac's appearance and accent color by default.")
+                .font(.caption).foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
     private var aboutPane: some View {
         SettingsSection(title: "About", icon: "info.circle") {
             HStack {
@@ -1341,7 +1341,7 @@ struct SettingsView: View {
                             }
                         }
                         .padding(10)
-                        .background(Color.white.opacity(0.06))
+                        .background(Color.primary.opacity(0.06))
                         .cornerRadius(8)
                     }
                 }

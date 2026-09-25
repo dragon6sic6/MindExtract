@@ -63,6 +63,9 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
 
 @MainActor
 class YTDLPWrapper: ObservableObject {
+    /// One instance shared by the main window and the Settings window.
+    static let shared = YTDLPWrapper()
+
     @Published var state: DownloadState = .idle
     @Published var videoInfo: VideoInfo?
     @Published var scannedVideos: [VideoInfo] = []

@@ -309,7 +309,7 @@ struct HistoryActionButton: View {
                 .font(.system(size: 12))
                 .foregroundColor(color)
                 .frame(width: 26, height: 26)
-                .background(Color.white.opacity(isHovered ? 0.12 : 0.06))
+                .background(Color.primary.opacity(isHovered ? 0.12 : 0.06))
                 .cornerRadius(6)
                 // Whole padded square is clickable, not just the glyph.
                 .contentShape(Rectangle())
@@ -619,7 +619,7 @@ struct SearchHitRow: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(hovering ? 0.06 : 0.03)))
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(hovering ? 0.06 : 0.03)))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(DS.Colors.hairline, lineWidth: 1))
             .contentShape(Rectangle())
         }

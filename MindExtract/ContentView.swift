@@ -10,13 +10,25 @@ enum SidebarItem: String, Hashable {
     case record = "Record"
     case transcripts = "Transcripts"
     case history = "History"
-    case settings = "Settings"
+
+    /// The name shown in the window title (and in the sidebar for top-level items).
+    var title: String {
+        switch self {
+        case .today: return "Today"
+        case .record: return "Meetings"
+        case .transcripts: return "Library"
+        case .people: return "People"
+        case .download: return "Import"
+        case .history: return "Downloads"
+        }
+    }
 }
 
 // MARK: - Content View
 
 struct ContentView: View {
-    @StateObject private var downloader = YTDLPWrapper()
+    @ObservedObject private var downloader = YTDLPWrapper.shared
+    @Environment(\.openSettings) private var openSettings
     @StateObject private var settings = AppSettings.shared
     @StateObject private var historyManager = HistoryManager.shared
     @StateObject private var transcriptionManager = TranscriptionManager.shared
@@ -102,7 +114,7 @@ struct ContentView: View {
     /// to keep content fully readable.
     private var appBackdrop: some View {
         // Clean, uniform Messages-style dark gray — no gradients or glows.
-        Color(red: 0.11, green: 0.11, blue: 0.12)
+        DS.Colors.backdrop
             .ignoresSafeArea()
     }
 
@@ -122,10 +134,10 @@ struct ContentView: View {
             detailView
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .background(appBackdrop)
-                .navigationTitle("")
+                .navigationTitle(currentItem.title)
+                .toolbar { mainToolbar }
         }
         .frame(minWidth: 820, minHeight: 580)
-        .background(WindowConfigurator())
         // "Recording finished" confirm sheet — presented at the root so it appears
         // no matter which tab you're on (e.g. when you stop from the menu bar).
         .sheet(item: $recorder.pendingRecording) { pending in
@@ -156,7 +168,7 @@ struct ContentView: View {
             if appLock.isLocked { appLock.authenticate() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
-            selectedSidebarItem = .settings
+            openSettings()
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigate)) { note in
             if let item = note.object as? SidebarItem {
@@ -253,57 +265,96 @@ struct ContentView: View {
     // MARK: - Sidebar
 
     private var sidebarView: some View {
-        VStack(spacing: 0) {
-            // Always-visible entry to the search/ask palette (so it's discoverable
-            // without knowing the ⌘K shortcut — which it also teaches).
+        // One flat level (HIG): the four places you live in. Import and Downloads
+        // are reached from the toolbar's New menu and land in the Library.
+        List(selection: $selectedSidebarItem) {
+            Label("Today", systemImage: "sun.max").tag(SidebarItem.today)
+            Label("Meetings", systemImage: "waveform").tag(SidebarItem.record)
+            Label("Library", systemImage: "books.vertical").tag(SidebarItem.transcripts)
+            Label("People", systemImage: "person.2").tag(SidebarItem.people)
+        }
+        .listStyle(.sidebar)
+    }
+
+    // MARK: - Toolbar
+
+    private var currentItem: SidebarItem { selectedSidebarItem ?? .today }
+
+    @ToolbarContentBuilder
+    private var mainToolbar: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
             Button {
                 overlayContent = .palette
                 showOverlay = true
             } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 12))
-                    Text("Search & Ask").font(.system(size: 13))
-                    Spacer(minLength: 4)
-                    Text("⌘K").font(.system(size: 11)).foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 9).padding(.vertical, 7)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.hairline, lineWidth: 1))
-                .contentShape(Rectangle())
+                Label("Search & Ask", systemImage: "magnifyingglass")
             }
-            .buttonStyle(.plain)
-            .foregroundColor(.primary)
-            .padding(.horizontal, 10).padding(.top, 10).padding(.bottom, 4)
             .help("Search inside all transcripts, or ask a question across them (⌘K)")
-
-            List(selection: $selectedSidebarItem) {
-                Section {
-                    Label("Today", systemImage: "sun.max")
-                        .tag(SidebarItem.today)
-                }
-                // Two clear "doors in": capture a meeting on-device, or bring in
-                // outside audio/video to transcribe. Everything they produce lands
-                // in the single Library below.
-                Section("Capture") {
-                    Label("Meetings", systemImage: "record.circle")
-                        .tag(SidebarItem.record)
-                    Label("Transcribe", systemImage: "waveform")
-                        .tag(SidebarItem.download)
-                }
-                Section("Browse") {
-                    Label("Library", systemImage: "books.vertical")
-                        .tag(SidebarItem.transcripts)
-                    Label("People", systemImage: "person.2")
-                        .tag(SidebarItem.people)
-                }
-                Section {
-                    Label("Settings", systemImage: "gearshape")
-                        .tag(SidebarItem.settings)
-                }
-            }
-            .listStyle(.sidebar)
         }
-        .navigationTitle("")
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button("New Recording", systemImage: "record.circle") { startRecordingFromToolbar() }
+                    .disabled(recorder.isBusy)
+                Divider()
+                Button("Import File or Link…", systemImage: "square.and.arrow.down") {
+                    transcribeTab = .new
+                    selectedSidebarItem = .download
+                }
+                Button("Downloads", systemImage: "arrow.down.circle") {
+                    transcribeTab = .downloads
+                    selectedSidebarItem = .download
+                }
+            } label: {
+                Label("New", systemImage: "plus")
+            }
+            .help("Record a meeting, or import audio, video or a link")
+        }
+        ToolbarSpacer(.fixed, placement: .primaryAction)
+        ToolbarItem(placement: .primaryAction) {
+            if recorder.isRecording {
+                Button {
+                    recorder.stop()
+                } label: {
+                    Label("Stop · \(RecordingView.formatElapsed(recorder.elapsed))", systemImage: "stop.fill")
+                        .labelStyle(.titleAndIcon)
+                        .monospacedDigit()
+                }
+                .buttonStyle(.glassProminent)
+                .tint(DS.Colors.recording)
+                .help("Stop and transcribe the recording")
+            } else {
+                Button {
+                    startRecordingFromToolbar()
+                } label: {
+                    Label("Record", systemImage: "record.circle")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(DS.Colors.recording)
+                .disabled(recorder.isBusy)
+                .help("Record a meeting on this Mac")
+            }
+        }
+    }
+
+    /// Opens the Settings window on a specific pane.
+    private func openSettingsPane(_ category: SettingsCategory) {
+        UserDefaults.standard.set(category.rawValue, forKey: "settingsCategory")
+        openSettings()
+    }
+
+    /// Starts a recording from the toolbar — the live calendar meeting if there is
+    /// one (title + attendees for the recap), else a blank recording.
+    private func startRecordingFromToolbar() {
+        guard !recorder.isBusy else { return }
+        selectedSidebarItem = .record
+        if let m = MeetingCalendar.shared.currentMeeting, m.isLive {
+            let prefill = m.attendees.isEmpty ? "" : "Attendees: " + m.attendees.joined(separator: ", ") + "\n\n"
+            recorder.start(meetingTitle: m.title, notesPrefill: prefill,
+                           attendees: m.attendees, attendeeEmails: m.attendeeEmails)
+        } else {
+            recorder.start()
+        }
     }
 
     // MARK: - Detail View
@@ -345,8 +396,6 @@ struct ContentView: View {
             }
         case .history:
             historyDetailView
-        case .settings:
-            SettingsView(downloader: downloader)
         }
     }
 
@@ -469,12 +518,12 @@ struct ContentView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(isDraggingOverDownload ? DS.Colors.accent.opacity(0.08) : Color.white.opacity(0.025))
+                .fill(isDraggingOverDownload ? DS.Colors.accent.opacity(0.08) : Color.primary.opacity(0.025))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
-                    isDraggingOverDownload ? DS.Colors.accent.opacity(0.6) : Color.white.opacity(0.08),
+                    isDraggingOverDownload ? DS.Colors.accent.opacity(0.6) : Color.primary.opacity(0.08),
                     style: StrokeStyle(lineWidth: isDraggingOverDownload ? 2 : 1, dash: [7, 5])
                 )
         )
@@ -526,8 +575,8 @@ struct ContentView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 11)
-            .background(Color.white.opacity(0.06), in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+            .background(Color.primary.opacity(0.06), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12), lineWidth: 1))
 
             // Circular send-style action button (Messages-like)
             Button(action: performAction) {
@@ -799,7 +848,7 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 7).padding(.vertical, 2)
-                            .background(Capsule().fill(Color.white.opacity(0.06)))
+                            .background(Capsule().fill(Color.primary.opacity(0.06)))
                             .chromeText()
                     }
                 }
@@ -807,7 +856,7 @@ struct ContentView: View {
                 Spacer()
             }
             .padding()
-            .glassSurface(cornerRadius: 12)
+            .contentCard(padding: 0, cornerRadius: 12)
             .padding(.horizontal, 20)
 
             // The two things MindExtract does — equal twins, impossible to confuse.
@@ -1229,7 +1278,7 @@ struct ContentView: View {
                     Spacer()
                     if downloader.lastErrorNeedsAuth {
                         Button("Sign in to YouTube") {
-                            selectedSidebarItem = .settings
+                            openSettingsPane(.downloads)
                         }
                         .primaryGlassButton()
                         .controlSize(.small)
@@ -1415,7 +1464,7 @@ struct ContentView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Button(action: { selectedSidebarItem = .settings }) {
+                Button(action: { openSettingsPane(.transcription) }) {
                     Label("Download a Model", systemImage: "arrow.down.circle.fill")
                         .frame(maxWidth: .infinity)
                 }
@@ -1435,7 +1484,7 @@ struct ContentView: View {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
                     Text("Audio tools are missing — transcription is unavailable").font(.system(size: 12)).foregroundColor(.orange)
                     Spacer()
-                    Button("Settings") { selectedSidebarItem = .settings }
+                    Button("Settings") { openSettingsPane(.transcription) }
                         .secondaryGlassButton()
                         .controlSize(.small)
                 }
@@ -1456,7 +1505,7 @@ struct ContentView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    Button(action: { selectedSidebarItem = .settings }) {
+                    Button(action: { openSettingsPane(.transcription) }) {
                         Label("Download a Model", systemImage: "arrow.down.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
@@ -1584,7 +1633,7 @@ struct ContentView: View {
                         .textSelection(.enabled)
                 }
                 .frame(height: 150)
-                .background(Color.white.opacity(0.03))
+                .background(Color.primary.opacity(0.03))
             }
         }
     }
@@ -1955,7 +2004,7 @@ struct LocalFileRow: View {
                         .font(.caption2).fontWeight(.medium)
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 7).padding(.vertical, 2)
-                        .background(Color.white.opacity(0.08), in: Capsule())
+                        .background(Color.primary.opacity(0.08), in: Capsule())
                 }
             }
 

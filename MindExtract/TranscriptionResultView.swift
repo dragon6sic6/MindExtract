@@ -64,17 +64,16 @@ struct FlowLayout: Layout {
 // MARK: - Speaker Colors
 
 enum SpeakerColors {
-    // Explicit vivid hues tuned for dark mode — several system colors
-    // (purple, indigo, teal) read as muddy/low-contrast on a near-black surface.
+    // System hues: they adapt to light/dark mode and Increase Contrast.
     static let palette: [Color] = [
-        Color(red: 0.20, green: 0.55, blue: 1.00),  // blue
-        Color(red: 0.80, green: 0.40, blue: 1.00),  // magenta
-        Color(red: 1.00, green: 0.60, blue: 0.10),  // orange
-        Color(red: 0.15, green: 0.85, blue: 0.85),  // cyan
-        Color(red: 1.00, green: 0.45, blue: 0.68),  // pink
-        Color(red: 0.35, green: 0.88, blue: 0.42),  // green
-        Color(red: 0.55, green: 0.58, blue: 1.00),  // periwinkle
-        Color(red: 0.25, green: 0.92, blue: 0.72),  // turquoise
+        Color(nsColor: .systemBlue),
+        Color(nsColor: .systemPurple),
+        Color(nsColor: .systemOrange),
+        Color(nsColor: .systemTeal),
+        Color(nsColor: .systemPink),
+        Color(nsColor: .systemGreen),
+        Color(nsColor: .systemIndigo),
+        Color(nsColor: .systemMint),
     ]
 
     static func color(for speaker: String) -> Color {
@@ -390,7 +389,7 @@ struct TranscriptionResultView: View {
             }
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.04)))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(DS.Colors.accent.opacity(0.25), lineWidth: 1))
     }
 
@@ -641,7 +640,7 @@ struct TranscriptionResultView: View {
                   .padding(.horizontal, 16)
                   .padding(.vertical, 4)
                 }
-                .background(Color.white.opacity(0.03))
+                .background(Color.primary.opacity(0.03))
 
                 Divider()
             }
@@ -742,7 +741,7 @@ struct TranscriptionResultView: View {
             Button(action: { if !isTranscribing { audioPlayer.stop(); onClose?() } }) {
                 HStack(spacing: 3) {
                     Image(systemName: "chevron.left")
-                    Text("Transcripts")
+                    Text("Library")
                 }
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(isTranscribing ? .secondary.opacity(0.4) : .accentColor)
@@ -893,7 +892,7 @@ struct TranscriptionResultView: View {
                         .padding(.vertical, 5)
                         .background(
                             isActiveTab
-                                ? Color.white.opacity(0.12)
+                                ? Color.primary.opacity(0.12)
                                 : Color.clear
                         )
                         .cornerRadius(6)
@@ -905,7 +904,7 @@ struct TranscriptionResultView: View {
             }
         }
         .padding(2)
-        .background(Color.white.opacity(0.06))
+        .background(Color.primary.opacity(0.06))
         .cornerRadius(8)
     }
 
@@ -1409,7 +1408,7 @@ struct TranscriptionResultView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.04)))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(DS.Colors.hairline, lineWidth: 1))
     }
 
@@ -1931,7 +1930,7 @@ struct TranscriptionResultView: View {
                     .padding(.horizontal, 13)
                     .padding(.vertical, 9)
                     .background(
-                        msg.isUser ? DS.Colors.accent : Color.white.opacity(0.12),
+                        msg.isUser ? DS.Colors.accent : Color.primary.opacity(0.12),
                         in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                     )
                     .foregroundColor(msg.isUser ? .white : .primary)
@@ -1977,7 +1976,7 @@ struct TranscriptionResultView: View {
                     }
                     .foregroundColor(.accentColor)
                     .padding(.horizontal, 14).padding(.vertical, 11)
-                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -2546,7 +2545,7 @@ struct SegmentRow: View {
                         .font(.system(size: 14))
                         .lineSpacing(4)
                         .padding(6)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)))
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(DS.Colors.accent.opacity(0.4), lineWidth: 1))
                         // Reseed on first show AND when a recycled LazyVStack row is
                         // reused for a different segment (else draft would be stale).
@@ -2578,7 +2577,7 @@ struct SegmentRow: View {
                 ? Color.accentColor.opacity(0.14)
                 : (isHovered
                     ? Color.accentColor.opacity(0.06)
-                    : (isEven ? Color.white.opacity(0.03) : Color.clear))
+                    : (isEven ? Color.primary.opacity(0.03) : Color.clear))
         )
         .animation(.easeInOut(duration: 0.2), value: isActive)
         .onHover { hovering in

@@ -224,6 +224,16 @@ final class MeetingRecorder: ObservableObject {
 
     /// `language`/`liveModel` drive the live preview. If liveModel is nil or not
     /// downloaded, recording still works — there's just no live transcript.
+    /// The Whisper model for the live preview: the language's recommended model if
+    /// it streams and is downloaded, else any downloaded Whisper model (Pianissimo
+    /// can't stream, so Swedish previews with Whisper and finishes with Pianissimo).
+    static func defaultLiveModel(for language: String) -> WhisperModel? {
+        let downloaded = TranscriptionManager.shared.downloadedModels
+        let rec = WhisperModel.recommended(for: language)
+        if rec.usesWhisperKit, downloaded.contains(rec) { return rec }
+        return [WhisperModel.small, .base, .largev3turbo, .medium, .tiny, .largev3].first { downloaded.contains($0) }
+    }
+
     func start(language: String = "auto", liveModel: WhisperModel? = nil, meetingTitle: String? = nil, notesPrefill: String = "", attendees: [String] = [], attendeeEmails: [String] = []) {
         guard !isBusy else { return }
         guard #available(macOS 15.0, *) else {
@@ -231,7 +241,9 @@ final class MeetingRecorder: ObservableObject {
             return
         }
         self.liveLanguage = language
-        self.liveModel = liveModel
+        // Every entry point (menu bar, Today, toolbar, notifications) gets the live
+        // preview — not just the Meetings screen that passes a model explicitly.
+        self.liveModel = liveModel ?? Self.defaultLiveModel(for: language)
         self.sessionTitle = meetingTitle
         self.sessionAttendees = attendees
         self.sessionAttendeeEmails = attendeeEmails

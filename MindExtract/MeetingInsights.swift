@@ -154,7 +154,7 @@ struct MeetingInsightsCard: View {
             }
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.04)))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(DS.Colors.hairline, lineWidth: 1))
     }
 }

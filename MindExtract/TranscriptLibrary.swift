@@ -346,7 +346,7 @@ struct CorpusChatView: View {
                     .textFieldStyle(.plain)
                     .lineLimit(1...4)
                     .padding(8)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
                     .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.hairline, lineWidth: 1))
                     .onSubmit(send)
                 Button(action: send) {
@@ -406,7 +406,7 @@ struct CorpusChatView: View {
                 .textSelection(.enabled)
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 12)
-                    .fill(msg.isUser ? DS.Colors.accent.opacity(0.18) : Color.white.opacity(0.05)))
+                    .fill(msg.isUser ? DS.Colors.accent.opacity(0.18) : Color.primary.opacity(0.05)))
                 .frame(maxWidth: 460, alignment: msg.isUser ? .trailing : .leading)
             if !msg.isUser { Spacer(minLength: 40) }
         }
