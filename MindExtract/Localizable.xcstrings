@@ -13,6 +13,26 @@
         }
       }
     },
+    "%@ (Swedish only)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (bara svenska)"
+          }
+        }
+      }
+    },
+    "%@ (Swedish), %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (svenska), %@"
+          }
+        }
+      }
+    },
     "%@ (Text)": {
       "localizations": {
         "sv": {
@@ -606,6 +626,16 @@
         }
       }
     },
+    "Always Pianissimo when it's downloaded — the best at Swedish.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alltid Pianissimo när den är nedladdad – bäst på svenska."
+          }
+        }
+      }
+    },
     "Always ask for consent before recording others.": {
       "localizations": {
         "sv": {
@@ -648,6 +678,16 @@
       }
     },
     "Apple": {},
+    "Apple speech recognition": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apples taligenkänning"
+          }
+        }
+      }
+    },
     "Apple's built-in speech recognition. No download needed.": {
       "localizations": {
         "sv": {
@@ -664,6 +704,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apples taligenkänning stöder inte %@. Ladda ned en talmodell i Inställningar → Transkribering och försök igen."
+          }
+        }
+      }
+    },
+    "Apple: built into macOS, no download. Falls back to Whisper for languages Apple can't do.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple: inbyggd i macOS, ingen nedladdning. Använder Whisper för språk som Apple inte klarar."
           }
         }
       }
@@ -774,6 +824,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fråga vad som helst – AI:n svarar utifrån transkriptet."
+          }
+        }
+      }
+    },
+    "Ask anything, follow-up email, recipes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga vad som helst, uppföljningsmejl, recept"
           }
         }
       }
@@ -1084,6 +1144,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Textning"
+          }
+        }
+      }
+    },
+    "Change": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ändra"
           }
         }
       }
@@ -1778,6 +1848,16 @@
         }
       }
     },
+    "Dictation (hold right ⌥)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diktering (håll in höger ⌥)"
+          }
+        }
+      }
+    },
     "Discard Recording": {
       "localizations": {
         "sv": {
@@ -1884,6 +1964,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ladda ned en till"
+          }
+        }
+      }
+    },
+    "Download Pianissimo for the best Swedish.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned Pianissimo för bäst svenska."
           }
         }
       }
@@ -2028,6 +2118,16 @@
         }
       }
     },
+    "Downloaded once, then they work offline. Pianissimo by Klang AI AB, CC BY 4.0.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laddas ned en gång och fungerar sedan offline. Pianissimo av Klang AI AB, CC BY 4.0."
+          }
+        }
+      }
+    },
     "Downloaded videos appear here": {
       "localizations": {
         "sv": {
@@ -2068,12 +2168,32 @@
         }
       }
     },
+    "Downloading from a link": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdning från länk"
+          }
+        }
+      }
+    },
     "Downloading isn't available — a component is missing. Reinstall MindExtract to fix this.": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Nedladdning är inte tillgänglig eftersom en komponent saknas. Installera om MindExtract för att åtgärda det."
+          }
+        }
+      }
+    },
+    "Downloads": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningar"
           }
         }
       }
@@ -2318,6 +2438,16 @@
         }
       }
     },
+    "Everything here runs on your Mac. Notes and summaries are written afterwards by the AI engine (Settings → AI), from the finished transcript.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allt här körs på din Mac. Anteckningar och sammanfattningar skrivs efteråt av AI-motorn (Inställningar → AI) utifrån det färdiga transkriptet."
+          }
+        }
+      }
+    },
     "Everything stays on your Mac. For encryption of the files on disk, turn on FileVault in System Settings → Privacy & Security.": {
       "localizations": {
         "sv": {
@@ -2434,6 +2564,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Favoriter"
+          }
+        }
+      }
+    },
+    "Fetches from the website": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hämtar från webbplatsen"
           }
         }
       }
@@ -3074,6 +3214,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Livetextning"
+          }
+        }
+      }
+    },
+    "Live text": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live-text"
+          }
+        }
+      }
+    },
+    "Live text while recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live-text under inspelning"
           }
         }
       }
@@ -3849,12 +4009,32 @@
         }
       }
     },
+    "None — download a speech model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingen – ladda ned en talmodell"
+          }
+        }
+      }
+    },
     "Not a task — remove": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Ingen uppgift – ta bort"
+          }
+        }
+      }
+    },
+    "Not downloaded": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inte nedladdad"
           }
         }
       }
@@ -3899,6 +4079,16 @@
         }
       }
     },
+    "Notes and titles after a recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteckningar och titlar efter en inspelning"
+          }
+        }
+      }
+    },
     "Notes written": {
       "localizations": {
         "sv": {
@@ -3915,6 +4105,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Anteckningar, beslut och uppgifter är klara när du öppnar mötet – och Idag fylls i av sig självt."
+          }
+        }
+      }
+    },
+    "Notes, decisions and tasks — and a title — are ready when the transcript is.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteckningar, beslut och uppgifter – och en titel – är klara samtidigt som transkriptet."
           }
         }
       }
@@ -4029,12 +4229,32 @@
         }
       }
     },
+    "Off": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Av"
+          }
+        }
+      }
+    },
     "Off: a recording is transcribed as soon as you stop, in the language that's spoken.": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Av: en inspelning transkriberas direkt när du stoppar, på det språk som talas."
+          }
+        }
+      }
+    },
+    "Off: when you finish, the whole recording is transcribed again (more accurate than the live text) in the language that's spoken.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Av: när du avslutar transkriberas hela inspelningen igen (noggrannare än live-texten) på det språk som talas."
           }
         }
       }
@@ -4065,6 +4285,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "På min Mac"
+          }
+        }
+      }
+    },
+    "On your Mac": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "På din Mac"
           }
         }
       }
@@ -4249,6 +4479,16 @@
         }
       }
     },
+    "Other languages": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Andra språk"
+          }
+        }
+      }
+    },
     "Others": {
       "localizations": {
         "sv": {
@@ -4285,6 +4525,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Logg"
+          }
+        }
+      }
+    },
+    "Overview": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Översikt"
           }
         }
       }
@@ -4405,6 +4655,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Personer du snart träffar"
+          }
+        }
+      }
+    },
+    "People, places, companies and jargon to spell correctly — one per line. Only the Whisper models read this list; Pianissimo and Apple don't.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personer, platser, företag och fackord som ska stavas rätt – ett per rad. Bara Whisper-modellerna läser listan, inte Pianissimo eller Apple."
           }
         }
       }
@@ -5779,6 +6039,16 @@
         }
       }
     },
+    "Speech to text": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tal till text"
+          }
+        }
+      }
+    },
     "Spoken language": {
       "localizations": {
         "sv": {
@@ -6019,12 +6289,32 @@
         }
       }
     },
+    "Swedish": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svenska"
+          }
+        }
+      }
+    },
     "Swedish at its best": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Svenska i toppklass"
+          }
+        }
+      }
+    },
+    "Swedish uses Pianissimo, other languages the Whisper model — on your Mac, no AI rewriting. Accessibility lets MindExtract notice the key and type into other apps; it never reads what you type. Shortcuts like ⌥2 for @ keep working. Audio is discarded right after.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svenska använder Pianissimo, andra språk Whisper-modellen – på din Mac, ingen AI skriver om texten. Hjälpmedel låter MindExtract märka tangenten och skriva i andra appar; den läser aldrig vad du skriver. Kortkommandon som ⌥2 för @ fungerar som vanligt. Ljudet raderas direkt efteråt."
           }
         }
       }
@@ -6119,6 +6409,16 @@
         }
       }
     },
+    "Telling speakers apart": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skilja på talare"
+          }
+        }
+      }
+    },
     "Test": {
       "localizations": {
         "sv": {
@@ -6135,6 +6435,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Text"
+          }
+        }
+      }
+    },
+    "Text is sent to %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texten skickas till %@"
+          }
+        }
+      }
+    },
+    "The AI engine only works with text that has already been transcribed. It never hears the audio.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI-motorn arbetar bara med text som redan är transkriberad. Den hör aldrig ljudet."
           }
         }
       }
@@ -6509,12 +6829,32 @@
         }
       }
     },
+    "Transcribing Swedish": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribering av svenska"
+          }
+        }
+      }
+    },
     "Transcribing audio…": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Transkriberar…"
+          }
+        }
+      }
+    },
+    "Transcribing other languages": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkribering av andra språk"
           }
         }
       }
@@ -6749,6 +7089,16 @@
         }
       }
     },
+    "Turning speech into text always happens on your Mac, whatever you choose below.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Att göra tal till text sker alltid på din Mac, oavsett vad du väljer nedan."
+          }
+        }
+      }
+    },
     "Turns (times this person took the floor)": {
       "localizations": {
         "sv": {
@@ -6845,6 +7195,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Använd dina möten i Claude"
+          }
+        }
+      }
+    },
+    "Used for other languages when Whisper is chosen, and for live text and dictation in other languages.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Används för andra språk när Whisper är valt, och för live-text och diktering på andra språk."
+          }
+        }
+      }
+    },
+    "Used for: notes and titles after a recording, Ask anything, follow-up emails and recipes. Not used for transcribing — that's Settings → Transcription.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Används till: anteckningar och titlar efter en inspelning, Fråga vad som helst, uppföljningsmejl och recept. Används inte till transkribering – det sköts i Inställningar → Transkribering."
           }
         }
       }
@@ -6999,6 +7369,16 @@
         }
       }
     },
+    "Which engine is used": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vilken motor som används"
+          }
+        }
+      }
+    },
     "While and after recording": {
       "localizations": {
         "sv": {
@@ -7016,6 +7396,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Whisper %@"
+          }
+        }
+      }
+    },
+    "Whisper model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whisper-modell"
+          }
+        }
+      }
+    },
+    "Whisper: downloadable models, handles the most languages.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whisper: nedladdningsbara modeller, klarar flest språk."
           }
         }
       }
@@ -7090,6 +7490,16 @@
         }
       }
     },
+    "Write notes after every recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv anteckningar efter varje inspelning"
+          }
+        }
+      }
+    },
     "Write notes — or just listen. Notes are written from the conversation when you finish.": {
       "localizations": {
         "sv": {
@@ -7116,6 +7526,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Skriver anteckningarna"
+          }
+        }
+      }
+    },
+    "Writing with AI": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriva med AI"
           }
         }
       }

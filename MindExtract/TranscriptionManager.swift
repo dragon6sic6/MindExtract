@@ -291,6 +291,9 @@ class TranscriptionManager: ObservableObject {
     private let fileManager = FileManager.default
     private let transcriptionHistory = TranscriptionHistoryManager.shared
     private var currentModelUsed: WhisperModel?
+    /// The engine that actually ran (the requested model can be rerouted by
+    /// language), recorded in the history so "Model" never names the wrong one.
+    private var usedEngineName: String?
 
     private init() {
         loadDownloadedModels()
@@ -542,7 +545,7 @@ class TranscriptionManager: ObservableObject {
 
     /// A downloaded multilingual model (needed to auto-detect language / transcribe
     /// non-Swedish). Prefers the user's default if it's multilingual.
-    private func multilingualBaseModel() -> WhisperModel {
+    func multilingualBaseModel() -> WhisperModel {
         let def = AppSettings.shared.defaultWhisperModel
         if !def.isSwedishOnly, isModelDownloaded(def) { return def }
         for m in [WhisperModel.small, .base, .largev3turbo, .medium, .largev3, .tiny] where isModelDownloaded(m) { return m }
@@ -839,6 +842,7 @@ class TranscriptionManager: ObservableObject {
     // MARK: - WhisperKit Transcription
 
     private func runWhisperKit(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
+        usedEngineName = model == .pianissimo ? "Pianissimo" : "Whisper \(model.displayName)"
         // Copy audio file for playback (keep it around)
         let playbackAudioPath = applicationSupportPath.appendingPathComponent("last_transcription.wav").path
         try? fileManager.removeItem(atPath: playbackAudioPath)
@@ -1217,6 +1221,7 @@ class TranscriptionManager: ObservableObject {
     /// Runs Pianissimo and returns WhisperKit-shaped results, so speaker
     /// diarization, channel attribution and export run unchanged for both engines.
     private func transcribeWithPianissimo(audioPath: String) async throws -> [TranscriptionResult] {
+        usedEngineName = "Pianissimo"
         let isFirstLoad = await !PianissimoEngine.shared.isLoaded
         if isFirstLoad {
             transcriptionState = .loadingModel(modelName: WhisperModel.pianissimo.displayName)
@@ -1653,6 +1658,7 @@ class TranscriptionManager: ObservableObject {
         liveTranscriptionText = ""
         lastSavedPath = nil
         segments = []   // never show the previous note's transcript while this one runs
+        usedEngineName = nil
         currentModelUsed = model
         DispatchQueue.main.async {
             // During a batch we transcribe in the background — don't yank the user
@@ -1700,7 +1706,7 @@ class TranscriptionManager: ObservableObject {
             title: resolvedTitle,
             filePath: filePath,
             duration: duration,
-            modelUsed: currentModelUsed?.displayName ?? "Unknown"
+            modelUsed: usedEngineName ?? currentModelUsed?.displayName ?? "Unknown"
         )
         historyItem.source = currentTranscriptSource.rawValue
         transcriptionHistory.addToHistory(historyItem)
@@ -2096,6 +2102,7 @@ extension TranscriptionManager {
     /// (Speaker diarization is not yet applied on this path.)
     @available(macOS 26.0, *)
     func runSpeechAnalyzer(audioPath: String, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
+        usedEngineName = "Apple Speech"
         // Keep a copy of the audio for the result view's player.
         let playbackAudioPath = applicationSupportPath.appendingPathComponent("last_transcription.wav").path
         try? fileManager.removeItem(atPath: playbackAudioPath)

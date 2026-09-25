@@ -1,9 +1,10 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Settings window's panes. Six, each owning one area of the app — so a
-/// setting has exactly one home and every pane looks the same (grouped Form).
+/// The Settings window's panes. An overview of what does what, then one pane per
+/// area — so a setting has exactly one home and every pane looks the same.
 enum SettingsCategory: String, CaseIterable, Identifiable {
+    case overview
     case general
     case recording
     case transcription
@@ -15,6 +16,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
 
     var title: LocalizedStringKey {
         switch self {
+        case .overview: return "Overview"
         case .general: return "General"
         case .recording: return "Recording"
         case .transcription: return "Transcription"
@@ -26,6 +28,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
 
     var windowTitle: String {
         switch self {
+        case .overview: return String(localized: "Overview")
         case .general: return String(localized: "General")
         case .recording: return String(localized: "Recording")
         case .transcription: return String(localized: "Transcription")
@@ -37,6 +40,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
+        case .overview: return "square.grid.2x2"
         case .general: return "gearshape"
         case .recording: return "record.circle"
         case .transcription: return "text.bubble"
@@ -55,7 +59,7 @@ struct SettingsView: View {
     @ObservedObject private var recorder = MeetingRecorder.shared
     @ObservedObject private var recipeStore = RecipeStore.shared
     /// Persisted so other parts of the app can deep-link a pane before opening Settings.
-    @AppStorage("settingsCategory") private var category: SettingsCategory = .general
+    @AppStorage("settingsCategory") private var category: SettingsCategory = .overview
     @State private var showResetConfirmation = false
     @State private var confirmRemoveLegacyKB = false
     @State private var showYouTubeSignOutConfirm = false
@@ -103,6 +107,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var categoryContent: some View {
         switch category {
+        case .overview: overviewPane
         case .general: generalPane
         case .recording: recordingPane
         case .transcription: transcriptionPane
@@ -130,6 +135,136 @@ struct SettingsView: View {
     private func warningRow(_ text: LocalizedStringKey) -> some View {
         Label(text, systemImage: "exclamationmark.triangle.fill")
             .foregroundStyle(.orange)
+    }
+
+    // MARK: - Overview
+
+    /// Where a job runs — the one thing people ask about most.
+    private enum Where { case onMac, internet, sentTo(String) }
+
+    /// Every job MindExtract does, the engine doing it right now, and where it runs.
+    @ViewBuilder
+    private var overviewPane: some View {
+        Section {
+            engineRow("Transcribing Swedish", icon: "text.bubble",
+                      engine: swedishEngine, where: .onMac, pane: .transcription,
+                      warning: transcriptionManager.isModelDownloaded(.pianissimo) ? nil : "Download Pianissimo for the best Swedish.")
+            engineRow("Transcribing other languages", icon: "globe",
+                      engine: otherLanguagesEngine, where: .onMac, pane: .transcription)
+            engineRow("Live text while recording", icon: "waveform",
+                      engine: liveEngine, where: .onMac, pane: .transcription)
+            engineRow("Telling speakers apart", icon: "person.2",
+                      engine: settings.enableSpeakerDiarization ? "SpeakerKit" : String(localized: "Off"),
+                      where: .onMac, pane: .transcription)
+            engineRow("Dictation (hold right ⌥)", icon: "keyboard",
+                      engine: dictationEngine, where: .onMac, pane: .dictation)
+        } header: {
+            Text("Speech to text")
+        } footer: {
+            Text("Turning speech into text always happens on your Mac, whatever you choose below.")
+        }
+
+        Section {
+            engineRow("Notes and titles after a recording", icon: "sparkles",
+                      engine: aiEngineName, where: aiWhere, pane: .ai)
+            engineRow("Ask anything, follow-up email, recipes", icon: "bubble.left.and.text.bubble.right",
+                      engine: aiEngineName, where: aiWhere, pane: .ai)
+        } header: {
+            Text("Writing with AI")
+        } footer: {
+            Text("The AI engine only works with text that has already been transcribed. It never hears the audio.")
+        }
+
+        Section {
+            engineRow("Downloading from a link", icon: "arrow.down.circle",
+                      engine: "yt-dlp", where: .internet, pane: .imports)
+        } header: {
+            Text("Downloads")
+        }
+    }
+
+    private func engineRow(_ job: LocalizedStringKey, icon: String, engine: String, where place: Where,
+                           pane: SettingsCategory, warning: LocalizedStringKey? = nil) -> some View {
+        LabeledContent {
+            HStack(spacing: 10) {
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(verbatim: engine).fontWeight(.medium)
+                    whereBadge(place)
+                }
+                Button {
+                    category = pane
+                } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .buttonStyle(.borderless)
+                .help("Change")
+                .accessibilityLabel("Change")
+            }
+        } label: {
+            Label {
+                Text(job)
+                if let warning {
+                    Text(warning).foregroundStyle(.orange)
+                }
+            } icon: {
+                Image(systemName: icon)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func whereBadge(_ place: Where) -> some View {
+        switch place {
+        case .onMac:
+            Label("On your Mac", systemImage: "lock.fill")
+                .font(.caption).foregroundStyle(.green)
+        case .internet:
+            Label("Fetches from the website", systemImage: "network")
+                .font(.caption).foregroundStyle(.secondary)
+        case .sentTo(let name):
+            Label("Text is sent to \(name)", systemImage: "icloud.and.arrow.up")
+                .font(.caption).foregroundStyle(.orange)
+        }
+    }
+
+    private var swedishEngine: String {
+        transcriptionManager.isModelDownloaded(.pianissimo) ? "Pianissimo" : otherLanguagesEngine
+    }
+
+    private var otherLanguagesEngine: String {
+        if transcriptionManager.useAppleSpeech() { return String(localized: "Apple speech recognition") }
+        return "Whisper · \(settings.defaultWhisperModel.displayName)"
+    }
+
+    private var liveEngine: String {
+        let swedish = transcriptionManager.isModelDownloaded(.pianissimo) ? "Pianissimo" : nil
+        let other = MeetingRecorder.defaultLiveModel(for: "en").map { "Whisper · \($0.displayName)" }
+        switch (swedish, other) {
+        case let (s?, o?): return String(localized: "\(s) (Swedish), \(o)")
+        case let (s?, nil): return String(localized: "\(s) (Swedish only)")
+        case let (nil, o?): return o
+        default: return String(localized: "None — download a speech model")
+        }
+    }
+
+    private var dictationEngine: String {
+        guard settings.dictationEnabled else { return String(localized: "Off") }
+        if settings.dictationLanguage == "sv", transcriptionManager.isModelDownloaded(.pianissimo) { return "Pianissimo" }
+        return "Whisper · \(transcriptionManager.multilingualBaseModel().displayName)"
+    }
+
+    private var aiEngineName: String {
+        switch settings.aiBackend {
+        case .ollama: return settings.ollamaModel.isEmpty ? "Ollama" : "Ollama · \(settings.ollamaModel)"
+        default: return settings.aiBackend.rawValue
+        }
+    }
+
+    private var aiWhere: Where {
+        switch settings.aiBackend {
+        case .apple, .ollama: return .onMac
+        default: return .sentTo(settings.aiBackend.shortName)
+        }
     }
 
     // MARK: - General
@@ -252,13 +387,16 @@ struct SettingsView: View {
         }
 
         Section {
+            LabeledContent("Live text") {
+                Text(verbatim: liveEngine)
+            }
             Toggle(isOn: $settings.autoShowCaptions) {
                 Text("Show live captions")
                 Text("A floating window with the live text, on top of Zoom and Teams.")
             }
             Toggle(isOn: $settings.confirmBeforeTranscribing) {
                 Text("Ask before transcribing")
-                Text("Off: a recording is transcribed as soon as you stop, in the language that's spoken.")
+                Text("Off: when you finish, the whole recording is transcribed again (more accurate than the live text) in the language that's spoken.")
             }
         } header: {
             Text("While and after recording")
@@ -285,11 +423,48 @@ struct SettingsView: View {
                 Text("Tell speakers apart")
                 Text("Labels who said what. You can rename speakers afterwards.")
             }
+            Picker("Save transcripts as", selection: $settings.transcriptionOutputFormat) {
+                ForEach(TranscriptionOutputFormat.allCases, id: \.self) { format in
+                    Text(format.displayName).tag(format)
+                }
+            }
             Toggle("Notify me when a transcript is ready", isOn: $settings.notifyOnTranscriptionComplete)
         } header: {
             Text("Transcripts")
         } footer: {
             Text("Automatic detects the language of each recording. You can always transcribe again in another language.")
+        }
+
+        Section {
+            LabeledContent {
+                Text(verbatim: transcriptionManager.isModelDownloaded(.pianissimo) ? "Pianissimo" : String(localized: "Not downloaded"))
+            } label: {
+                Text("Swedish")
+                Text("Always Pianissimo when it's downloaded — the best at Swedish.")
+            }
+            Picker(selection: Binding(
+                get: { settings.transcriptionEngine == .whisperKit ? TranscriptionEngineChoice.whisperKit : .appleSpeech },
+                set: { settings.transcriptionEngine = $0 })) {
+                Text("Apple speech recognition").tag(TranscriptionEngineChoice.appleSpeech)
+                Text("Whisper").tag(TranscriptionEngineChoice.whisperKit)
+            } label: {
+                Text("Other languages")
+                Text(settings.transcriptionEngine == .whisperKit
+                     ? "Whisper: downloadable models, handles the most languages."
+                     : "Apple: built into macOS, no download. Falls back to Whisper for languages Apple can't do.")
+            }
+            Picker(selection: $settings.defaultWhisperModel) {
+                ForEach(WhisperModel.allCases.filter { !$0.isSwedishOnly }) { model in
+                    Text(model.displayName).tag(model)
+                }
+            } label: {
+                Text("Whisper model")
+                Text("Used for other languages when Whisper is chosen, and for live text and dictation in other languages.")
+            }
+        } header: {
+            Text("Which engine is used")
+        } footer: {
+            Text("Everything here runs on your Mac. Notes and summaries are written afterwards by the AI engine (Settings → AI), from the finished transcript.")
         }
 
         Section {
@@ -321,7 +496,7 @@ struct SettingsView: View {
         } header: {
             Text("Speech models")
         } footer: {
-            Text("Models run on your Mac. Pianissimo gives the best Swedish; Whisper handles every other language. Pianissimo by Klang AI AB, CC BY 4.0.")
+            Text("Downloaded once, then they work offline. Pianissimo by Klang AI AB, CC BY 4.0.")
         }
 
         Section {
@@ -332,29 +507,7 @@ struct SettingsView: View {
         } header: {
             Text("Names and terms")
         } footer: {
-            Text("People, places, companies and jargon to spell correctly — one per line. Used by the Whisper models.")
-        }
-
-        Section {
-            Picker("Engine", selection: $settings.transcriptionEngine) {
-                ForEach(TranscriptionEngineChoice.allCases) { choice in
-                    Text(choice.displayName).tag(choice)
-                }
-            }
-            Picker("Model for other languages", selection: $settings.defaultWhisperModel) {
-                ForEach(WhisperModel.allCases.filter { !$0.isSwedishOnly }) { model in
-                    Text(model.displayName).tag(model)
-                }
-            }
-            Picker("Save transcripts as", selection: $settings.transcriptionOutputFormat) {
-                ForEach(TranscriptionOutputFormat.allCases, id: \.self) { format in
-                    Text(format.displayName).tag(format)
-                }
-            }
-        } header: {
-            Text("Advanced")
-        } footer: {
-            Text(settings.transcriptionEngine.detail)
+            Text("People, places, companies and jargon to spell correctly — one per line. Only the Whisper models read this list; Pianissimo and Apple don't.")
         }
     }
 
@@ -386,10 +539,13 @@ struct SettingsView: View {
                     ModelRow(model: .pianissimo)
                 }
             }
+            LabeledContent("Engine") {
+                Text(verbatim: dictationEngine)
+            }
         } header: {
             Text("Dictation")
         } footer: {
-            Text("Accessibility lets MindExtract notice the key and type into other apps — it never reads what you type. Shortcuts like ⌥2 for @ keep working. Audio is discarded right after.")
+            Text("Swedish uses Pianissimo, other languages the Whisper model — on your Mac, no AI rewriting. Accessibility lets MindExtract notice the key and type into other apps; it never reads what you type. Shortcuts like ⌥2 for @ keep working. Audio is discarded right after.")
         }
 
         if !dictation.recent.isEmpty {
@@ -451,13 +607,18 @@ struct SettingsView: View {
         } header: {
             Text("AI engine")
         } footer: {
-            Text(settings.aiBackend.detail)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Used for: notes and titles after a recording, Ask anything, follow-up emails and recipes. Not used for transcribing — that's Settings → Transcription.")
+                Label(settings.aiBackend.detail,
+                      systemImage: [.apple, .ollama].contains(settings.aiBackend) ? "lock.fill" : "icloud.and.arrow.up")
+                    .foregroundStyle([.apple, .ollama].contains(settings.aiBackend) ? .green : .orange)
+            }
         }
 
         Section {
             Toggle(isOn: $settings.autoGenerateMeetingNotes) {
-                Text("Write notes after every meeting")
-                Text("Notes, decisions and tasks are ready when you open the meeting — and Today fills in by itself.")
+                Text("Write notes after every recording")
+                Text("Notes, decisions and tasks — and a title — are ready when the transcript is.")
             }
             ForEach(recipeStore.recipes) { r in
                 LabeledContent {
@@ -704,7 +865,7 @@ struct SettingsView: View {
         // Re-sync the live services with the restored defaults.
         dictation.refresh()
         AppDelegate.applyAppearance(settings.appAppearance)
-        category = .general
+        category = .overview
     }
 
     private func selectCookiesFile() {
