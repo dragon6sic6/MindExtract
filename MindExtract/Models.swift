@@ -514,9 +514,11 @@ class AppSettings: ObservableObject {
     /// Custom vocabulary — names and domain terms (one per line or comma-separated)
     /// fed to WhisperKit as a conditioning prompt so it spells them correctly.
     @AppStorage("customVocabulary") var customVocabulary: String = ""
-    /// Push-to-talk dictation: hold right ⌥ Option anywhere, speak, release → text
+    /// Push-to-talk dictation: hold the dictation key anywhere, speak, release → text
     /// is typed at the cursor. Needs Accessibility permission to see the key.
     @AppStorage("dictationEnabled") var dictationEnabled: Bool = true
+    /// The key you hold to dictate.
+    @AppStorage("dictationKey") var dictationKey: DictationKey = .rightOption
     /// "system" (default), "light" or "dark".
     @AppStorage("appAppearance") var appAppearance: String = "system"
     /// Show the "Recording finished" sheet (name, language, model) instead of
@@ -588,7 +590,7 @@ class AppSettings: ObservableObject {
         "downloadPath", "cookieBrowser", "cookiesFilePath", "defaultWhisperModel", "transcriptionOutputFormat",
         "enableSpeakerDiarization", "transcriptionEngine", "autoGenerateMeetingNotes", "translateToEnglish",
         "customVocabulary", "dictationEnabled", "appAppearance", "confirmBeforeTranscribing",
-        "dictationLanguage",
+        "dictationLanguage", "dictationKey",
         "autoShowCaptions",
         "preferredMicrophoneID", "downloadQuality", "autoTranscribeOnDownload", "notifyOnTranscriptionComplete",
         "brandName", "brandLogoPath", "appLockEnabled", "aiBackend",

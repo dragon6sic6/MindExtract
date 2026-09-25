@@ -6,13 +6,71 @@ import Carbon.HIToolbox
 
 // MARK: - Push-to-talk dictation
 //
-// Hold the right ⌥ Option key anywhere on the Mac, speak, let go — the text is
-// typed where the cursor is. Swedish runs on Pianissimo, other languages on
+// Hold the dictation key (right ⌥ Option by default, or another one the user
+// picks) anywhere on the Mac, speak, let go — the text is typed where the cursor is. Swedish runs on Pianissimo, other languages on
 // Whisper; audio never leaves the Mac and is discarded right after transcription.
 //
-// Right Option doubles as the "Alt Gr" key on Swedish keyboards (@ £ $ [ ] { } |),
-// so a hold only counts as dictation if no other key is pressed while it's down,
-// and a quick tap is ignored.
+// Modifier keys double as shortcut keys (right Option is "Alt Gr" on Swedish
+// keyboards: @ £ $ [ ] { } |), so a hold only counts as dictation if no other key
+// is pressed while it's down, and a quick tap is ignored.
+
+/// The keys that work for hold-to-talk: modifiers (and fn), which type nothing
+/// on their own. Each is told apart from its twin by its device-specific bit.
+enum DictationKey: String, CaseIterable, Identifiable {
+    case rightOption, leftOption, rightCommand, rightControl, leftControl, rightShift, fn
+
+    var id: String { rawValue }
+
+    var keyCode: UInt16 {
+        switch self {
+        case .rightOption: return UInt16(kVK_RightOption)
+        case .leftOption: return UInt16(kVK_Option)
+        case .rightCommand: return UInt16(kVK_RightCommand)
+        case .rightControl: return UInt16(kVK_RightControl)
+        case .leftControl: return UInt16(kVK_Control)
+        case .rightShift: return UInt16(kVK_RightShift)
+        case .fn: return UInt16(kVK_Function)
+        }
+    }
+
+    /// Bit in the event's modifier flags that's set while this exact key is down.
+    var downMask: UInt {
+        switch self {
+        case .rightOption: return 0x40        // NX_DEVICERALTKEYMASK
+        case .leftOption: return 0x20         // NX_DEVICELALTKEYMASK
+        case .rightCommand: return 0x10       // NX_DEVICERCMDKEYMASK
+        case .rightControl: return 0x2000     // NX_DEVICERCTLKEYMASK
+        case .leftControl: return 0x01        // NX_DEVICELCTLKEYMASK
+        case .rightShift: return 0x04         // NX_DEVICERSHIFTKEYMASK
+        case .fn: return NSEvent.ModifierFlags.function.rawValue
+        }
+    }
+
+    /// Short name used in sentences ("Hold right ⌥ Option …").
+    var name: String {
+        switch self {
+        case .rightOption: return String(localized: "right ⌥ Option")
+        case .leftOption: return String(localized: "left ⌥ Option")
+        case .rightCommand: return String(localized: "right ⌘ Command")
+        case .rightControl: return String(localized: "right ⌃ Control")
+        case .leftControl: return String(localized: "left ⌃ Control")
+        case .rightShift: return String(localized: "right ⇧ Shift")
+        case .fn: return String(localized: "fn / 🌐 Globe")
+        }
+    }
+
+    /// Something worth knowing about this key, if anything.
+    var note: String? {
+        switch self {
+        case .rightOption, .leftOption:
+            return String(localized: "Shortcuts with ⌥ (like ⌥2 for @) keep working — a hold with another key isn't dictation.")
+        case .fn:
+            return String(localized: "Set “Press 🌐 key to” to “Do Nothing” in System Settings → Keyboard, so macOS doesn't react too.")
+        case .rightCommand, .rightControl, .leftControl, .rightShift:
+            return String(localized: "Shortcuts with this key keep working — a hold with another key isn't dictation.")
+        }
+    }
+}
 
 @MainActor
 final class DictationController: ObservableObject {
@@ -39,7 +97,7 @@ final class DictationController: ObservableObject {
 
     /// A hold shorter than this is a tap (or a modifier chord) — not dictation.
     static let minimumHold: TimeInterval = 0.3
-    static let rightOptionKeyCode = UInt16(kVK_RightOption)
+    private var key: DictationKey { AppSettings.shared.dictationKey }
 
     private var monitors: [Any] = []
     private var permissionPoll: Timer?
@@ -128,17 +186,17 @@ final class DictationController: ObservableObject {
     private func handle(_ event: NSEvent) {
         switch event.type {
         case .keyDown:
-            // Any key while right ⌥ is held = an Option chord (e.g. ⌥2 → @), not dictation.
+            // Any key while the dictation key is held = a shortcut (e.g. ⌥2 → @), not dictation.
             if keyDownAt != nil { chordUsed = true; cancelCapture() }
         case .flagsChanged:
-            guard event.keyCode == Self.rightOptionKeyCode else {
+            guard event.keyCode == key.keyCode else {
                 // Another modifier joined in (⌘, ⇧…) — treat as a shortcut, not speech.
                 if keyDownAt != nil { chordUsed = true; cancelCapture() }
                 return
             }
-            // Device-specific bit for the RIGHT Option key (NX_DEVICERALTKEYMASK), so
-            // holding left ⌥ at the same time can't confuse press/release.
-            let down = event.modifierFlags.rawValue & 0x40 != 0
+            // The device-specific bit, so holding the key's twin (left vs right) at
+            // the same time can't confuse press/release.
+            let down = event.modifierFlags.rawValue & key.downMask != 0
             down ? keyPressed() : keyReleased()
         default:
             break

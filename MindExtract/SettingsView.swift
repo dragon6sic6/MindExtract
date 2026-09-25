@@ -153,7 +153,7 @@ struct SettingsView: View {
             engineRow("Telling speakers apart", icon: "person.2",
                       engine: settings.enableSpeakerDiarization ? "SpeakerKit" : String(localized: "Off"),
                       where: .onMac, pane: .transcription)
-            engineRow("Dictation (hold right ⌥)", icon: "keyboard",
+            engineRow("Dictation (hold \(settings.dictationKey.name))", icon: "keyboard",
                       engine: dictationEngine, where: .onMac, pane: .dictation)
         } header: {
             Text("Speech to text")
@@ -520,10 +520,20 @@ struct SettingsView: View {
             Toggle(isOn: Binding(
                 get: { settings.dictationEnabled },
                 set: { settings.dictationEnabled = $0; dictation.refresh() })) {
-                Text("Hold right ⌥ Option to dictate")
+                Text("Hold \(settings.dictationKey.name) to dictate")
                 Text("Hold the key anywhere, speak, let go — the text is typed where your cursor is.")
             }
             if settings.dictationEnabled {
+                Picker(selection: Binding(
+                    get: { settings.dictationKey },
+                    set: { settings.dictationKey = $0; dictation.refresh() })) {
+                    ForEach(DictationKey.allCases) { key in
+                        Text(verbatim: key.name.prefix(1).uppercased() + key.name.dropFirst()).tag(key)
+                    }
+                } label: {
+                    Text("Key to hold")
+                    if let note = settings.dictationKey.note { Text(verbatim: note) }
+                }
                 permissionRow("Accessibility", granted: dictation.accessibilityGranted) {
                     dictation.requestAccessibility()
                     dictation.openAccessibilitySettings()
@@ -546,7 +556,7 @@ struct SettingsView: View {
         } header: {
             Text("Dictation")
         } footer: {
-            Text("Swedish uses Pianissimo, other languages the Whisper model — on your Mac, no AI rewriting. Accessibility lets MindExtract notice the key and type into other apps; it never reads what you type. Shortcuts like ⌥2 for @ keep working. Audio is discarded right after.")
+            Text("Swedish uses Pianissimo, other languages the Whisper model — on your Mac, no AI rewriting. Accessibility lets MindExtract notice the key and type into other apps; it never reads what you type. Audio is discarded right after.")
         }
 
         if !dictation.recent.isEmpty {

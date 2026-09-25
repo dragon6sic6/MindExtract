@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         if MeetingRecorder.isSupported {
             menuBar = MenuBarController()
         }
-        // Push-to-talk dictation (hold right ⌥ Option).
+        // Push-to-talk dictation (hold the chosen key).
         DictationController.shared.refresh()
         // Floating pill while recording in another app.
         RecordingPillController.shared.activate()

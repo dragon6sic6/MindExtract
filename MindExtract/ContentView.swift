@@ -5,7 +5,7 @@ import SwiftUI
 // MindExtract does three things, and each has its place in the sidebar:
 //   • Notes — record a meeting or a thought, live text, speakers, AI notes
 //   • Downloads — paste any link, download the video or audio, transcribe it
-//   • Dictation — hold right ⌥ anywhere and speak
+//   • Dictation — hold a key anywhere and speak
 
 enum AppSection: String, CaseIterable, Identifiable {
     case notes, downloads, dictation

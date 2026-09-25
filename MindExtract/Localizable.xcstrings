@@ -1358,6 +1358,16 @@
         }
       }
     },
+    "Click here, hold %@ and say something.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klicka här, håll in %@ och säg något."
+          }
+        }
+      }
+    },
     "Click here, hold right ⌥ and say something.": {
       "localizations": {
         "sv": {
@@ -1884,6 +1894,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Diktering"
+          }
+        }
+      }
+    },
+    "Dictation (hold %@)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diktering (håll in %@)"
           }
         }
       }
@@ -2978,6 +2998,26 @@
         }
       }
     },
+    "Hold %@ anywhere, speak, and let go. The text is typed where your cursor is — in any app.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Håll in %@ var som helst, prata och släpp. Texten skrivs där markören står – i vilken app som helst."
+          }
+        }
+      }
+    },
+    "Hold %@ to dictate": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Håll in %@ för att diktera"
+          }
+        }
+      }
+    },
     "Hold right ⌥ Option anywhere to dictate into any app.": {
       "localizations": {
         "sv": {
@@ -3114,6 +3154,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nyckeln nekades (HTTP %lld)"
+          }
+        }
+      }
+    },
+    "Key to hold": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tangent att hålla in"
           }
         }
       }
@@ -5909,6 +5959,16 @@
         }
       }
     },
+    "Set “Press 🌐 key to” to “Do Nothing” in System Settings → Keyboard, so macOS doesn't react too.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ställ in ”Tryck på 🌐 för att” på ”Gör ingenting” i Systeminställningar → Tangentbord, så att macOS inte också reagerar."
+          }
+        }
+      }
+    },
     "Settings": {
       "localizations": {
         "sv": {
@@ -5935,6 +5995,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delad"
+          }
+        }
+      }
+    },
+    "Shortcuts with this key keep working — a hold with another key isn't dictation.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kortkommandon med den här tangenten fungerar som vanligt – håller du in den tillsammans med en annan tangent blir det ingen diktering."
+          }
+        }
+      }
+    },
+    "Shortcuts with ⌥ (like ⌥2 for @) keep working — a hold with another key isn't dictation.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kortkommandon med ⌥ (som ⌥2 för @) fungerar som vanligt – håller du in den tillsammans med en annan tangent blir det ingen diktering."
           }
         }
       }
@@ -6445,6 +6525,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Svenska i toppklass"
+          }
+        }
+      }
+    },
+    "Swedish uses Pianissimo, other languages the Whisper model — on your Mac, no AI rewriting. Accessibility lets MindExtract notice the key and type into other apps; it never reads what you type. Audio is discarded right after.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svenska använder Pianissimo, andra språk Whisper-modellen – på din Mac, ingen AI skriver om texten. Hjälpmedel låter MindExtract märka tangenten och skriva i andra appar; den läser aldrig vad du skriver. Ljudet raderas direkt efteråt."
           }
         }
       }
@@ -8044,12 +8134,42 @@
         }
       }
     },
+    "fn / 🌐 Globe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fn / 🌐 Jordglob"
+          }
+        }
+      }
+    },
     "last seen": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "senast"
+          }
+        }
+      }
+    },
+    "left ⌃ Control": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vänster ⌃ Kontroll"
+          }
+        }
+      }
+    },
+    "left ⌥ Option": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vänster ⌥ Option"
           }
         }
       }
@@ -8110,6 +8230,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "spelar upp det ögonblicket"
+          }
+        }
+      }
+    },
+    "right ⇧ Shift": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "höger ⇧ Skift"
+          }
+        }
+      }
+    },
+    "right ⌃ Control": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "höger ⌃ Kontroll"
+          }
+        }
+      }
+    },
+    "right ⌘ Command": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "höger ⌘ Kommando"
+          }
+        }
+      }
+    },
+    "right ⌥ Option": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "höger ⌥ Option"
           }
         }
       }

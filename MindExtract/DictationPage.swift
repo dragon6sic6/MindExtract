@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Dictation
 //
-// The third part of the app: hold right ⌥ anywhere, speak, let go — the text is
+// The third part of the app: hold the dictation key anywhere, speak, let go — the text is
 // typed where the cursor is. This page explains it, shows whether it's ready,
 // and has a box to try it in.
 
@@ -19,7 +19,7 @@ struct DictationPage: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Dictation")
                     .font(.system(size: 34, weight: .semibold, design: .serif))
-                Text("Hold right ⌥ Option anywhere, speak, and let go. The text is typed where your cursor is — in any app.")
+                Text("Hold \(settings.dictationKey.name) anywhere, speak, and let go. The text is typed where your cursor is — in any app.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -34,6 +34,18 @@ struct DictationPage: View {
                         .labelsHidden()
                 }
                 if settings.dictationEnabled {
+                    Divider()
+                    row("Key to hold", settings.dictationKey.note.map { LocalizedStringKey($0) }) {
+                        Picker("Key to hold", selection: Binding(
+                            get: { settings.dictationKey },
+                            set: { settings.dictationKey = $0; dictation.refresh() })) {
+                            ForEach(DictationKey.allCases) { key in
+                                Text(verbatim: key.name.prefix(1).uppercased() + key.name.dropFirst()).tag(key)
+                            }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
                     Divider()
                     row("Accessibility", "Lets MindExtract notice the key and type into other apps. It never reads what you type.") {
                         if dictation.accessibilityGranted {
@@ -81,7 +93,7 @@ struct DictationPage: View {
                             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(DS.Colors.inputFill))
                             .accessibilityLabel("Try dictation here")
                         if practice.isEmpty {
-                            Text("Click here, hold right ⌥ and say something.")
+                            Text("Click here, hold \(settings.dictationKey.name) and say something.")
                                 .font(.title3)
                                 .foregroundStyle(.tertiary)
                                 .padding(.horizontal, 15).padding(.vertical, 10)
