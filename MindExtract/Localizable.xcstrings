@@ -1478,6 +1478,16 @@
         }
       }
     },
+    "Couldn't read the audio: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunde inte läsa ljudet: %@"
+          }
+        }
+      }
+    },
     "Couldn't update Claude's settings.": {
       "localizations": {
         "sv": {
@@ -2678,6 +2688,16 @@
         }
       }
     },
+    "Live transcript unavailable. The full transcript is written when you stop.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript i realtid är inte tillgängligt. Hela transkriptet skrivs när du stoppar."
+          }
+        }
+      }
+    },
     "Load": {
       "localizations": {
         "sv": {
@@ -2845,6 +2865,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Möte"
+          }
+        }
+      }
+    },
+    "Meeting %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Möte %@"
           }
         }
       }
@@ -3905,6 +3935,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Förbered mig"
+          }
+        }
+      }
+    },
+    "Preparing the live transcript… The first time can take a minute.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbereder transkriptet i realtid… Första gången kan det ta en minut."
           }
         }
       }
@@ -5229,6 +5269,16 @@
         }
       }
     },
+    "The file has no audio to transcribe.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filen innehåller inget ljud att transkribera."
+          }
+        }
+      }
+    },
     "The key works": {
       "localizations": {
         "sv": {
@@ -5325,6 +5375,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Det här går inte att ångra."
+          }
+        }
+      }
+    },
+    "This file format isn't supported. Try an audio file such as m4a, mp3 or wav.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det här filformatet stöds inte. Prova en ljudfil som m4a, mp3 eller wav."
+          }
+        }
+      }
+    },
+    "This file format needs a conversion tool that couldn't start on this Mac. Try an audio file such as m4a, mp3 or wav.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det här filformatet kräver ett konverteringsverktyg som inte kunde starta på den här Macen. Prova en ljudfil som m4a, mp3 eller wav."
           }
         }
       }

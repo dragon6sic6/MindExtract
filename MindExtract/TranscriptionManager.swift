@@ -731,14 +731,7 @@ class TranscriptionManager: ObservableObject {
         loadDownloadedModels(synchronous: true)
 
         let usingApple = useAppleSpeech()
-
-        guard let ffmpegPath = ffmpegBinaryPath else {
-            DispatchQueue.main.async {
-                self.transcriptionState = .error("FFmpeg binary not found")
-                self.advanceBatchIfNeeded()
-            }
-            return
-        }
+        let ffmpegPath = ffmpegBinaryPath
 
         // Apple Speech needs no downloaded model; only require one for WhisperKit.
         if !usingApple {
@@ -765,7 +758,7 @@ class TranscriptionManager: ObservableObject {
             self.transcriptionState = .extractingAudio
         }
 
-        // Extract audio using ffmpeg first
+        // Extract the audio (natively; ffmpeg only for formats Apple can't read)
         extractAudio(ffmpegPath: ffmpegPath, videoPath: videoPath, outputPath: tempAudioPath) { [weak self] success, error in
             guard let self = self else { return }
 
@@ -805,13 +798,7 @@ class TranscriptionManager: ObservableObject {
             }
         }
 
-        guard let ffmpegPath = ffmpegBinaryPath else {
-            DispatchQueue.main.async {
-                self.transcriptionState = .error("FFmpeg binary not found")
-            }
-            try? fileManager.removeItem(atPath: audioPath)
-            return
-        }
+        let ffmpegPath = ffmpegBinaryPath
 
         let tempWavPath = NSTemporaryDirectory() + UUID().uuidString + "_whisper.wav"
 
@@ -1375,44 +1362,54 @@ class TranscriptionManager: ObservableObject {
 
     // MARK: - Audio Extraction (FFmpeg)
 
-    private func extractAudio(ffmpegPath: String, videoPath: String, outputPath: String, completion: @escaping (Bool, String?) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else {
-                completion(false, "Manager deallocated")
-                return
-            }
-
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: ffmpegPath)
-            process.arguments = [
-                "-i", videoPath,
-                "-ar", "16000",
-                "-ac", "1",
-                "-c:a", "pcm_s16le",
-                "-y",
-                outputPath
-            ]
-
-            let errorPipe = Pipe()
-            process.standardError = errorPipe
-            process.standardOutput = FileHandle.nullDevice
-
-            self.currentProcess = process
-
+    /// Converts any media to 16 kHz mono WAV. Uses AVFoundation first (works on
+    /// every Mac, no external tools); falls back to the bundled ffmpeg only for
+    /// formats Apple can't open, like webm/mkv. Calls back on the main actor.
+    private func extractAudio(ffmpegPath: String?, videoPath: String, outputPath: String,
+                              completion: @escaping @MainActor (Bool, String?) -> Void) {
+        let input = URL(fileURLWithPath: videoPath)
+        let output = URL(fileURLWithPath: outputPath)
+        Task.detached(priority: .userInitiated) {
+            let result: (Bool, String?)
             do {
-                try process.run()
-                process.waitUntilExit()
-
-                if process.terminationStatus == 0 {
-                    completion(true, nil)
-                } else {
-                    let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                    let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown ffmpeg error"
-                    completion(false, "FFmpeg error: \(errorMessage)")
-                }
+                try await AudioConverter.toWhisperWav(input: input, output: output)
+                result = (true, nil)
+            } catch AudioConverter.ConversionError.noAudio {
+                result = (false, AudioConverter.ConversionError.noAudio.localizedDescription)
             } catch {
-                completion(false, "Failed to run ffmpeg: \(error.localizedDescription)")
+                appLog("[MindExtract] Native audio conversion failed (\(error.localizedDescription)); trying ffmpeg")
+                if let ffmpegPath {
+                    result = await Self.runFFmpeg(ffmpegPath: ffmpegPath, videoPath: videoPath, outputPath: outputPath)
+                } else {
+                    result = (false, String(localized: "This file format isn't supported. Try an audio file such as m4a, mp3 or wav."))
+                }
             }
+            await MainActor.run { completion(result.0, result.1) }
+        }
+    }
+
+    private nonisolated static func runFFmpeg(ffmpegPath: String, videoPath: String, outputPath: String) async -> (Bool, String?) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: ffmpegPath)
+        process.arguments = [
+            "-i", videoPath,
+            "-ar", "16000",
+            "-ac", "1",
+            "-c:a", "pcm_s16le",
+            "-y",
+            outputPath
+        ]
+        let errorPipe = Pipe()
+        process.standardError = errorPipe
+        process.standardOutput = FileHandle.nullDevice
+        do {
+            try process.run()
+            process.waitUntilExit()
+            if process.terminationStatus == 0 { return (true, nil) }
+            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+            return (false, "FFmpeg error: \(String(data: errorData, encoding: .utf8) ?? "unknown")")
+        } catch {
+            return (false, String(localized: "This file format needs a conversion tool that couldn't start on this Mac. Try an audio file such as m4a, mp3 or wav."))
         }
     }
 

@@ -624,7 +624,7 @@ final class MeetingRecorder: ObservableObject {
     private static func recordingTitle(_ date: Date) -> String {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd HH.mm"
-        return "Meeting \(df.string(from: date))"
+        return String(localized: "Meeting \(df.string(from: date))")
     }
 
     private static func safeFileName(_ s: String) -> String {

@@ -132,7 +132,7 @@ final class LiveTranscriber: ObservableObject {
         confirmedText = ""; liveTail = ""; lastAbsoluteProcessed = 0; lastConfirmedEnd = 0
         ring.reset()
         isActive = true
-        status = "Loading model…"
+        status = String(localized: "Preparing the live transcript… The first time can take a minute.")
         loop = Task {
             await run(modelFolder: modelFolder)
             isRunning = false                  // run() has loaded → looped → unloaded, fully sequential
@@ -155,10 +155,10 @@ final class LiveTranscriber: ObservableObject {
         do {
             loaded = try await WhisperKit(WhisperKitConfig(modelFolder: modelFolder, verbose: false, prewarm: false, load: true, download: false))
         } catch {
-            isActive = false; status = "Live preview unavailable"
+            isActive = false; status = String(localized: "Live transcript unavailable. The full transcript is written when you stop.")
             return
         }
-        status = "Listening…"
+        status = String(localized: "Listening…")
 
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 1_200_000_000)

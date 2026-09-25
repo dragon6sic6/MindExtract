@@ -92,7 +92,7 @@ private struct CaptionOverlayView: View {
     /// Show only the tail so the box stays compact and readable.
     private var caption: String {
         let text = transcriber.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty { return "Listening…" }
+        if text.isEmpty { return String(localized: "Listening…") }
         return String(text.suffix(220))
     }
 

@@ -454,4 +454,16 @@ final class CoreLogicTests: XCTestCase {
         }
         XCTAssertFalse(result.isEmpty)
     }
+
+    /// Opt-in: native conversion of a real recording (set CONVERT_E2E_AUDIO).
+    func testNativeAudioConversion() async throws {
+        guard let path = ProcessInfo.processInfo.environment["CONVERT_E2E_AUDIO"] else { throw XCTSkip("Set CONVERT_E2E_AUDIO") }
+        let out = FileManager.default.temporaryDirectory.appendingPathComponent("conv-test.wav")
+        try await AudioConverter.toWhisperWav(input: URL(fileURLWithPath: path), output: out)
+        let file = try AVAudioFile(forReading: out)
+        print("CONVERT \(file.fileFormat.sampleRate) Hz, \(file.fileFormat.channelCount) ch, \(Double(file.length) / file.fileFormat.sampleRate) s")
+        XCTAssertEqual(file.fileFormat.sampleRate, 16_000)
+        XCTAssertEqual(file.fileFormat.channelCount, 1)
+        XCTAssertGreaterThan(file.length, 16_000)
+    }
 }
