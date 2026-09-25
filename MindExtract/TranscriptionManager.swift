@@ -28,7 +28,13 @@ class TranscriptionManager: ObservableObject {
     /// Resolves a raw speaker label to its user-assigned name, if any.
     func speakerDisplayName(_ original: String) -> String {
         let trimmed = speakerNameOverrides[original]?.trimmingCharacters(in: .whitespaces)
-        return (trimmed?.isEmpty == false) ? trimmed! : original
+        if trimmed?.isEmpty == false { return trimmed! }
+        // Diarization labels are "Speaker N" — show them in the app's language.
+        if original.hasPrefix("Speaker "), let n = Int(original.dropFirst(8)) {
+            return String(localized: "Speaker \(n)")
+        }
+        if original == "You" { return String(localized: "Me") }
+        return original
     }
 
     /// True while a transcription pipeline is actively running (download → model
@@ -65,6 +71,8 @@ class TranscriptionManager: ObservableObject {
     var pendingMeetingExtras: (notes: String, consentAt: Double?)?
     /// Transcript paths whose enhanced notes are being written right now.
     @Published private(set) var enhancingPaths: Set<String> = []
+    /// Why the notes couldn't be written, per transcript path (cleared on retry).
+    @Published var enhanceErrors: [String: String] = [:]
     /// Separate mic/system tracks from a meeting recording, for channel-aware
     /// "you vs them" speaker attribution. Consumed (and the files deleted) once.
     var pendingChannelSources: (mic: String, system: String)?
@@ -115,7 +123,7 @@ class TranscriptionManager: ObservableObject {
     }
 
     /// Saves the meeting's notes + consent next to the transcript, then writes the
-    /// enhanced notes in the background when the user took notes.
+    /// notes in the background — always, with the user's own lines woven in.
     private func finishMeetingExtras(path: String) {
         guard let extras = pendingMeetingExtras else { return }
         pendingMeetingExtras = nil
@@ -127,7 +135,7 @@ class TranscriptionManager: ObservableObject {
         if !notes.isEmpty, (sidecar.userNotes ?? "").isEmpty { sidecar.userNotes = notes }
         if let at = extras.consentAt { sidecar.consentConfirmedAt = at }
         TranscriptAIStore.save(sidecar, for: path)
-        if !notes.isEmpty, AppSettings.shared.autoGenerateMeetingNotes, providerReadyForAutoBrief() {
+        if AppSettings.shared.autoGenerateMeetingNotes {
             generateEnhancedNotes(path: path, userNotes: notes, segments: segments)
         }
     }
@@ -135,6 +143,11 @@ class TranscriptionManager: ObservableObject {
     /// Writes (or rewrites) the enhanced notes for a transcript and saves them.
     func generateEnhancedNotes(path: String, userNotes: String, segments: [TranscriptionSegmentData]) {
         guard !enhancingPaths.contains(path), !segments.isEmpty else { return }
+        enhanceErrors[path] = nil
+        guard providerReadyForAutoBrief() else {
+            enhanceErrors[path] = String(localized: "The notes need an AI engine. Choose one in Settings → AI — Apple Intelligence works on this Mac.")
+            return
+        }
         enhancingPaths.insert(path)
         let backend = AIBackends.current()
         Task { @MainActor in
@@ -152,11 +165,24 @@ class TranscriptionManager: ObservableObject {
                 sidecar.enhancedNotes = notes
                 if (sidecar.userNotes ?? "").isEmpty, !userNotes.isEmpty { sidecar.userNotes = userNotes }
                 TranscriptAIStore.save(sidecar, for: path)
+                self.adoptTitle(notes.title, for: path)
                 appLog("[MindExtract] Enhanced notes written: \(path)")
+            } catch is CancellationError {
             } catch {
+                self.enhanceErrors[path] = String(localized: "Couldn't write the notes: \(error.localizedDescription)")
                 appLog("[MindExtract] Enhanced notes failed: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Replaces a timestamp-only title ("Möte 2026-09-25 16.06") with the one
+    /// written with the notes. A title the user typed is never touched.
+    private func adoptTitle(_ title: String?, for path: String) {
+        guard let title, !title.isEmpty,
+              let item = transcriptionHistory.history.first(where: { $0.filePath == path }),
+              MeetingText.isGenericTitle(item.title) else { return }
+        transcriptionHistory.rename(item, to: title)
+        if lastSavedPath == path { currentTranscriptionTitle = title }
     }
 
     /// The recording that belongs to a transcript: same base name next to it, or
@@ -201,7 +227,6 @@ class TranscriptionManager: ObservableObject {
                 if (sidecar.speakerSuggestions ?? []).isEmpty, !suggestions.isEmpty { sidecar.speakerSuggestions = suggestions }
                 if (sidecar.markedMoments ?? []).isEmpty, !moments.isEmpty { sidecar.markedMoments = moments }
                 TranscriptAIStore.save(sidecar, for: path)
-                MeetingText.retitleGenericMeetings()
                 appLog("[MindExtract] Auto-brief generated: \(path)")
                 // Run any "on every meeting" recipes — silent on-device steps only
                 // (format, reminders); interactive steps are reserved for manual runs.
@@ -253,7 +278,6 @@ class TranscriptionManager: ObservableObject {
                     break   // provider problem → stop the run
                 }
             }
-            MeetingText.retitleGenericMeetings()
         }
     }
 
@@ -1620,11 +1644,13 @@ class TranscriptionManager: ObservableObject {
 
     func startNewTranscription(title: String, model: WhisperModel? = nil, source: TranscriptSource = .file) {
         currentTranscriptSource = source
+        // Set synchronously: transcribe() names the output file from the title
+        // right after this call (async here left the previous note's name).
+        currentTranscriptionTitle = title
+        liveTranscriptionText = ""
+        lastSavedPath = nil
+        currentModelUsed = model
         DispatchQueue.main.async {
-            self.currentTranscriptionTitle = title
-            self.liveTranscriptionText = ""
-            self.lastSavedPath = nil
-            self.currentModelUsed = model
             // During a batch we transcribe in the background — don't yank the user
             // into each result view.
             guard !self.suppressAutoShow else { return }

@@ -35,10 +35,7 @@ final class RecordingPillController: ObservableObject {
         openNotes()
     }
 
-    func openNotes() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first { $0.identifier?.rawValue.hasPrefix(MainWindow.id) == true }?.makeKeyAndOrderFront(nil)
-    }
+    func openNotes() { MainWindow.show() }
 
     private func update() {
         if MeetingRecorder.shared.isRecording && !NSApp.isActive {

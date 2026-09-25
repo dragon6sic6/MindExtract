@@ -15,7 +15,8 @@ struct ContentView: View {
     @ObservedObject private var recorder = MeetingRecorder.shared
     @ObservedObject private var appLock = AppLock.shared
 
-    /// File path of the open note, or `liveTag` for the recording in progress.
+    /// File path of the open note, or `liveTag` for the one in progress (recording,
+    /// or being transcribed before it has a file).
     @State private var selection: String?
     private static let liveTag = "live-recording"
 
@@ -34,6 +35,8 @@ struct ContentView: View {
     @State private var overlayContent: AppOverlay = .palette
 
     private var isLive: Bool { recorder.isRecording || recorder.state == .finishing }
+    /// A new transcript is being made and has no file yet.
+    private var isInProgress: Bool { isLive || (tm.isTranscribing && tm.lastSavedPath == nil) }
 
     var body: some View {
         NavigationSplitView {
@@ -73,6 +76,7 @@ struct ContentView: View {
         .onAppear {
             appLock.lockIfEnabled()
             if appLock.isLocked { appLock.authenticate() }
+            if MainWindow.opener == nil { MainWindow.opener = openWindow }
             recorder.recoverInterruptedSessions()
             recorder.refreshPermissions()
             if !hasSeenWelcome && !showWelcome { showWelcome = true }
@@ -85,16 +89,10 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
             openSettings()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .newNote)) { _ in
-            startNote()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .openDownloader)) { _ in
-            openWindow(id: DownloaderWindow.id)
-        }
         // Keep the list selection in step with what's open.
         .onChange(of: selection) { _, path in open(path) }
         .onChange(of: tm.showTranscriptionView) { _, show in
-            if show, let p = tm.lastSavedPath { selection = p }
+            if show { selection = tm.lastSavedPath ?? Self.liveTag }
         }
         .onChange(of: tm.lastSavedPath) { _, p in
             if tm.showTranscriptionView, let p, selection != Self.liveTag || !isLive { selection = p }
@@ -169,7 +167,7 @@ struct ContentView: View {
 
     private var sidebar: some View {
         List(selection: $selection) {
-            if isLive {
+            if isInProgress {
                 liveRow.tag(Self.liveTag)
             }
             if searchText.isEmpty {
@@ -216,15 +214,22 @@ struct ContentView: View {
                 .foregroundStyle(DS.Colors.recording)
                 .symbolEffect(.pulse, options: .repeating, isActive: recorder.isRecording)
             VStack(alignment: .leading, spacing: 2) {
-                Text(recorder.liveTitle.isEmpty ? String(localized: "New note") : recorder.liveTitle)
+                Text(liveRowTitle)
                     .lineLimit(1)
-                Text(recorder.isRecording ? AppUtil.formatElapsed(recorder.elapsed) : String(localized: "Saving…"))
+                Text(recorder.isRecording ? AppUtil.formatElapsed(recorder.elapsed)
+                     : (isLive ? String(localized: "Saving…") : String(localized: "Transcribing…")))
                     .font(.caption)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 3)
+    }
+
+    private var liveRowTitle: String {
+        if isLive, !recorder.liveTitle.isEmpty { return recorder.liveTitle }
+        if !isLive, !tm.currentTranscriptionTitle.isEmpty { return tm.currentTranscriptionTitle }
+        return String(localized: "New note")
     }
 
     private func noteRow(_ item: TranscriptionHistoryItem) -> some View {
@@ -276,7 +281,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detail: some View {
-        if selection == Self.liveTag && (isLive || tm.showTranscriptionView) {
+        if selection == Self.liveTag, isLive || (tm.showTranscriptionView && tm.currentTranscriptSource == .meeting) {
             MeetingPage(onBack: { selection = nil })
         } else if selection != nil, tm.showTranscriptionView {
             if tm.currentTranscriptSource == .meeting {
@@ -371,13 +376,14 @@ struct ContentView: View {
                 Button {
                     recorder.stop()
                 } label: {
-                    Label("Stop · \(AppUtil.formatElapsed(recorder.elapsed))", systemImage: "stop.fill")
+                    Label("Finish · \(AppUtil.formatElapsed(recorder.elapsed))", systemImage: "stop.fill")
                         .labelStyle(.titleAndIcon)
                         .monospacedDigit()
                 }
                 .buttonStyle(.glassProminent)
                 .tint(DS.Colors.recording)
-                .help("Stop and transcribe")
+                .keyboardShortcut(".", modifiers: .command)
+                .help("Finish: the whole conversation is transcribed and your notes are written (⌘.)")
             } else {
                 Button {
                     startNote()
@@ -418,15 +424,26 @@ enum DownloaderWindow {
 enum MainWindow {
     static let id = "main"
 
+    /// Captured from the app's commands at launch, so AppKit code (menu bar,
+    /// recording pill, Dock) can reopen the notes window after it was closed.
+    @MainActor static var opener: OpenWindowAction?
+
     /// Brings the notes window forward, opening it if it was closed.
     @MainActor
-    static func bringToFront(_ openWindow: OpenWindowAction) {
+    static func show() {
         NSApp.activate(ignoringOtherApps: true)
         if let window = NSApp.windows.first(where: { $0.identifier?.rawValue.hasPrefix(id) == true }) {
+            if window.isMiniaturized { window.deminiaturize(nil) }
             window.makeKeyAndOrderFront(nil)
         } else {
-            openWindow(id: id)
+            opener?(id: id)
         }
+    }
+
+    @MainActor
+    static func bringToFront(_ openWindow: OpenWindowAction) {
+        if opener == nil { opener = openWindow }
+        show()
     }
 }
 

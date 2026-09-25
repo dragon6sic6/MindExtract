@@ -55,6 +55,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         completionHandler([.banner, .sound])
     }
 
+    // Clicking the Dock icon with every window closed brings the notes back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { MainWindow.show() }
+        return true
+    }
+
     // Don't let a recording die silently on quit — offer to stop & transcribe.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // Also wait through .finishing so a quit during finalization can't truncate the file.
@@ -147,13 +153,10 @@ final class MenuBarController {
         MeetingRecorder.shared.stop()
     }
     @objc private func downloadTapped() {
-        openTapped()
-        NotificationCenter.default.post(name: .openDownloader, object: nil)
-    }
-    @objc private func openTapped() {
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first { $0.identifier?.rawValue.hasPrefix(MainWindow.id) == true }?.makeKeyAndOrderFront(nil)
+        MainWindow.opener?(id: DownloaderWindow.id)
     }
+    @objc private func openTapped() { MainWindow.show() }
 }
 
 // MARK: - Main App
@@ -190,20 +193,7 @@ struct MindExtractApp: App {
                 }
                 .keyboardShortcut("?", modifiers: .command)
             }
-            CommandGroup(replacing: .newItem) {
-                Button("New Note") { NotificationCenter.default.post(name: .newNote, object: nil) }
-                    .keyboardShortcut("n", modifiers: .command)
-                Button("Download from Link…") { NotificationCenter.default.post(name: .openDownloader, object: nil) }
-                    .keyboardShortcut("d", modifiers: [.command, .shift])
-            }
-            CommandMenu("Note") {
-                Button("Search & Ask…") { NotificationCenter.default.post(name: .openSearch, object: nil) }
-                    .keyboardShortcut("k", modifiers: .command)
-                // No .disabled — SwiftUI Commands aren't re-evaluated on @Published
-                // changes. markMoment() itself no-ops unless recording.
-                Button("Mark Moment") { MeetingRecorder.shared.markMoment() }
-                    .keyboardShortcut("m", modifiers: .command)
-            }
+            NotesCommands()
         }
 
         // Download the video or audio behind any link — its own small window.
@@ -221,12 +211,46 @@ struct MindExtractApp: App {
     }
 }
 
+// MARK: - Menu commands
+
+struct NotesCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        // Lets AppKit code reopen the notes window once it has been closed.
+        let _ = { MainWindow.opener = openWindow }()
+        CommandGroup(replacing: .newItem) {
+            Button("New Note") {
+                MainWindow.show()
+                MeetingRecorder.shared.startNote()
+            }
+            .keyboardShortcut("n", modifiers: .command)
+            Button("Download from Link…") { openWindow(id: DownloaderWindow.id) }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
+        }
+        CommandMenu("Note") {
+            Button("Search & Ask…") {
+                MainWindow.show()
+                NotificationCenter.default.post(name: .openSearch, object: nil)
+            }
+            .keyboardShortcut("k", modifiers: .command)
+            // No .disabled — SwiftUI Commands aren't re-evaluated on @Published
+            // changes. markMoment() itself no-ops unless recording.
+            Button("Mark Moment") { MeetingRecorder.shared.markMoment() }
+                .keyboardShortcut("m", modifiers: .command)
+        }
+        CommandGroup(before: .windowList) {
+            Button("Notes") { MainWindow.show() }
+                .keyboardShortcut("0", modifiers: .command)
+            Divider()
+        }
+    }
+}
+
 // MARK: - Notification Names
 
 extension Notification.Name {
     static let openSettings = Notification.Name("openSettings")
-    static let newNote = Notification.Name("newNote")
-    static let openDownloader = Notification.Name("openDownloader")
     static let showDownloads = Notification.Name("showDownloads")
     static let checkForUpdates = Notification.Name("checkForUpdates")
     static let openSearch = Notification.Name("openSearch")

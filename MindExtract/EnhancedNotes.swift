@@ -27,6 +27,8 @@ struct EnhancedNotes: Codable, Equatable, Sendable {
     }
 
     var sections: [Section]
+    /// A short title for the meeting, written with the notes (nil in older notes).
+    var title: String?
     /// Which backend wrote it ("Apple Intelligence", "Ollama · gemma…").
     var badge: String
     var generatedAt: Date
@@ -45,12 +47,14 @@ struct EnhancedNotes: Codable, Equatable, Sendable {
 enum EnhancedNotesGenerator {
     static let instructions = """
     You write enhanced meeting notes. You are given the user's own rough notes and a timestamped transcript. \
-    Output markdown only: "## " section headings and "- " bullets, nothing else. Rules: \
+    Output markdown only: first one "# " line with a short title for the meeting (3–6 words, no date), \
+    then "## " section headings and "- " bullets, nothing else. Rules: \
     1) Keep every one of the user's notes: start that bullet with the user's note copied word for word, then continue with " — " and the missing details from the transcript. \
     2) Add bullets for important points the user did not write down. \
     3) End every bullet with the timestamp where it was discussed, in square brackets, e.g. [12:04]. \
     4) Include a section for decisions and a section for action items ("Owner — task — due date if stated") when there are any. \
     5) Be concise and factual; never invent anything that is not in the transcript. \
+    6) Summarize in your own words; don't quote the transcript and don't repeat these instructions or the input labels. \
     Write the headings and the notes in the same language as the transcript.
     """
 
@@ -91,15 +95,25 @@ enum EnhancedNotesGenerator {
             transcript = condensed.joined(separator: "\n")
         }
         try Task.checkCancellation()
-        let prompt = """
-        THE USER'S NOTES:
-        \(notes.isEmpty ? "(none — write the notes from the transcript alone)" : notes)
-
-        TRANSCRIPT:
-        \(transcript)
-        """
+        let prompt = notes.isEmpty
+            ? "TRANSCRIPT:\n\(transcript)"
+            : "THE USER'S NOTES:\n\(notes)\n\nTRANSCRIPT:\n\(transcript)"
         let raw = try await backend.respond(instructions: instructions, prompt: prompt)
-        return EnhancedNotes(sections: parse(raw, userNotes: notes), badge: backend.badge, generatedAt: Date())
+        let (title, body) = splitTitle(raw)
+        return EnhancedNotes(sections: parse(body, userNotes: notes), title: title, badge: backend.badge, generatedAt: Date())
+    }
+
+    /// Separates the leading "# Title" line from the notes.
+    static func splitTitle(_ markdown: String) -> (title: String?, body: String) {
+        var lines = markdown.components(separatedBy: .newlines)
+        guard let i = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return (nil, markdown) }
+        let first = lines[i].trimmingCharacters(in: .whitespaces)
+        guard first.hasPrefix("# ") else { return (nil, markdown) }
+        lines.remove(at: i)
+        let title = first.dropFirst(2)
+            .replacingOccurrences(of: "**", with: "")
+            .trimmingCharacters(in: CharacterSet(charactersIn: " .\"'"))
+        return (title.isEmpty ? nil : title, lines.joined(separator: "\n"))
     }
 
     // MARK: Parsing
@@ -123,7 +137,11 @@ enum EnhancedNotesGenerator {
             var body = stripBullet(line)
             guard !body.isEmpty else { continue }
             body = body.replacingOccurrences(of: "**", with: "")
-            let (text, at) = extractTimestamp(body)
+            // Small models sometimes echo the prompt's labels back.
+            let upper = body.uppercased()
+            if upper.hasPrefix("THE USER'S NOTES") || upper.hasPrefix("TRANSCRIPT:") { continue }
+            var (text, at) = extractTimestamp(body)
+            text = text.trimmingCharacters(in: CharacterSet(charactersIn: "\"“”„ "))
             guard !text.isEmpty else { continue }
             if sections.isEmpty { sections.append(.init(heading: "", lines: [])) }
             sections[sections.count - 1].lines.append(.init(parts: split(text, userNotes: noteLines), at: at))

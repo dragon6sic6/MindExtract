@@ -181,11 +181,24 @@ final class CoreLogicTests: XCTestCase {
 
     // MARK: Meeting Memory (daily-love layer)
 
+    func testEnhancedNotesTitleIsSplitOffAndSwedishGenericTitlesMatch() {
+        let (title, body) = EnhancedNotesGenerator.splitTitle("# Budget Q3 och avtal\n## Beslut\n- Budget klar [01:02]")
+        XCTAssertEqual(title, "Budget Q3 och avtal")
+        XCTAssertFalse(body.contains("# Budget"))
+        XCTAssertEqual(EnhancedNotesGenerator.parse(body, userNotes: "").first?.heading, "Beslut")
+        // No title line: everything stays notes.
+        XCTAssertNil(EnhancedNotesGenerator.splitTitle("## Beslut\n- A").title)
+        // Echoed prompt labels are dropped; quoted transcript lines are unquoted.
+        let echoed = EnhancedNotesGenerator.parse("## Punkter\n- THE USER'S NOTES: (none) [00:00]\n- \"Budgeten är klar.\" [00:09]", userNotes: "")
+        XCTAssertEqual(echoed.first?.lines.count, 1)
+        XCTAssertEqual(echoed.first?.lines.first?.text, "Budgeten är klar.")
+        XCTAssertTrue(MeetingText.isGenericTitle("Möte 2026-09-25 16.06"))
+        XCTAssertFalse(MeetingText.isGenericTitle("Budget Q3 och avtal"))
+    }
+
     func testGenericTitleDetectionAndSuggestion() {
         XCTAssertTrue(MeetingText.isGenericTitle("Meeting 2026-06-22 15.30"))
         XCTAssertFalse(MeetingText.isGenericTitle("Aspia GO - Bokföring"))
-        let brief = "## TL;DR\nBudget review for Q3 with the finance team.\n## Action items\n- None"
-        XCTAssertEqual(MeetingText.suggestedTitle(fromBrief: brief), "Budget review for Q3")
         XCTAssertEqual(MeetingText.briefSection("## Åtgärdspunkter\n- A\n## Other\n- B", "Action items"), "- A")
     }
 

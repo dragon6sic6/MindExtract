@@ -135,6 +135,16 @@
         }
       }
     },
+    "%lld speakers": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld talare"
+          }
+        }
+      }
+    },
     "%lld speakers · %@ spoken": {
       "localizations": {
         "sv": {
@@ -714,6 +724,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fråga om transkriptet…"
+          }
+        }
+      }
+    },
+    "Ask about what's been said": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga om det som sagts"
           }
         }
       }
@@ -1448,6 +1468,16 @@
         }
       }
     },
+    "Continue Recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortsätt spela in"
+          }
+        }
+      }
+    },
     "Converting media to audio for transcription": {
       "localizations": {
         "sv": {
@@ -1494,6 +1524,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kopiera"
+          }
+        }
+      }
+    },
+    "Copy Notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera anteckningar"
           }
         }
       }
@@ -1654,6 +1694,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kunde inte skriva mejlet: %@"
+          }
+        }
+      }
+    },
+    "Couldn't write the notes: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunde inte skriva anteckningarna: %@"
           }
         }
       }
@@ -2308,6 +2358,16 @@
         }
       }
     },
+    "Export and Full Transcript…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportera och hela transkriptet…"
+          }
+        }
+      }
+    },
     "Export the brief as Markdown": {
       "localizations": {
         "sv": {
@@ -2414,6 +2474,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sök i transkriptet"
+          }
+        }
+      }
+    },
+    "Finish · %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avsluta · %@"
+          }
+        }
+      }
+    },
+    "Finish: the whole conversation is transcribed and your notes are written (⌘.)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avsluta: hela samtalet transkriberas och anteckningarna skrivs (⌘.)"
           }
         }
       }
@@ -2534,6 +2614,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Skaffa en API-nyckel"
+          }
+        }
+      }
+    },
+    "Getting the speech model ready": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbereder talmodellen"
           }
         }
       }
@@ -2948,12 +3038,32 @@
         }
       }
     },
+    "Listening": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lyssnar"
+          }
+        }
+      }
+    },
     "Listening…": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Lyssnar…"
+          }
+        }
+      }
+    },
+    "Live": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live"
           }
         }
       }
@@ -2984,6 +3094,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Transkript i realtid är inte tillgängligt. Hela transkriptet skrivs när du stoppar."
+          }
+        }
+      }
+    },
+    "Live · %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live · %@"
           }
         }
       }
@@ -3679,6 +3799,16 @@
         }
       }
     },
+    "No transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inget transkript"
+          }
+        }
+      }
+    },
     "No transcripts match the filter.": {
       "localizations": {
         "sv": {
@@ -3785,6 +3915,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Inget öppet. Allt du lovade är klart."
+          }
+        }
+      }
+    },
+    "Nothing was transcribed.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inget blev transkriberat."
           }
         }
       }
@@ -3899,6 +4039,16 @@
         }
       }
     },
+    "One speaker": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En talare"
+          }
+        }
+      }
+    },
     "Only meetings I'm part of": {
       "localizations": {
         "sv": {
@@ -3915,6 +4065,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Öppna"
+          }
+        }
+      }
+    },
+    "Open AI Settings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna AI-inställningar"
           }
         }
       }
@@ -4419,6 +4579,16 @@
         }
       }
     },
+    "Preview — the full transcript follows": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förhandsvisning – hela transkriptet kommer strax"
+          }
+        }
+      }
+    },
     "Previous match (⇧⌘G)": {
       "localizations": {
         "sv": {
@@ -4619,6 +4789,16 @@
         }
       }
     },
+    "Record more into this note": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spela in mer i den här anteckningen"
+          }
+        }
+      }
+    },
     "Record next meeting": {
       "localizations": {
         "sv": {
@@ -4669,12 +4849,32 @@
         }
       }
     },
+    "Recording saved": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inspelningen sparad"
+          }
+        }
+      }
+    },
     "Records as soon as a call starts, without asking.": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Spelar in så fort ett samtal börjar, utan att fråga."
+          }
+        }
+      }
+    },
+    "Recovered %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Återställd %@"
           }
         }
       }
@@ -5279,6 +5479,16 @@
         }
       }
     },
+    "Share": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dela"
+          }
+        }
+      }
+    },
     "Shared": {
       "localizations": {
         "sv": {
@@ -5495,6 +5705,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Använt utrymme"
+          }
+        }
+      }
+    },
+    "Speaker %lld": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talare %lld"
           }
         }
       }
@@ -5939,6 +6159,16 @@
         }
       }
     },
+    "The notes need an AI engine. Choose one in Settings → AI — Apple Intelligence works on this Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteckningarna behöver en AI-motor. Välj en i Inställningar → AI – Apple Intelligence fungerar på den här Macen."
+          }
+        }
+      }
+    },
     "The other participants — audio only, never video.": {
       "localizations": {
         "sv": {
@@ -5975,6 +6205,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Transkriptet skrivs på engelska, oavsett vilket språk som talas."
+          }
+        }
+      }
+    },
+    "The words show up here as they're spoken.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orden dyker upp här medan de sägs."
           }
         }
       }
@@ -6235,6 +6475,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Transkriberar…"
+          }
+        }
+      }
+    },
+    "Transcribing the whole conversation and telling speakers apart": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberar hela samtalet och skiljer på talare"
           }
         }
       }
@@ -6720,6 +6970,16 @@
         }
       }
     },
+    "Write Follow-up Email": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv uppföljningsmejl"
+          }
+        }
+      }
+    },
     "Write Notes": {
       "localizations": {
         "sv": {
@@ -6770,12 +7030,32 @@
         }
       }
     },
+    "Write notes — or just listen. Notes are written from the conversation when you finish.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriv anteckningar – eller lyssna bara. Anteckningarna skrivs utifrån samtalet när du avslutar."
+          }
+        }
+      }
+    },
     "Write while MindExtract listens — you see the words as they're spoken, and it tells who's speaking when you're more than one.": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Skriv medan MindExtract lyssnar – du ser orden medan de sägs, och den håller isär vem som pratar när ni är flera."
+          }
+        }
+      }
+    },
+    "Writing the notes": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skriver anteckningarna"
           }
         }
       }

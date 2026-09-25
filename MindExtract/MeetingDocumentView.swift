@@ -1,13 +1,13 @@
 import SwiftUI
 import AppKit
 
-// MARK: - A meeting is one page
+// MARK: - A note is one page
 //
-// Before, during and after the meeting you stay on the same page: the title, who
-// was there, and your notes. While recording, a small bar at the bottom shows the
-// level and Stop; the live transcript opens as chat bubbles (you on the right,
-// the others on the left). After Stop the same page gets "Write notes", "Continue
-// recording", questions about the meeting and a follow-up email.
+// Before, during and after the recording you stay on the same page: the title and
+// your notes in the middle, the transcript in a panel on the right (live while
+// recording, with speakers once it's done). After "Finish" the page shows each
+// step — saving, transcribing the whole conversation, writing the notes — and
+// then offers Ask, Continue recording and Share.
 
 /// Shows a meeting as a document, or — on request — the full transcript view.
 struct MeetingPage: View {
@@ -35,7 +35,7 @@ struct MeetingDocumentView: View {
     @ObservedObject private var history = TranscriptionHistoryManager.shared
     @StateObject private var player = AudioPlayerManager()
 
-    @State private var showTranscript = false
+    @AppStorage("showTranscriptPanel") private var showTranscript = true
     @State private var askText = ""
     @State private var showAnswers = false
     @State private var enhanced: EnhancedNotes?
@@ -55,9 +55,14 @@ struct MeetingDocumentView: View {
 
     private var path: String? { tm.lastSavedPath }
     private var isEnhancing: Bool { path.map { tm.enhancingPaths.contains($0) } ?? false }
+    private var enhanceError: String? { path.flatMap { tm.enhanceErrors[$0] } }
     private var transcriptReady: Bool {
         if case .completed = tm.transcriptionState { return !tm.segments.isEmpty }
         return false
+    }
+    /// Between "Finish" and ready notes: saving, transcribing, writing.
+    private var isProcessing: Bool {
+        phase == .finishing || tm.isTranscribing || (isEnhancing && enhanced == nil)
     }
 
     var body: some View {
@@ -76,11 +81,7 @@ struct MeetingDocumentView: View {
                     answersPanel
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                if showTranscript {
-                    transcriptSheet
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                if phase == .finished, transcriptReady, enhanced == nil, !isEnhancing {
+                if phase == .finished, transcriptReady, enhanced == nil, !isProcessing, enhanceError == nil {
                     Button {
                         writeNotes()
                     } label: {
@@ -94,11 +95,24 @@ struct MeetingDocumentView: View {
                 }
                 bottomBar
             }
-            .frame(maxWidth: 820)
+            .frame(maxWidth: 760)
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
-            .animation(.snappy(duration: 0.25), value: showTranscript)
             .animation(.snappy(duration: 0.25), value: showAnswers)
+        }
+        .inspector(isPresented: $showTranscript) {
+            transcriptPanel
+                .inspectorColumnWidth(min: 260, ideal: 320, max: 480)
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showTranscript.toggle()
+                } label: {
+                    Label("Transcript", systemImage: "sidebar.right")
+                }
+                .help(showTranscript ? "Hide the transcript" : "Show the transcript")
+            }
         }
         .onAppear(perform: load)
         .onChange(of: tm.lastSavedPath) { _, _ in load() }
@@ -139,7 +153,7 @@ struct MeetingDocumentView: View {
                         .focused($notesFocused)
                         .accessibilityLabel("Your notes")
                     if recorder.liveNotes.isEmpty {
-                        Text("Write notes")
+                        Text("Write notes — or just listen. Notes are written from the conversation when you finish.")
                             .font(.title3)
                             .foregroundStyle(.tertiary)
                             .padding(.leading, 5)
@@ -148,8 +162,8 @@ struct MeetingDocumentView: View {
                 }
                 .onAppear { notesFocused = true }
             case .finishing:
+                steps
                 notesText(recorder.liveNotes)
-                BusyRow(text: "Saving the recording…")
             case .finished:
                 finishedBody
             }
@@ -157,8 +171,12 @@ struct MeetingDocumentView: View {
     }
 
     private var title: String {
+        if phase != .finished {
+            let live = recorder.liveTitle.trimmingCharacters(in: .whitespaces)
+            return live.isEmpty ? String(localized: "New note") : live
+        }
         let t = tm.currentTranscriptionTitle.trimmingCharacters(in: .whitespaces)
-        return t.isEmpty ? String(localized: "Meeting") : t
+        return t.isEmpty ? String(localized: "New note") : t
     }
 
     private var historyItem: TranscriptionHistoryItem? {
@@ -179,7 +197,7 @@ struct MeetingDocumentView: View {
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(Capsule().fill(Color.green.opacity(0.12)))
             }
-            if phase == .finished, enhanced != nil {
+            if phase == .finished, enhanced != nil, !isProcessing {
                 Menu {
                     Button("Enhanced Notes", systemImage: "sparkles") { showMine = false }
                     Button("What I Wrote", systemImage: "pencil") { showMine = true }
@@ -192,7 +210,7 @@ struct MeetingDocumentView: View {
                 .fixedSize()
             }
             Spacer(minLength: 0)
-            if phase == .finished {
+            if phase == .finished, tm.canRetranscribe, !isProcessing {
                 moreMenu
             }
         }
@@ -214,9 +232,8 @@ struct MeetingDocumentView: View {
     }
 
     private var peopleLabel: String {
-        if phase == .recording {
-            let others = recorder.attendees.count
-            return others == 0 ? String(localized: "Me") : String(localized: "Me + \(others)")
+        if phase != .finished || tm.segments.isEmpty {
+            return String(localized: "Me")
         }
         let speakers = Set(tm.segments.compactMap(\.speaker)).count
         return speakers <= 1 ? String(localized: "Me") : String(localized: "\(speakers) people")
@@ -249,17 +266,9 @@ struct MeetingDocumentView: View {
 
     private var moreMenu: some View {
         Menu {
-            Button("Full Transcript and Export…", systemImage: "doc.text") { onOpenDetails() }
-            if tm.canRetranscribe {
-                Menu("Transcribe Again in", systemImage: "arrow.triangle.2.circlepath") {
-                    ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
-                        Button(lang.name) { tm.retranscribe(language: lang.code) }
-                    }
-                }
-            }
-            if let path {
-                Button("Show in Finder", systemImage: "folder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            Menu("Transcribe Again in", systemImage: "arrow.triangle.2.circlepath") {
+                ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
+                    Button(lang.name) { tm.retranscribe(language: lang.code) }
                 }
             }
         } label: {
@@ -273,15 +282,66 @@ struct MeetingDocumentView: View {
         .help("More")
     }
 
+    // MARK: After "Finish"
+
+    /// The three things that happen after a recording, each with its state.
+    private var steps: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            step("Recording saved", state: phase == .finishing ? .active : .done)
+            step(transcribeStepTitle,
+                 state: phase == .finishing ? .waiting : (tm.isTranscribing ? .active : .done),
+                 progress: transcribeProgress)
+            step("Writing the notes",
+                 state: isEnhancing ? .active : (phase == .finishing || tm.isTranscribing ? .waiting : .done))
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(DS.Colors.rowFill))
+        .accessibilityElement(children: .combine)
+    }
+
+    private enum StepState { case waiting, active, done }
+
+    private func step(_ title: LocalizedStringKey, state: StepState, progress: Double? = nil) -> some View {
+        HStack(spacing: 10) {
+            Group {
+                switch state {
+                case .done: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                case .active: ProgressView().controlSize(.small)
+                case .waiting: Image(systemName: "circle").foregroundStyle(.tertiary)
+                }
+            }
+            .frame(width: 18)
+            Text(title)
+                .foregroundStyle(state == .waiting ? .secondary : .primary)
+            if state == .active, let progress, progress > 0 {
+                Text(progress, format: .percent.precision(.fractionLength(0)))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(.body)
+    }
+
+    private var transcribeStepTitle: LocalizedStringKey {
+        if case .loadingModel = tm.transcriptionState { return "Getting the speech model ready" }
+        return "Transcribing the whole conversation and telling speakers apart"
+    }
+
+    private var transcribeProgress: Double? {
+        if case .transcribing(let p) = tm.transcriptionState { return p }
+        return nil
+    }
+
     @ViewBuilder
     private var finishedBody: some View {
         if case .error(let message) = tm.transcriptionState {
             Label(message, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
         }
-        if tm.isTranscribing {
-            notesText(savedNotes)
-            BusyRow(text: "Transcribing… Your notes are written when it's done.")
+        if isProcessing {
+            steps
+            if !savedNotes.isEmpty { notesText(savedNotes) }
         } else if isEnhancing {
             notesText(savedNotes)
             BusyRow(text: "Writing your notes from the transcript…")
@@ -289,9 +349,24 @@ struct MeetingDocumentView: View {
             enhancedView(enhanced)
         } else if !savedNotes.isEmpty {
             notesText(savedNotes)
-        } else if transcriptReady {
+        } else if transcriptReady, enhanceError == nil {
             Text("No notes yet. Press Write Notes and MindExtract writes them from the transcript.")
                 .foregroundStyle(.secondary)
+        }
+        if let enhanceError, !isProcessing {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(enhanceError, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                HStack {
+                    Button("Open AI Settings") {
+                        UserDefaults.standard.set(SettingsCategory.ai.rawValue, forKey: "settingsCategory")
+                        NotificationCenter.default.post(name: .openSettings, object: nil)
+                    }
+                    Button("Try Again") { writeNotes() }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+            .contentCard(tint: .orange)
         }
         if let followUpError {
             Label(followUpError, systemImage: "exclamationmark.triangle.fill")
@@ -345,8 +420,10 @@ struct MeetingDocumentView: View {
                 }
             }
             HStack(spacing: 16) {
-                Label { Text("your notes") } icon: { Circle().fill(Color.primary).frame(width: 7, height: 7) }
-                Label { Text("added from the transcript") } icon: { Circle().fill(Color.secondary).frame(width: 7, height: 7) }
+                if !savedNotes.isEmpty {
+                    Label { Text("your notes") } icon: { Circle().fill(Color.primary).frame(width: 7, height: 7) }
+                    Label { Text("added from the transcript") } icon: { Circle().fill(Color.secondary).frame(width: 7, height: 7) }
+                }
                 Spacer()
                 Button("Rewrite") { writeNotes() }
                     .buttonStyle(.borderless)
@@ -360,72 +437,43 @@ struct MeetingDocumentView: View {
 
     private var bottomBar: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 6) {
-                Button {
-                    showTranscript.toggle()
-                } label: {
-                    HStack(spacing: 6) {
-                        if phase == .recording {
-                            MiniLevelBars(level: recorder.level)
-                        } else {
-                            Image(systemName: "waveform")
-                        }
-                        Image(systemName: showTranscript ? "chevron.down" : "chevron.up")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .padding(.horizontal, 6)
-                }
-                .buttonStyle(.borderless)
-                .help(showTranscript ? "Hide the transcript" : "Show the transcript")
-                .accessibilityLabel(showTranscript ? "Hide transcript" : "Show transcript")
-
-                switch phase {
-                case .recording:
-                    Text(AppUtil.formatElapsed(recorder.elapsed))
+            switch phase {
+            case .recording:
+                HStack(spacing: 8) {
+                    MiniLevelBars(level: recorder.level)
+                    Text("Listening")
                         .font(.callout.weight(.medium))
-                        .monospacedDigit()
                         .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 44)
+                .glassEffect(.regular, in: .capsule)
+                .accessibilityElement(children: .combine)
+            case .finishing:
+                EmptyView()
+            case .finished:
+                if !isProcessing {
                     Button {
-                        recorder.stop()
-                        showTranscript = false
+                        resume()
                     } label: {
-                        Image(systemName: "stop.fill")
+                        Label("Continue Recording", systemImage: "record.circle")
                             .foregroundStyle(DS.Colors.recording)
                     }
                     .buttonStyle(.borderless)
-                    .help("Stop the recording")
-                    .accessibilityLabel("Stop")
-                case .finishing:
-                    ProgressView().controlSize(.small)
-                case .finished:
-                    Button("Continue") { resume() }
-                        .buttonStyle(.borderless)
-                        .foregroundStyle(DS.Colors.recording)
-                        .disabled(recorder.isBusy || tm.isTranscribing || path == nil)
-                        .help("Record more into this meeting")
+                    .padding(.horizontal, 14)
+                    .frame(height: 44)
+                    .glassEffect(.regular, in: .capsule)
+                    .disabled(recorder.isBusy || path == nil)
+                    .help("Record more into this note")
                 }
             }
-            .padding(.horizontal, 12)
-            .frame(height: 44)
-            .glassEffect(.regular, in: .capsule)
 
             HStack(spacing: 8) {
-                TextField("Ask anything", text: $askText)
+                TextField(phase == .recording ? "Ask about what's been said" : "Ask anything", text: $askText)
                     .textFieldStyle(.plain)
                     .onSubmit(ask)
-                if phase == .finished && transcriptReady {
-                    Button {
-                        writeFollowUp()
-                    } label: {
-                        if followUpBusy {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Label("Write follow-up email", systemImage: "envelope")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.capsule)
-                    .disabled(followUpBusy)
+                if phase == .finished && transcriptReady && !isProcessing {
+                    shareMenu
                 }
             }
             .padding(.leading, 16)
@@ -435,78 +483,136 @@ struct MeetingDocumentView: View {
         }
     }
 
-    // MARK: Transcript sheet
+    private var shareMenu: some View {
+        Menu {
+            Button("Copy Notes", systemImage: "doc.on.doc") {
+                copy(enhanced?.markdown ?? savedNotes)
+            }
+            .disabled(enhanced == nil && savedNotes.isEmpty)
+            Button("Copy Transcript", systemImage: "text.quote") { copy(transcriptPlainText) }
+            Button("Write Follow-up Email", systemImage: "envelope") { writeFollowUp() }
+                .disabled(followUpBusy)
+            Divider()
+            Button("Export and Full Transcript…", systemImage: "square.and.arrow.up") { onOpenDetails() }
+            if let path {
+                Button("Show in Finder", systemImage: "folder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+                }
+            }
+        } label: {
+            if followUpBusy {
+                ProgressView().controlSize(.small)
+            } else {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+        }
+        .menuStyle(.button)
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .fixedSize()
+    }
 
-    private var transcriptSheet: some View {
+    // MARK: Transcript panel
+
+    private var transcriptPanel: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Transcript").font(.headline)
-                if phase == .recording, !live.engineLabel.isEmpty {
-                    Text(live.engineLabel).font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Transcript").font(.headline)
+                    Text(transcriptSubtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button {
                     copy(transcriptPlainText)
                 } label: { Image(systemName: "doc.on.doc") }
                     .buttonStyle(.borderless).help("Copy the transcript").accessibilityLabel("Copy")
-                Button {
-                    showTranscript = false
-                } label: { Image(systemName: "chevron.down") }
-                    .buttonStyle(.borderless).help("Hide").accessibilityLabel("Hide transcript")
+                    .disabled(bubbles.isEmpty)
             }
-            .padding(.horizontal, 16).padding(.vertical, 10)
+            .padding(.horizontal, 16).padding(.vertical, 12)
 
-            Text("Always ask for consent before recording others.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 6)
-
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(bubbles) { b in
-                            bubble(b)
-                        }
-                        Color.clear.frame(height: 1).id("end")
-                    }
+            if phase == .recording {
+                Text("Always ask for consent before recording others.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 6)
+            }
+
+            if bubbles.isEmpty {
+                ContentUnavailableView {
+                    Label(phase == .recording ? "Listening…" : "No transcript", systemImage: "waveform")
+                } description: {
+                    Text(phase == .recording ? "The words show up here as they're spoken." : "Nothing was transcribed.")
                 }
-                .onChange(of: bubbles.count) { _, _ in proxy.scrollTo("end", anchor: .bottom) }
-                .onAppear { proxy.scrollTo("end", anchor: .bottom) }
+                .frame(maxHeight: .infinity)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(bubbles) { b in
+                                bubble(b)
+                            }
+                            Color.clear.frame(height: 1).id("end")
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 10)
+                        .opacity(isPreview ? 0.7 : 1)
+                    }
+                    .onChange(of: bubbles.count) { _, _ in
+                        if phase == .recording { proxy.scrollTo("end", anchor: .bottom) }
+                    }
+                    .onAppear { if phase == .recording { proxy.scrollTo("end", anchor: .bottom) } }
+                }
             }
 
             if phase == .recording {
                 Divider()
-                HStack(spacing: 14) {
-                    sourceDot("mic", active: recorder.micActive, label: "Your microphone")
-                    sourceDot("speaker.wave.2", active: recorder.systemActive, label: "Meeting audio")
-                    Spacer()
-                    Menu {
-                        Button("System Default") { recorder.setMicrophone("") }
-                        Divider()
-                        ForEach(MeetingRecorder.availableMicrophones(), id: \.uniqueID) { dev in
-                            Button(dev.localizedName) { recorder.setMicrophone(dev.uniqueID) }
-                        }
-                    } label: {
-                        Label(currentMicName, systemImage: "mic")
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 14) {
+                        sourceDot("mic", active: recorder.micActive, label: "Your microphone")
+                        sourceDot("speaker.wave.2", active: recorder.systemActive, label: "Meeting audio")
+                        Spacer()
                     }
-                    .menuStyle(.button).buttonStyle(.borderless).fixedSize()
-                    Menu {
-                        ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
-                            Button(lang.name) { recorder.setLanguage(lang.code) }
+                    HStack(spacing: 10) {
+                        Menu {
+                            Button("System Default") { recorder.setMicrophone("") }
+                            Divider()
+                            ForEach(MeetingRecorder.availableMicrophones(), id: \.uniqueID) { dev in
+                                Button(dev.localizedName) { recorder.setMicrophone(dev.uniqueID) }
+                            }
+                        } label: {
+                            Label(currentMicName, systemImage: "mic")
                         }
-                    } label: {
-                        Label(languageName(recorder.currentLanguage), systemImage: "character.bubble")
+                        .menuStyle(.button).buttonStyle(.borderless).fixedSize()
+                        Menu {
+                            ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
+                                Button(lang.name) { recorder.setLanguage(lang.code) }
+                            }
+                        } label: {
+                            Label(languageName(recorder.currentLanguage), systemImage: "character.bubble")
+                        }
+                        .menuStyle(.button).buttonStyle(.borderless).fixedSize()
                     }
-                    .menuStyle(.button).buttonStyle(.borderless).fixedSize()
                 }
                 .font(.callout)
-                .padding(.horizontal, 16).padding(.vertical, 8)
+                .padding(.horizontal, 16).padding(.vertical, 10)
             }
         }
-        .frame(maxHeight: 380)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private var transcriptSubtitle: String {
+        switch phase {
+        case .recording:
+            return live.engineLabel.isEmpty ? String(localized: "Live") : String(localized: "Live · \(live.engineLabel)")
+        case .finishing:
+            return String(localized: "Preview — the full transcript follows")
+        case .finished:
+            if isPreview { return String(localized: "Preview — the full transcript follows") }
+            let speakers = Set(tm.segments.compactMap(\.speaker)).count
+            return speakers <= 1 ? String(localized: "One speaker") : String(localized: "\(speakers) speakers")
+        }
     }
 
     private struct Bubble: Identifiable {
@@ -518,8 +624,13 @@ struct MeetingDocumentView: View {
         var isTentative = false
     }
 
+    /// The live text stands in until the full transcript is ready.
+    private var isPreview: Bool {
+        phase == .finishing || (phase == .finished && tm.isTranscribing && tm.segments.isEmpty)
+    }
+
     private var bubbles: [Bubble] {
-        if phase == .recording || phase == .finishing {
+        if phase == .recording || isPreview {
             var out = live.utterances.map { Bubble(id: $0.id.uuidString, isMe: $0.isMe, speaker: nil, text: $0.text, start: $0.start) }
             if !live.theirTail.isEmpty { out.append(Bubble(id: "their-tail", isMe: false, speaker: nil, text: live.theirTail, start: nil, isTentative: true)) }
             if !live.myTail.isEmpty { out.append(Bubble(id: "my-tail", isMe: true, speaker: nil, text: live.myTail, start: nil, isTentative: true)) }
@@ -539,7 +650,7 @@ struct MeetingDocumentView: View {
 
     private func bubble(_ b: Bubble) -> some View {
         HStack {
-            if b.isMe { Spacer(minLength: 60) }
+            if b.isMe { Spacer(minLength: 36) }
             VStack(alignment: b.isMe ? .trailing : .leading, spacing: 2) {
                 if let speaker = b.speaker {
                     Text(speaker).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
@@ -554,10 +665,10 @@ struct MeetingDocumentView: View {
                             .fill(b.isMe ? DS.Colors.accent.opacity(0.14) : DS.Colors.inputFill)
                     )
                     .onTapGesture {
-                        if let s = b.start, phase == .finished, tm.audioFilePath != nil { play(from: s) }
+                        if let s = b.start, phase == .finished, !isPreview, tm.audioFilePath != nil { play(from: s) }
                     }
             }
-            if !b.isMe { Spacer(minLength: 60) }
+            if !b.isMe { Spacer(minLength: 36) }
         }
     }
 
@@ -662,7 +773,7 @@ struct MeetingDocumentView: View {
     private func ask() {
         let q = askText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return }
-        let context = phase == .finished ? tm.liveTranscriptionText : transcriptPlainText
+        let context = phase == .finished && !isPreview ? tm.liveTranscriptionText : transcriptPlainText
         chat.prepare(transcript: context)
         chat.ask(q)
         askText = ""

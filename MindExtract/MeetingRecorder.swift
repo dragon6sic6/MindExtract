@@ -414,6 +414,7 @@ final class MeetingRecorder: ObservableObject {
             state = .error("Recording saved, but couldn't be prepared for transcription.", .capture)
             return
         }
+        Self.markComplete(dir)
         let pending = PendingRecording(url: finalURL, title: title, duration: lastDuration, dir: dir, notes: liveNotes)
         // Bring MindExtract to the front so the result (or the confirm sheet) is
         // seen — recording is often stopped from the menu bar in another app.
@@ -554,6 +555,7 @@ final class MeetingRecorder: ObservableObject {
     func confirmPending(title: String, language: String, model: WhisperModel) {
         guard let pending = pendingRecording else { return }
         pendingRecording = nil
+        Self.markComplete(pending.dir)
         commit(pending, title: title, language: language, model: model)
     }
 
@@ -691,15 +693,24 @@ final class MeetingRecorder: ObservableObject {
             for dir in dirs {
                 if let active = activeDir, dir.path == active.path { continue }   // never touch the live session
                 let files = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
-                if files.contains(".recovery-failed") { continue }               // already known-bad
+                if files.contains(".recovery-failed") || files.contains(Self.completeMarker) { continue }
                 let sources = ["system.m4a", "mic.m4a"].map { dir.appendingPathComponent($0) }
                     .filter { fm.fileExists(atPath: $0.path) }
-                // A non-empty combined file means this session is already done.
-                let hasCombined = files.contains {
-                    $0.hasSuffix(".m4a") && $0 != "system.m4a" && $0 != "mic.m4a" &&
-                    ((try? dir.appendingPathComponent($0).resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) > 100_000
+                guard !sources.isEmpty else { continue }
+                // Sessions from before the marker: a playable combined file (or an
+                // earlier recovery) means it's done — however short the meeting was.
+                var isDone = false
+                for name in files where name.hasSuffix(".m4a") && !["system.m4a", "mic.m4a", "Recovered.m4a"].contains(name) {
+                    let url = dir.appendingPathComponent(name)
+                    if let d = try? await AVURLAsset(url: url).load(.duration), CMTimeGetSeconds(d) > 0 {
+                        isDone = true
+                        break
+                    }
                 }
-                guard !sources.isEmpty, !hasCombined else { continue }
+                if isDone {
+                    Self.markComplete(dir)
+                    continue
+                }
 
                 let mixed = dir.appendingPathComponent("Recovered.m4a")
                 let combined = await Self.combineWithTimeout(sources, into: mixed)
@@ -710,14 +721,23 @@ final class MeetingRecorder: ObservableObject {
                 }
                 let rawDur = (try? await AVURLAsset(url: combined).load(.duration)).map { CMTimeGetSeconds($0) } ?? 0
                 let dur = rawDur.isFinite ? rawDur : 0
-                let modDate = (try? dir.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
+                // Name it for when it was recorded, not when it was recovered.
+                let recordedAt = sources.compactMap { try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate }.min() ?? Date()
                 guard !self.isBusy, self.pendingRecording == nil else { return }
                 pendingRecording = PendingRecording(url: combined,
-                                                    title: "Recovered " + Self.recordingTitle(modDate),
+                                                    title: String(localized: "Recovered \(Self.recordingTitle(recordedAt))"),
                                                     duration: dur, dir: dir)
                 return   // one at a time
             }
         }
+    }
+
+    /// Written into a session folder once its recording is safely combined, so
+    /// launch-time recovery never offers it again.
+    private static let completeMarker = ".complete"
+
+    private static func markComplete(_ dir: URL) {
+        try? Data().write(to: dir.appendingPathComponent(completeMarker))
     }
 
     /// combine() with a 30s ceiling so a corrupt input can't hang recovery forever.
