@@ -41,6 +41,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
             ActiveMeetingDetector.shared.startMonitoring()
             MeetingCalendar.shared.startMonitoring()
         }
+        // Push-to-talk dictation (hold right ⌥ Option).
+        DictationController.shared.refresh()
         // Light up the intelligence layer on existing meetings: generate any missing
         // AI briefs in the background shortly after launch (idempotent, capped).
         Task { @MainActor in

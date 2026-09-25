@@ -12,6 +12,7 @@
 		SK000001SK00000000000001 /* SpeakerKit in Frameworks */ = {isa = PBXBuildFile; productRef = SK000002SK00000000000001 /* SpeakerKit */; };
 		FA000001FA00000000000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = FA000002FA00000000000001 /* FluidAudio */; };
 		B1000E29 /* PianissimoEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E2A /* PianissimoEngine.swift */; };
+		B1000E2B /* Dictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E2C /* Dictation.swift */; };
 		B1000001 /* MindExtractApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000011 /* MindExtractApp.swift */; };
 		B1000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000012 /* ContentView.swift */; };
 		B1000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000013 /* Models.swift */; };
@@ -94,6 +95,7 @@
 		B1000E14 /* ActiveMeetingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveMeetingDetector.swift; sourceTree = "<group>"; };
 		B1000E16 /* TranscriptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLibrary.swift; sourceTree = "<group>"; };
 		B1000E2A /* PianissimoEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianissimoEngine.swift; sourceTree = "<group>"; };
+		B1000E2C /* Dictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dictation.swift; sourceTree = "<group>"; };
 		B1000E18 /* ExportTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportTools.swift; sourceTree = "<group>"; };
 		B1000E1A /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		B1000E1C /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
@@ -181,6 +183,7 @@
 				B1000E14 /* ActiveMeetingDetector.swift */,
 				B1000E16 /* TranscriptLibrary.swift */,
 				B1000E2A /* PianissimoEngine.swift */,
+				B1000E2C /* Dictation.swift */,
 				B1000E18 /* ExportTools.swift */,
 				B1000E1A /* WelcomeView.swift */,
 				B1000E1C /* MCPServer.swift */,
@@ -336,6 +339,7 @@
 				B1000E25 /* MeetingPromptOverlay.swift in Sources */,
 				B1000E27 /* Recipes.swift in Sources */,
 				B1000E29 /* PianissimoEngine.swift in Sources */,
+				B1000E2B /* Dictation.swift in Sources */,
 				B1000E0D /* RemindersExporter.swift in Sources */,
 				B1000E0F /* CaptionOverlay.swift in Sources */,
 				B1000E11 /* MeetingInsights.swift in Sources */,

@@ -206,16 +206,27 @@ actor PianissimoEngine {
     // MARK: - Runtime
 
     private var manager: AsrManager?
+    private var loading: Task<AsrManager, Error>?
+    /// Tail of the work queue — file transcription and dictation share one model,
+    /// so jobs run one at a time (a dictation waits for, never corrupts, a file job).
+    private var queueTail: Task<Void, Never>?
 
     var isLoaded: Bool { manager != nil }
 
     /// Loads the compiled models (first load after install also warms Core ML's cache).
     func load() async throws -> AsrManager {
         if let manager { return manager }
+        if let loading { return try await loading.value }
         guard Self.isInstalled else { throw PianissimoError.notInstalled }
-        let models = try AsrModels.loadLocal(from: Self.modelDirectory, version: .v3)
-        let asr = AsrManager(config: .default)
-        try await asr.loadModels(models)
+        let task = Task { () async throws -> AsrManager in
+            let models = try AsrModels.loadLocal(from: Self.modelDirectory, version: .v3)
+            let asr = AsrManager(config: .default)
+            try await asr.loadModels(models)
+            return asr
+        }
+        loading = task
+        defer { loading = nil }
+        let asr = try await task.value
         manager = asr
         return asr
     }
@@ -225,23 +236,47 @@ actor PianissimoEngine {
         manager = nil
     }
 
+    private func enqueue<T: Sendable>(_ job: @escaping @Sendable () async throws -> T) async throws -> T {
+        let previous = queueTail
+        let task = Task { () async throws -> T in
+            await previous?.value
+            return try await job()
+        }
+        queueTail = Task { _ = try? await task.value }
+        return try await task.value
+    }
+
     /// Transcribes an audio file (any format AVAudioFile reads; long files are
     /// processed disk-backed in chunks). `progress` reports 0…1.
     func transcribe(audioURL: URL, progress: @escaping @Sendable (Double) -> Void) async throws -> PianissimoOutput {
         let asr = try await load()
-        let stream = await asr.transcriptionProgressStream
-        let progressTask = Task {
-            do { for try await p in stream { progress(p) } } catch {}
+        return try await enqueue {
+            let stream = await asr.transcriptionProgressStream
+            let progressTask = Task {
+                do { for try await p in stream { progress(p) } } catch {}
+            }
+            defer { progressTask.cancel() }
+            var state = TdtDecoderState.make(decoderLayers: 2)
+            let result = try await asr.transcribe(audioURL, decoderState: &state)
+            return PianissimoOutput(text: result.text, words: Self.words(from: result.tokenTimings ?? []),
+                                    duration: result.duration)
         }
-        defer { progressTask.cancel() }
+    }
 
-        var state = TdtDecoderState.make(decoderLayers: 2)
-        let result = try await asr.transcribe(audioURL, decoderState: &state)
-        return PianissimoOutput(
-            text: result.text,
-            words: Self.words(from: result.tokenTimings ?? []),
-            duration: result.duration
-        )
+    /// Transcribes 16 kHz mono samples (dictation). Short clips are padded with
+    /// silence — the model needs at least a second of audio.
+    func transcribe(samples: [Float]) async throws -> PianissimoOutput {
+        let asr = try await load()
+        let pad = [Float](repeating: 0, count: 4_800)                 // 0.3 s each side
+        var audio = pad + samples + pad
+        if audio.count < 24_000 { audio += [Float](repeating: 0, count: 24_000 - audio.count) }
+        let input = audio
+        return try await enqueue {
+            var state = TdtDecoderState.make(decoderLayers: 2)
+            let result = try await asr.transcribe(input, decoderState: &state)
+            return PianissimoOutput(text: result.text, words: Self.words(from: result.tokenTimings ?? []),
+                                    duration: result.duration)
+        }
     }
 
     /// Groups SentencePiece tokens into words (a `▁`/space-prefixed piece starts a

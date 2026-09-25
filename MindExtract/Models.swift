@@ -505,6 +505,11 @@ class AppSettings: ObservableObject {
     /// Custom vocabulary — names and domain terms (one per line or comma-separated)
     /// fed to WhisperKit as a conditioning prompt so it spells them correctly.
     @AppStorage("customVocabulary") var customVocabulary: String = ""
+    /// Push-to-talk dictation: hold right ⌥ Option anywhere, speak, release → text
+    /// is typed at the cursor. Needs Accessibility permission to see the key.
+    @AppStorage("dictationEnabled") var dictationEnabled: Bool = true
+    /// "sv" → Pianissimo; other codes → Whisper; "auto" detects per dictation.
+    @AppStorage("dictationLanguage") var dictationLanguage: String = "sv"
 
     // MARK: Calendar (meeting auto-detection)
     /// The app's own on/off switch — lets the user stop MindExtract from using

@@ -536,7 +536,7 @@ class TranscriptionManager: ObservableObject {
         }
     }
 
-    private func ensureWhisperKit(model: WhisperModel) async throws -> WhisperKit {
+    private func ensureWhisperKit(model: WhisperModel, announce: Bool = true) async throws -> WhisperKit {
         if let kit = whisperKit, currentLoadedModel == model {
             return kit
         }
@@ -546,8 +546,10 @@ class TranscriptionManager: ObservableObject {
                           userInfo: [NSLocalizedDescriptionKey: "Model not downloaded"])
         }
 
-        await MainActor.run {
-            self.transcriptionState = .loadingModel(modelName: model.displayName)
+        if announce {
+            await MainActor.run {
+                self.transcriptionState = .loadingModel(modelName: model.displayName)
+            }
         }
 
         let loadStart = CFAbsoluteTimeGetCurrent()
@@ -1075,6 +1077,52 @@ class TranscriptionManager: ObservableObject {
                 cleanup()
             }
         }
+    }
+
+    // MARK: - Dictation
+
+    enum DictationError: LocalizedError {
+        case busy, noModel
+        var errorDescription: String? {
+            switch self {
+            case .busy: return "Busy transcribing a file — try again in a moment."
+            case .noModel: return "Download a speech model in Settings first."
+            }
+        }
+    }
+
+    /// Transcribes a short 16 kHz mono clip for push-to-talk dictation. Swedish →
+    /// Pianissimo; other languages (and "auto" detection) → a Whisper model.
+    /// Never touches the main transcript UI state.
+    func transcribeDictation(samples: [Float], language: String) async throws -> String {
+        let pianissimoReady = isModelDownloaded(.pianissimo)
+        let whisperModel = multilingualBaseModel()
+        let whisperReady = findModelFolder(whisperModel) != nil
+        var lang = language
+        if lang == "auto" {
+            if whisperReady && !isTranscribing {
+                let kit = try await ensureWhisperKit(model: whisperModel, announce: false)
+                if let detected = try? await kit.detectLangauge(audioArray: samples) { lang = detected.language }
+            } else if pianissimoReady {
+                lang = "sv"
+            }
+        }
+        if lang == "sv", pianissimoReady {
+            return try await PianissimoEngine.shared.transcribe(samples: samples).text
+        }
+        // The shared WhisperKit instance isn't safe to use alongside a file job.
+        guard !isTranscribing else { throw DictationError.busy }
+        guard whisperReady else { throw DictationError.noModel }
+        let kit = try await ensureWhisperKit(model: whisperModel, announce: false)
+        var options = DecodingOptions()
+        if lang != "auto" { options.language = lang }
+        let vocab = Self.vocabularyPrompt(UserDefaults.standard.string(forKey: "customVocabulary") ?? "")
+        if !vocab.isEmpty, let tokenizer = kit.tokenizer {
+            let tokens = tokenizer.encode(text: " " + vocab).filter { $0 < tokenizer.specialTokens.specialTokenBegin }
+            if !tokens.isEmpty { options.promptTokens = tokens }
+        }
+        let results = try await kit.transcribe(audioArray: samples, decodeOptions: options)
+        return cleanTokens(results.map(\.text).joined(separator: " "))
     }
 
     // MARK: - Pianissimo Transcription

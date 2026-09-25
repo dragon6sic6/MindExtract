@@ -1,4 +1,5 @@
 import XCTest
+import AVFoundation
 @testable import MindExtract
 
 /// Unit tests for the pure, bug-prone logic that powers MindExtract. These lock
@@ -349,6 +350,30 @@ final class CoreLogicTests: XCTestCase {
             print("PIANISSIMO \(String(format: "%.1f", out.duration))s audio in \(String(format: "%.2f", CFAbsoluteTimeGetCurrent() - t))s: \(out.text)")
             for s in segs { print("PIANISSIMO   [\(String(format: "%.1f", s.start))-\(String(format: "%.1f", s.end))] \(s.text)") }
             XCTAssertFalse(out.text.isEmpty)
+        }
+    }
+
+    /// Opt-in: the dictation path (in-memory 16 kHz samples, short clip) on Pianissimo.
+    func testDictationSamplesEndToEnd() async throws {
+        guard let path = ProcessInfo.processInfo.environment["PIANISSIMO_E2E_AUDIO"]?.split(separator: ":").first,
+              PianissimoEngine.isInstalled else { throw XCTSkip("Set PIANISSIMO_E2E_AUDIO to run") }
+        let file = try AVAudioFile(forReading: URL(fileURLWithPath: String(path)))
+        let target = DictationRecorder.targetFormat
+        let converter = try XCTUnwrap(AVAudioConverter(from: file.processingFormat, to: target))
+        let inBuf = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)))
+        try file.read(into: inBuf)
+        let outBuf = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: target, frameCapacity: AVAudioFrameCount(Double(file.length) * 16_000 / file.processingFormat.sampleRate) + 64))
+        var fed = false
+        converter.convert(to: outBuf, error: nil) { _, status in
+            if fed { status.pointee = .endOfStream; return nil }
+            fed = true; status.pointee = .haveData; return inBuf
+        }
+        let all = Array(UnsafeBufferPointer(start: outBuf.floatChannelData![0], count: Int(outBuf.frameLength)))
+        for seconds in [0.8, 4.0, 12.0] {
+            let clip = Array(all.prefix(Int(seconds * 16_000)))
+            let t = CFAbsoluteTimeGetCurrent()
+            let text = try await TranscriptionManager.shared.transcribeDictation(samples: clip, language: "sv")
+            print("DICTATION \(seconds)s in \(String(format: "%.2f", CFAbsoluteTimeGetCurrent() - t))s: \(text)")
         }
     }
 }

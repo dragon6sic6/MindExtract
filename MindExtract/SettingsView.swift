@@ -78,6 +78,7 @@ enum MCPSetup {
 enum SettingsCategory: String, CaseIterable, Identifiable {
     case today = "Today"
     case transcription = "Transcription"
+    case dictation = "Dictation"
     case recording = "Recording"
     case calendar = "Calendar"
     case ai = "AI & Summaries"
@@ -92,6 +93,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .today: return "sun.max"
         case .recipes: return "wand.and.stars"
         case .transcription: return "text.bubble"
+        case .dictation: return "keyboard"
         case .recording: return "record.circle"
         case .calendar: return "calendar"
         case .ai: return "sparkles"
@@ -106,6 +108,7 @@ struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var downloader: YTDLPWrapper
     @ObservedObject var transcriptionManager = TranscriptionManager.shared
+    @ObservedObject var dictation = DictationController.shared
     @ObservedObject private var calendar = MeetingCalendar.shared
     @ObservedObject private var recorder = MeetingRecorder.shared
     @ObservedObject private var activeMeeting = ActiveMeetingDetector.shared
@@ -340,6 +343,7 @@ struct SettingsView: View {
         case .today: todayPane
         case .recipes: recipesPane
         case .transcription: transcriptionPane
+        case .dictation: dictationPane
         case .recording: recordingPane
         case .calendar: calendarPane
         case .ai: aiPane
@@ -529,6 +533,76 @@ struct SettingsView: View {
             Text("Applies to the Whisper models. Pianissimo and Apple Speech don't support custom terms yet. Runs on-device.")
                 .font(.caption2).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // MARK: - Dictation pane
+
+    @ViewBuilder
+    private var dictationPane: some View {
+        SettingsSection(title: "Push-to-talk", icon: "keyboard") {
+            Toggle(isOn: Binding(
+                get: { settings.dictationEnabled },
+                set: { settings.dictationEnabled = $0; dictation.refresh() })) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Hold right ⌥ Option to dictate")
+                    Text("Hold the key anywhere on your Mac, speak, and let go — the text is typed where your cursor is. Audio stays on your Mac and is discarded right after.")
+                        .font(.caption).foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if settings.dictationEnabled {
+                Divider().padding(.vertical, 2)
+                permissionStatusRow(title: "Accessibility", granted: dictation.accessibilityGranted) {
+                    dictation.requestAccessibility()
+                    dictation.openAccessibilitySettings()
+                }
+                Text("Needed to notice the key and type the text into other apps. MindExtract never reads what you type.")
+                    .font(.caption2).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Divider().padding(.vertical, 2)
+                HStack {
+                    Text("Language")
+                    Spacer()
+                    Picker("", selection: Binding(
+                        get: { settings.dictationLanguage },
+                        set: { settings.dictationLanguage = $0; dictation.refresh() })) {
+                        ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
+                            Text(lang.name).tag(lang.code)
+                        }
+                    }
+                    .frame(width: 200)
+                }
+                if settings.dictationLanguage == "sv" || settings.dictationLanguage == "auto" {
+                    if transcriptionManager.isModelDownloaded(.pianissimo) {
+                        Label("Swedish uses Pianissimo — fast and punctuated.", systemImage: "checkmark.circle.fill")
+                            .font(.caption).foregroundColor(.green)
+                    } else {
+                        Text("Download Pianissimo for the best Swedish dictation:")
+                            .font(.caption).foregroundColor(.secondary)
+                        ModelRow(model: .pianissimo)
+                    }
+                }
+                Text("Tip: ⌥ shortcuts like ⌥2 for @ still work — dictation only starts when you hold the key on its own.")
+                    .font(.caption2).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+
+        if !dictation.recent.isEmpty {
+            SettingsSection(title: "Recent dictations", icon: "clock.arrow.circlepath") {
+                Text("Kept until you quit MindExtract — handy if the text landed where there was no text field.")
+                    .font(.caption2).foregroundColor(.secondary)
+                ForEach(dictation.recent) { entry in
+                    HStack(alignment: .top) {
+                        Text(entry.text).font(.system(size: 12)).textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button { dictation.copy(entry) } label: { Image(systemName: "doc.on.doc") }
+                            .buttonStyle(.borderless).help("Copy")
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
         }
     }
 
