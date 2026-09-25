@@ -207,10 +207,7 @@ struct TodayView: View {
 
     private func record(_ event: CalEvent) {
         guard !recorder.isBusy else { return }
-        let prefill = event.attendees.isEmpty ? "" :
-            "Attendees: " + event.attendees.joined(separator: ", ") + "\n\n"
-        recorder.start(meetingTitle: event.title, notesPrefill: prefill,
-                       attendees: event.attendees, attendeeEmails: event.attendeeEmails)
+        recorder.start(event: event)
         onGoToRecord()
     }
 

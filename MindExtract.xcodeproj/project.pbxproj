@@ -13,6 +13,8 @@
 		FA000001FA00000000000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = FA000002FA00000000000001 /* FluidAudio */; };
 		B1000E29 /* PianissimoEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E2A /* PianissimoEngine.swift */; };
 		B1000E2B /* Dictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E2C /* Dictation.swift */; };
+		B1000E37 /* TranscribeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E38 /* TranscribeSheet.swift */; };
+		B1000E35 /* MeetingAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E36 /* MeetingAutomation.swift */; };
 		B1000E33 /* MeetingNotesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E34 /* MeetingNotesPanel.swift */; };
 		B1000E31 /* RecordingPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E32 /* RecordingPill.swift */; };
 		B1000E2F /* MeetingNotepadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E30 /* MeetingNotepadView.swift */; };
@@ -100,6 +102,8 @@
 		B1000E16 /* TranscriptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLibrary.swift; sourceTree = "<group>"; };
 		B1000E2A /* PianissimoEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianissimoEngine.swift; sourceTree = "<group>"; };
 		B1000E2C /* Dictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dictation.swift; sourceTree = "<group>"; };
+		B1000E38 /* TranscribeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeSheet.swift; sourceTree = "<group>"; };
+		B1000E36 /* MeetingAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingAutomation.swift; sourceTree = "<group>"; };
 		B1000E34 /* MeetingNotesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingNotesPanel.swift; sourceTree = "<group>"; };
 		B1000E32 /* RecordingPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingPill.swift; sourceTree = "<group>"; };
 		B1000E30 /* MeetingNotepadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingNotepadView.swift; sourceTree = "<group>"; };
@@ -192,6 +196,8 @@
 				B1000E16 /* TranscriptLibrary.swift */,
 				B1000E2A /* PianissimoEngine.swift */,
 				B1000E2C /* Dictation.swift */,
+				B1000E38 /* TranscribeSheet.swift */,
+				B1000E36 /* MeetingAutomation.swift */,
 				B1000E34 /* MeetingNotesPanel.swift */,
 				B1000E32 /* RecordingPill.swift */,
 				B1000E30 /* MeetingNotepadView.swift */,
@@ -352,6 +358,8 @@
 				B1000E27 /* Recipes.swift in Sources */,
 				B1000E29 /* PianissimoEngine.swift in Sources */,
 				B1000E2B /* Dictation.swift in Sources */,
+				B1000E37 /* TranscribeSheet.swift in Sources */,
+				B1000E35 /* MeetingAutomation.swift in Sources */,
 				B1000E33 /* MeetingNotesPanel.swift in Sources */,
 				B1000E31 /* RecordingPill.swift in Sources */,
 				B1000E2F /* MeetingNotepadView.swift in Sources */,

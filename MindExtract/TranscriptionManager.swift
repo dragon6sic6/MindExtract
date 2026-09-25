@@ -460,9 +460,10 @@ class TranscriptionManager: ObservableObject {
                     self.modelDownloadProgress = 1.0
 
                     if self.isModelDownloaded(model) {
-                        // Make it the default — but NOT a Swedish-only model, which
-                        // would then wrongly be used for English/other-language audio.
-                        if !model.isSwedishOnly {
+                        // Only adopt it as the default when the current default isn't
+                        // usable — never silently override the user's choice. Never a
+                        // Swedish-only model (it would be used for other languages).
+                        if !model.isSwedishOnly, !self.isModelDownloaded(AppSettings.shared.defaultWhisperModel) {
                             AppSettings.shared.defaultWhisperModel = model
                         }
                     } else {

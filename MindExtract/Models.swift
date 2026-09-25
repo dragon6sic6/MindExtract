@@ -253,11 +253,20 @@ enum TranscriptionEngineChoice: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Plain-language name for the picker.
+    var displayName: String {
+        switch self {
+        case .automatic: return String(localized: "Automatic")
+        case .appleSpeech: return String(localized: "Apple")
+        case .whisperKit: return String(localized: "Whisper")
+        }
+    }
+
     var detail: String {
         switch self {
-        case .automatic: return "Apple's built-in speech on macOS 26+, otherwise WhisperKit"
-        case .appleSpeech: return "Fast, free, no model download (requires macOS 26)"
-        case .whisperKit: return "Open-source Whisper models, works on all Macs"
+        case .automatic: return String(localized: "Picks the best engine for each language. Swedish uses Pianissimo when it's downloaded.")
+        case .appleSpeech: return String(localized: "Apple's built-in speech recognition. No download needed.")
+        case .whisperKit: return String(localized: "Downloadable Whisper models. Supports the most languages.")
         }
     }
 }
@@ -586,7 +595,6 @@ class AppSettings: ObservableObject {
     /// How many days ahead the Today screen looks for meetings (0 = today only).
     @AppStorage("todayLookaheadDays") var todayLookaheadDays: Int = 0
     /// Show the one-line "plan my day" summary at the top of Today.
-    @AppStorage("todayShowDailyBrief") var todayShowDailyBrief: Bool = true
 
     // AI summaries & chat
     @AppStorage("aiBackend") var aiBackend: AIBackendChoice = .apple
@@ -604,14 +612,39 @@ class AppSettings: ObservableObject {
     // Default language a new transcription starts with (the picker pre-selects it).
     @AppStorage("defaultTranscriptionLanguage") var defaultTranscriptionLanguage: String = "auto"
 
-    /// The languages offered for transcription (shared by the start sheet and Settings).
-    static let transcriptionLanguages: [(name: String, code: String)] = [
-        ("Auto-detect", "auto"), ("English", "en"), ("Swedish", "sv"),
-        ("Spanish", "es"), ("French", "fr"), ("German", "de"),
-        ("Portuguese", "pt"), ("Japanese", "ja"), ("Chinese", "zh"),
-        ("Korean", "ko"), ("Italian", "it"), ("Dutch", "nl"),
-        ("Russian", "ru"), ("Arabic", "ar"), ("Hindi", "hi")
+    /// The languages offered for transcription (shared by every language picker).
+    /// Names come from the system, so they read naturally in the UI language.
+    static var transcriptionLanguages: [(name: String, code: String)] {
+        let codes = ["en", "sv", "no", "da", "fi", "de", "fr", "es", "it", "nl", "pt",
+                     "pl", "ru", "ar", "hi", "ja", "ko", "zh"]
+        let named = codes.map { code in
+            (name: Locale.current.localizedString(forLanguageCode: code)?.localizedCapitalized ?? code, code: code)
+        }
+        let sorted = named.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+        return [(name: String(localized: "Automatic"), code: "auto")] + sorted
+    }
+
+    /// Every preference "Reset all settings" restores. Transcripts, recipes, API keys
+    /// and sign-ins are not preferences and are never touched.
+    static let resettableKeys = [
+        "downloadSubtitles", "subtitleLanguage", "parallelDownloads", "playSoundOnComplete", "showNotifications",
+        "downloadPath", "cookieBrowser", "cookiesFilePath", "defaultWhisperModel", "transcriptionOutputFormat",
+        "enableSpeakerDiarization", "transcriptionEngine", "autoGenerateMeetingNotes", "translateToEnglish",
+        "customVocabulary", "dictationEnabled", "appAppearance", "confirmBeforeTranscribing", "autoStopWhenCallEnds",
+        "dictationLanguage", "calendarSuggestionsEnabled", "calendarLeadMinutes", "excludedCalendarIDs",
+        "calendarOnlyMyEvents", "autoShowCaptions", "detectActiveMeetings", "autoRecordMeetings", "meetingNudge",
+        "preferredMicrophoneID", "downloadQuality", "autoTranscribeOnDownload", "notifyOnTranscriptionComplete",
+        "brandName", "brandLogoPath", "appLockEnabled", "myName", "myEmail", "todayLookaheadDays", "aiBackend",
+        "ollamaModel", "openAIModel", "anthropicModel", "geminiModel", "grokModel", "mistralModel", "groqModel",
+        "openRouterModel", "customBaseURL", "customModel", "defaultTranscriptionLanguage",
+        "notepadShowsTranscript", "settingsCategory",
     ]
+
+    /// Restores every preference to its default.
+    func resetToDefaults() {
+        objectWillChange.send()
+        for key in Self.resettableKeys { UserDefaults.standard.removeObject(forKey: key) }
+    }
 
     private init() {}
 }
@@ -624,23 +657,24 @@ enum TranscriptSource: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .meeting: return "Meeting"
-        case .download: return "Download"
-        case .file: return "File"
+        case .meeting: return String(localized: "Meeting")
+        case .download: return String(localized: "Link")
+        case .file: return String(localized: "File")
         }
     }
     var icon: String {
         switch self {
-        case .meeting: return "person.2.wave.2.fill"
-        case .download: return "arrow.down.circle.fill"
-        case .file: return "doc.fill"
+        case .meeting: return "person.2.wave.2"
+        case .download: return "link"
+        case .file: return "doc"
         }
     }
+    /// One quiet hue per kind — the same everywhere a transcript is listed.
     var tint: Color {
         switch self {
-        case .meeting: return .green
-        case .download: return .blue
-        case .file: return .orange
+        case .meeting: return DS.Colors.accent
+        case .download: return Color(nsColor: .systemTeal)
+        case .file: return Color(nsColor: .systemOrange)
         }
     }
 }

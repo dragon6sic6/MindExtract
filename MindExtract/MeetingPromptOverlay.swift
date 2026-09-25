@@ -52,11 +52,7 @@ final class MeetingPromptController: ObservableObject {
 
     private func startRecording(app: String, isBrowser: Bool) {
         hide()
-        if let m = MeetingCalendar.shared.currentMeeting, m.isLive {
-            MeetingRecorder.shared.start(meetingTitle: m.title, attendees: m.attendees, attendeeEmails: m.attendeeEmails)
-        } else {
-            MeetingRecorder.shared.start(meetingTitle: isBrowser ? "Video call" : "\(app) call")
-        }
+        MeetingRecorder.shared.startInContext()
     }
 
     private func showPanel(_ view: MeetingPromptView) {

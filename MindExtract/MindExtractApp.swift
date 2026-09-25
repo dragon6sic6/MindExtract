@@ -54,6 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         DictationController.shared.refresh()
         // Floating pill + auto-stop while recording in another app.
         RecordingPillController.shared.activate()
+        // Auto-record and live captions, app-wide.
+        MeetingAutomation.shared.activate()
         // Light up the intelligence layer on existing meetings: generate any missing
         // AI briefs in the background shortly after launch (idempotent, capped).
         Task { @MainActor in
@@ -84,12 +86,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
             if isRecordAction, !MeetingRecorder.shared.isBusy {
                 if isCalendar, let m = MeetingCalendar.shared.currentMeeting {
-                    // Record the scheduled meeting with its title + attendees (for the recap).
-                    let prefill = m.attendees.isEmpty ? "" : "Attendees: " + m.attendees.joined(separator: ", ") + "\n\n"
-                    MeetingRecorder.shared.start(meetingTitle: m.title, notesPrefill: prefill,
-                                                 attendees: m.attendees, attendeeEmails: m.attendeeEmails)
+                    MeetingRecorder.shared.start(event: m)
                 } else {
-                    MeetingRecorder.shared.start(meetingTitle: app.map { "\($0) call" })
+                    _ = app
+                    MeetingRecorder.shared.startInContext()
                 }
             } else {
                 NotificationCenter.default.post(name: .navigate, object: SidebarItem.record)
@@ -213,11 +213,8 @@ final class MenuBarController {
         item.menu = menu
     }
 
-    @objc private func startTapped() { MeetingRecorder.shared.start() }
-    @objc private func recordDetectedTapped() {
-        guard let d = detectedMeeting else { MeetingRecorder.shared.start(); return }
-        MeetingRecorder.shared.start(meetingTitle: d.title, attendees: d.attendees, attendeeEmails: d.emails)
-    }
+    @objc private func startTapped() { MeetingRecorder.shared.start(language: AppSettings.shared.defaultTranscriptionLanguage) }
+    @objc private func recordDetectedTapped() { MeetingRecorder.shared.startInContext() }
     @objc private func stopTapped() {
         // Bring the app forward now (user-initiated, so macOS honors the activate);
         // the "Recording finished" sheet appears once finalization completes.

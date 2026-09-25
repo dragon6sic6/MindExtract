@@ -43,7 +43,17 @@ enum DS {
         static let sm: CGFloat = 6
         static let md: CGFloat = 10
         static let lg: CGFloat = 14
+        /// The one radius for rows and cards.
         static let card: CGFloat = 12
+    }
+
+    // MARK: - Layout
+    enum Layout {
+        /// Max width of reading/list content on every page, so lines never run long.
+        static let readingWidth: CGFloat = 760
+        /// Page padding around that content.
+        static let pageHorizontal: CGFloat = 28
+        static let pageTop: CGFloat = 20
     }
 
     // MARK: - Semantic colors
@@ -104,7 +114,7 @@ extension View {
     }
 
     /// A content-layer card: quiet adaptive fill + hairline, no glass.
-    func contentCard(padding: CGFloat = DS.Spacing.lg, cornerRadius: CGFloat = DS.Radius.lg, tint: Color? = nil) -> some View {
+    func contentCard(padding: CGFloat = DS.Spacing.lg, cornerRadius: CGFloat = DS.Radius.card, tint: Color? = nil) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return self.padding(padding)
             .background(shape.fill(tint?.opacity(0.08) ?? DS.Colors.rowFill))
@@ -121,7 +131,7 @@ extension View {
 extension View {
     /// Canonical row/card chrome: hairline-stroked translucent fill on the dark
     /// backdrop. Use for every list row so they can't drift apart.
-    func rowChrome(cornerRadius: CGFloat = 11, selected: Bool = false) -> some View {
+    func rowChrome(cornerRadius: CGFloat = DS.Radius.card, selected: Bool = false) -> some View {
         self
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -212,5 +222,139 @@ extension View {
         self
             .lineLimit(lines)
             .truncationMode(.tail)
+    }
+}
+
+// MARK: - Page building blocks
+// Every page is built from these, so pages look like one app.
+
+extension View {
+    /// Standard page frame: reading width, centered, page padding, scrolls.
+    func pageLayout() -> some View {
+        ScrollView {
+            self
+                .frame(maxWidth: DS.Layout.readingWidth, alignment: .leading)
+                .padding(.horizontal, DS.Layout.pageHorizontal)
+                .padding(.top, DS.Layout.pageTop)
+                .padding(.bottom, 32)
+                .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+/// A section title with an optional count and trailing accessory.
+struct SectionHeader<Trailing: View>: View {
+    let title: LocalizedStringKey
+    var count: Int? = nil
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(title)
+                .font(.title3.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            if let count, count > 0 {
+                CountBadge(count: count)
+            }
+            Spacer(minLength: 8)
+            trailing
+        }
+    }
+}
+
+extension SectionHeader where Trailing == EmptyView {
+    init(_ title: LocalizedStringKey, count: Int? = nil) {
+        self.title = title
+        self.count = count
+        self.trailing = EmptyView()
+    }
+}
+
+/// The one count badge.
+struct CountBadge: View {
+    let count: Int
+    var body: some View {
+        Text("\(count)")
+            .font(.caption.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(DS.Colors.inputFill))
+    }
+}
+
+/// The one row for a transcript anywhere in the app (Meetings, Library, People…).
+struct TranscriptRow: View {
+    let item: TranscriptionHistoryItem
+    var subtitle: String? = nil
+    var action: () -> Void
+
+    @State private var hovering = false
+
+    private var source: TranscriptSource { item.sourceType ?? .file }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: source.icon)
+                    .font(.body)
+                    .foregroundStyle(source.tint)
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(source.tint.opacity(0.12)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.body.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text(subtitle ?? Self.meta(for: item))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+            .rowChrome(selected: false)
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous)
+                    .fill(Color.primary.opacity(hovering ? 0.04 : 0))
+                    .allowsHitTesting(false)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .disabled(!item.fileExists)
+        .accessibilityLabel(item.title)
+        .accessibilityValue(Self.meta(for: item))
+    }
+
+    /// "Today, 14:02 · 12:40" — date and duration, the same format everywhere.
+    static func meta(for item: TranscriptionHistoryItem) -> String {
+        let date = item.transcriptionDate.formatted(.relative(presentation: .named, unitsStyle: .wide))
+        if let d = item.duration, !d.isEmpty { return "\(date) · \(d)" }
+        return date
+    }
+}
+
+/// The one inline "busy" row: spinner + text (+ optional cancel).
+struct BusyRow: View {
+    let text: LocalizedStringKey
+    var onCancel: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text(text).foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            if let onCancel {
+                Button("Cancel", action: onCancel)
+            }
+        }
     }
 }

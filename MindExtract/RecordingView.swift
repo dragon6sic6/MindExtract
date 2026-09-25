@@ -1,175 +1,283 @@
 import SwiftUI
 import AVFoundation
 
-// MARK: - Recording surface (in-app)
+// MARK: - Meetings
+//
+// The Meetings page: what's happening now (a detected call or calendar meeting),
+// what's coming up today, and every meeting you've recorded. While recording, the
+// page becomes the notepad (MeetingNotepadView).
 
 struct RecordingView: View {
     var onOpenTranscripts: () -> Void = {}
 
     @ObservedObject private var recorder = MeetingRecorder.shared
     @ObservedObject private var transcriptionManager = TranscriptionManager.shared
-    @ObservedObject private var live = MeetingRecorder.shared.live
+    @ObservedObject private var history = TranscriptionHistoryManager.shared
     @ObservedObject private var calendar = MeetingCalendar.shared
-    @ObservedObject private var captionOverlay = CaptionOverlayController.shared
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var activeMeeting = ActiveMeetingDetector.shared
 
-    @State private var startLanguage: String = ""
-    private let languages = AppSettings.transcriptionLanguages
-
-    /// The model used for the live preview — the recommended model for the chosen
-    /// language, but only if it's already downloaded (live needs it immediately).
-    private var liveModel: WhisperModel? {
-        MeetingRecorder.defaultLiveModel(for: startLanguage)
-    }
-
-    private func resolvedStartLanguage() -> String {
-        let pref = AppSettings.shared.defaultTranscriptionLanguage
-        if pref != "auto" { return pref }
-        let sys = Locale.current.language.languageCode?.identifier ?? "auto"
-        return languages.contains { $0.code == sys } ? sys : "auto"
-    }
+    @State private var meetingLinkInput = ""
+    @State private var upcoming: [MeetingCalendar.CalEvent] = []
 
     var body: some View {
         Group {
-            if MeetingRecorder.isSupported && recorder.isRecording {
-                // Notepad-first while recording (MeetingNotepadView.swift).
+            if recorder.isRecording {
                 MeetingNotepadView()
-            } else if MeetingRecorder.isSupported {
-                content
             } else {
-                unsupported
+                page
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Offer to recover a recording interrupted by a crash/force-quit; start
-        // calendar monitoring so we can suggest the meeting you're in.
         .onAppear {
-            if MeetingRecorder.isSupported {
-                recorder.recoverInterruptedSessions()
-                calendar.refreshAccessStatus()
-                if calendar.accessGranted { calendar.startMonitoring() }
-                activeMeeting.startMonitoring()
-            }
+            recorder.recoverInterruptedSessions()
+            recorder.refreshPermissions()
+            calendar.refreshAccessStatus()
+            upcoming = calendar.todaysEvents().filter { $0.end > Date() }
         }
-        // Keep call detection alive while it's enabled — its Settings toggle implies
-        // a persistent mode, so leaving the Record tab shouldn't silently kill it.
-        .onDisappear {
-            calendar.stopMonitoring()
-            if !settings.detectActiveMeetings { activeMeeting.stopMonitoring() }
+        .onChange(of: calendar.currentMeeting) { _, _ in
+            upcoming = calendar.todaysEvents().filter { $0.end > Date() }
         }
-        // Auto-record (opt-in): start when a meeting/call is detected, once each.
-        .onChange(of: calendar.currentMeeting) { _, _ in autoRecordIfNeeded() }
-        .onChange(of: activeMeeting.activeApp) { _, _ in autoRecordIfNeeded() }
-        // Floating captions follow the recording lifecycle: auto-show on start if
-        // the user enabled it, and always hide when the live transcriber stops
-        // (Stop button, menu bar, sleep, error, …).
-        .onChange(of: live.isActive) { _, active in
-            if active {
-                if AppSettings.shared.autoShowCaptions { captionOverlay.show(transcriber: live) }
-            } else {
-                captionOverlay.hide()
-            }
-        }
-        // When a finished recording kicks off transcription, jump to Transcripts.
+        // When a finished recording starts transcribing, show it in the Library.
         .onChange(of: transcriptionManager.showTranscriptionView) { _, shown in
             if shown { onOpenTranscripts() }
         }
-        // Confirm / name / discard a finished recording before transcribing.
-        // The "Recording finished" confirm sheet is presented from ContentView (the
-        // always-mounted root) so it appears even when you stop from the menu bar
-        // while on another tab.
     }
 
-    // MARK: Supported
+    // MARK: Page
 
-    private var content: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 6) {
-                Image(systemName: "record.circle")
-                    .font(.system(size: 40))
-                    .foregroundStyle(recorder.isRecording ? Color.red : DS.Colors.accent)
-                Text("Record a meeting")
-                    .font(.title2).fontWeight(.semibold)
-                Text("Captures the meeting audio and your microphone — fully on your Mac. No bot joins the call, nothing is uploaded.")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 460)
+    private var page: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            if !recorder.micGranted || !recorder.screenGranted {
+                permissionsCard
             }
-
-            if recorder.state == .finishing {
-                finalizingPanel
-            } else {
-                idlePanel
-            }
-
             if case .error(let message, let kind) = recorder.state {
-                errorPanel(message, kind)
+                errorCard(message, kind)
+            }
+            if recorder.state == .finishing {
+                BusyRow(text: "Saving the recording…")
+                    .contentCard()
+            }
+            nowSection
+            if !laterToday.isEmpty {
+                upcomingSection
+            }
+            recentSection
+        }
+        .pageLayout()
+    }
+
+    // MARK: Now
+
+    private var nowSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Now")
+            if let app = activeMeeting.activeApp {
+                nowCard(
+                    icon: "dot.radiowaves.left.and.right",
+                    eyebrow: "Call in progress",
+                    title: calendar.currentMeeting?.isLive == true ? calendar.currentMeeting!.title
+                        : (activeMeeting.activeIsBrowser ? String(localized: "Video call in your browser") : String(localized: "\(app) call")),
+                    detail: nil
+                ) { recorder.startInContext() }
+            } else if let m = calendar.currentMeeting {
+                nowCard(
+                    icon: "calendar",
+                    eyebrow: m.isLive ? "Happening now" : "Starting soon",
+                    title: m.title,
+                    detail: m.attendees.isEmpty ? nil : m.attendees.joined(separator: ", ")
+                ) { recorder.start(event: m) }
+            } else {
+                HStack(spacing: 12) {
+                    Image(systemName: "link")
+                        .foregroundStyle(.secondary)
+                    TextField("Paste a meeting link to record it", text: $meetingLinkInput)
+                        .textFieldStyle(.plain)
+                        .onSubmit(recordFromLink)
+                    if let provider = meetingProvider(from: meetingLinkInput) {
+                        Button("Record \(provider) Meeting", action: recordFromLink)
+                            .primaryGlassButton()
+                            .tint(DS.Colors.recording)
+                    } else {
+                        Button {
+                            recorder.startInContext()
+                        } label: {
+                            Label("Record", systemImage: "record.circle")
+                        }
+                        .primaryGlassButton()
+                        .tint(DS.Colors.recording)
+                        .disabled(recorder.isBusy)
+                    }
+                }
+                .padding(12)
+                .rowChrome()
+                Text("No bot joins the call. MindExtract records your microphone and the meeting audio on this Mac.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
-    // MARK: Idle
-
-    private var idlePanel: some View {
-        VStack(spacing: 18) {
-            activeCallCard
-            calendarCard
-            meetingLinkCard
-            permissionRows
-
-            if !recorder.screenGranted {
-                Text("After enabling Screen Recording in System Settings, relaunch MindExtract for it to take effect.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 460)
-                Button("Relaunch MindExtract") { Self.relaunch() }
-                .secondaryGlassButton()
-                .controlSize(.small)
-            }
-
-            HStack(spacing: 8) {
-                Text("Language").font(.system(size: 13)).foregroundColor(.secondary)
-                Picker("", selection: $startLanguage) {
-                    ForEach(languages, id: \.code) { Text($0.name).tag($0.code) }
+    private func nowCard(icon: String, eyebrow: LocalizedStringKey, title: String, detail: String?,
+                         record: @escaping () -> Void) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(DS.Colors.recording)
+                .symbolEffect(.pulse, options: .repeating)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(DS.Colors.recording.opacity(0.12)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(eyebrow).font(.callout).foregroundStyle(.secondary)
+                Text(title).font(.headline).lineLimit(1)
+                if let detail {
+                    Text(detail).font(.callout).foregroundStyle(.secondary).lineLimit(1)
                 }
-                .labelsHidden()
-                .frame(width: 170)
             }
-
-            Button {
-                recorder.start(language: startLanguage, liveModel: liveModel)
-            } label: {
-                Label(recorder.state == .starting ? "Starting…" : "Start Recording", systemImage: "record.circle")
-                    .frame(maxWidth: 260)
+            Spacer(minLength: 8)
+            Button(action: record) {
+                Label("Record", systemImage: "record.circle")
             }
             .primaryGlassButton()
+            .tint(DS.Colors.recording)
             .controlSize(.large)
             .disabled(recorder.isBusy)
-
-            Text(liveModel != nil
-                 ? "Live transcript on — \(liveModel!.displayName.replacingOccurrences(of: " (Swedish)", with: ""))"
-                 : "Live transcript off — download a model (transcribe a file once) to see text as you record.")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.8))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
-
-            Text("Tip: you can also start and stop from the menu bar during a call.")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.8))
         }
-        .onAppear { if startLanguage.isEmpty { startLanguage = resolvedStartLanguage() } }
+        .padding(14)
+        .rowChrome()
     }
 
-    @State private var meetingLinkInput = ""
+    // MARK: Later today
 
-    /// Recognize a meeting link (Teams/Zoom/Meet/Webex/…) for one-tap recording —
-    /// handy before you've joined the call audio (so detection hasn't fired yet).
+    private var laterToday: [MeetingCalendar.CalEvent] {
+        upcoming.filter { $0.id != calendar.currentMeeting?.id }
+    }
+
+    private var upcomingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Later today", count: laterToday.count)
+            VStack(spacing: 8) {
+                ForEach(laterToday) { event in
+                    HStack(spacing: 12) {
+                        Text(event.start.formatted(date: .omitted, time: .shortened))
+                            .font(.body.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 56, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.title).font(.body.weight(.medium)).lineLimit(1)
+                            Text(event.attendees.isEmpty ? event.calendarTitle : event.attendees.joined(separator: ", "))
+                                .font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer(minLength: 8)
+                        if let link = event.meetingURL, let url = URL(string: link) {
+                            Button("Join") { NSWorkspace.shared.open(url) }
+                                .secondaryGlassButton()
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .rowChrome()
+                }
+            }
+        }
+    }
+
+    // MARK: Recorded
+
+    private var recordedMeetings: [TranscriptionHistoryItem] {
+        history.history.filter { $0.sourceType == .meeting }
+    }
+
+    @ViewBuilder
+    private var recentSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Recorded", count: recordedMeetings.count)
+            if recordedMeetings.isEmpty {
+                ContentUnavailableView {
+                    Label("No meetings yet", systemImage: "waveform")
+                } description: {
+                    Text("Press Record when a meeting starts. You'll get the transcript and notes here.")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            } else {
+                LazyVStack(spacing: 8) {
+                    ForEach(recordedMeetings) { item in
+                        TranscriptRow(item: item) {
+                            transcriptionManager.openTranscriptionFromHistory(item)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: Permissions & errors
+
+    private var permissionsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("MindExtract needs permission to record", systemImage: "lock.shield")
+                .font(.headline)
+            permissionRow("Microphone", detail: "Your voice.", granted: recorder.micGranted) {
+                Task {
+                    let ok = await recorder.requestMicPermission()
+                    if !ok { recorder.openMicSettings() }
+                }
+            }
+            permissionRow("Meeting audio", detail: "The other participants — audio only, never video.", granted: recorder.screenGranted) {
+                recorder.requestScreenPermission()
+                recorder.openScreenRecordingSettings()
+            }
+            if !recorder.screenGranted {
+                HStack {
+                    Text("After allowing meeting audio in System Settings, restart MindExtract.")
+                        .font(.callout).foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button("Restart") { Self.relaunch() }
+                        .secondaryGlassButton()
+                }
+            }
+        }
+        .contentCard(tint: .orange)
+    }
+
+    private func permissionRow(_ title: LocalizedStringKey, detail: LocalizedStringKey, granted: Bool,
+                               action: @escaping () -> Void) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: granted ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(granted ? .green : .secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.body.weight(.medium))
+                Text(detail).font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            if !granted {
+                Button("Allow…", action: action)
+                    .secondaryGlassButton()
+            }
+        }
+    }
+
+    private func errorCard(_ message: String, _ kind: MeetingRecorder.ErrorKind) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            Text(message).frame(maxWidth: .infinity, alignment: .leading)
+            switch kind {
+            case .screenPermission:
+                Button("Open Settings") { recorder.openScreenRecordingSettings() }.secondaryGlassButton()
+            case .micPermission:
+                Button("Open Settings") { recorder.openMicSettings() }.secondaryGlassButton()
+            case .capture:
+                EmptyView()
+            }
+            Button("Dismiss") { recorder.dismissError() }.secondaryGlassButton()
+        }
+        .contentCard(tint: .orange)
+    }
+
+    // MARK: Helpers
+
+    /// Recognize a meeting link (Teams/Zoom/Meet/Webex/…) for one-tap recording.
     private func meetingProvider(from s: String) -> String? {
         let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
         guard URL(string: trimmed)?.scheme?.hasPrefix("http") == true else { return nil }
@@ -183,233 +291,13 @@ struct RecordingView: View {
         return nil
     }
 
-    @ViewBuilder
-    private var meetingLinkCard: some View {
-        // Only as a manual fallback — hide while a meeting/call is already surfaced.
-        if calendar.currentMeeting == nil && activeMeeting.activeApp == nil {
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "link").foregroundColor(.secondary)
-                    TextField("Paste a meeting link (Teams, Zoom, Meet…)", text: $meetingLinkInput)
-                        .textFieldStyle(.plain).font(.system(size: 13))
-                    if !meetingLinkInput.isEmpty {
-                        Button { meetingLinkInput = "" } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary) }
-                            .buttonStyle(.plain)
-                    }
-                }
-                .padding(8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Colors.hairline, lineWidth: 1))
-                if let provider = meetingProvider(from: meetingLinkInput) {
-                    Button {
-                        recorder.start(language: startLanguage, liveModel: liveModel, meetingTitle: "\(provider) meeting")
-                        meetingLinkInput = ""
-                    } label: {
-                        Label("Record this \(provider) meeting", systemImage: "record.circle").frame(maxWidth: .infinity)
-                    }
-                    .primaryGlassButton().controlSize(.large).disabled(recorder.isBusy)
-                }
-            }
-            .frame(maxWidth: 460)
-        }
-    }
-
-    /// Shown when a call app (Zoom/Teams/…) is detected in an active call — works
-    /// regardless of calendar provider, and even with no calendar event at all.
-    @ViewBuilder
-    private var activeCallCard: some View {
-        if let app = activeMeeting.activeApp, calendar.currentMeeting == nil {
-            let headline = activeMeeting.activeIsBrowser ? "\(app) is using your microphone" : "\(app) is in a call"
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    Image(systemName: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 18)).foregroundStyle(.green)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Live call detected").font(.caption).foregroundColor(.secondary)
-                        Text(headline).font(.system(size: 14, weight: .semibold))
-                    }
-                    Spacer()
-                }
-                Button {
-                    let title = activeMeeting.activeIsBrowser ? "Video call" : "\(app) call"
-                    recorder.start(language: startLanguage, liveModel: liveModel, meetingTitle: title)
-                } label: {
-                    Label("Record this call", systemImage: "record.circle").frame(maxWidth: .infinity)
-                }
-                .primaryGlassButton().controlSize(.large).disabled(recorder.isBusy)
-            }
-            .padding(12)
-            .frame(maxWidth: 460)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.10)))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.green.opacity(0.3), lineWidth: 1))
-        }
-    }
-
-    @ViewBuilder
-    private var calendarCard: some View {
-        if let m = calendar.currentMeeting {
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 18)).foregroundStyle(DS.Colors.accent)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(m.isLive ? "Happening now" : "Starting soon")
-                            .font(.caption).foregroundColor(.secondary)
-                        Text(m.title).font(.system(size: 14, weight: .semibold))
-                        if !m.attendees.isEmpty {
-                            Text("^[\(m.attendees.count) attendee](inflect: true)")
-                                .font(.caption2).foregroundColor(.secondary)
-                        }
-                    }
-                    Spacer()
-                }
-                Button { startMeeting(m) } label: {
-                    Label("Record this meeting", systemImage: "record.circle").frame(maxWidth: .infinity)
-                }
-                .primaryGlassButton().controlSize(.large).disabled(recorder.isBusy)
-            }
-            .padding(12)
-            .frame(maxWidth: 460)
-            .background(RoundedRectangle(cornerRadius: 12).fill(DS.Colors.accent.opacity(0.10)))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(DS.Colors.accent.opacity(0.3), lineWidth: 1))
-        } else if settings.calendarSuggestionsEnabled && !calendar.accessGranted {
-            Button {
-                Task { await calendar.requestAccess(); if calendar.accessGranted { calendar.startMonitoring() } }
-            } label: {
-                Label("Connect calendar to auto-suggest meetings", systemImage: "calendar")
-            }
-            .secondaryGlassButton().controlSize(.small)
-        }
-    }
-
-    @State private var lastAutoRecordKey: String?
-
-    /// Auto-start recording when a meeting/call is detected (opt-in). Triggers at
-    /// most once per distinct detection, and never while already busy.
-    private func autoRecordIfNeeded() {
-        guard settings.autoRecordMeetings, !recorder.isBusy else { return }
-        if let m = calendar.currentMeeting {
-            guard lastAutoRecordKey != m.id else { return }
-            lastAutoRecordKey = m.id
-            startMeeting(m)
-        } else if let app = activeMeeting.activeApp {
-            let key = "call:\(app)"
-            guard lastAutoRecordKey != key else { return }
-            lastAutoRecordKey = key
-            recorder.start(language: startLanguage, liveModel: liveModel, meetingTitle: "\(app) call")
-        }
-    }
-
-    private func startMeeting(_ m: MeetingCalendar.CalEvent) {
-        let prefill = m.attendees.isEmpty ? "" : "Attendees: " + m.attendees.joined(separator: ", ") + "\n\n"
-        recorder.start(language: startLanguage, liveModel: liveModel, meetingTitle: m.title, notesPrefill: prefill, attendees: m.attendees, attendeeEmails: m.attendeeEmails)
-    }
-
-    private var finalizingPanel: some View {
-        VStack(spacing: 12) {
-            ProgressView().controlSize(.small)
-            Text("Finalizing recording…")
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
-            Text("Saving and preparing the audio. This can take a moment for long meetings.")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.8))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 380)
-        }
-        .padding(.vertical, 20)
-    }
-
-    // MARK: Permissions
-
-    private var permissionRows: some View {
-        VStack(spacing: 10) {
-            permissionRow(
-                title: "Screen Recording",
-                detail: "Lets MindExtract hear the meeting audio — audio only, no video is captured.",
-                granted: recorder.screenGranted,
-                action: { recorder.requestScreenPermission(); recorder.openScreenRecordingSettings() }
-            )
-            permissionRow(
-                title: "Microphone",
-                detail: "Lets MindExtract hear your voice — stays on your Mac.",
-                granted: recorder.micGranted,
-                action: {
-                    Task {
-                        let ok = await recorder.requestMicPermission()
-                        if !ok { recorder.openMicSettings() }
-                    }
-                }
-            )
-        }
-        .frame(maxWidth: 460)
-    }
-
-    private func permissionRow(title: String, detail: String, granted: Bool, action: @escaping () -> Void) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.circle")
-                .foregroundColor(granted ? .green : .orange)
-                .font(.system(size: 16))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 13, weight: .medium))
-                Text(detail).font(.caption).foregroundColor(.secondary)
-            }
-            Spacer()
-            if !granted {
-                Button("Grant", action: action)
-                    .secondaryGlassButton()
-                    .controlSize(.small)
-            }
-        }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 10).fill(DS.Colors.rowFill))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(DS.Colors.hairline, lineWidth: 1))
-    }
-
-    // MARK: Error
-
-    private func errorPanel(_ message: String, _ kind: MeetingRecorder.ErrorKind) -> some View {
-        VStack(spacing: 10) {
-            Label(message, systemImage: "exclamationmark.triangle.fill")
-                .font(.caption)
-                .foregroundColor(.orange)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 460)
-            HStack(spacing: 8) {
-                switch kind {
-                case .screenPermission:
-                    Button("Open Settings") { recorder.openScreenRecordingSettings() }
-                        .secondaryGlassButton().controlSize(.small)
-                case .micPermission:
-                    Button("Open Settings") { recorder.openMicSettings() }
-                        .secondaryGlassButton().controlSize(.small)
-                case .capture:
-                    EmptyView()
-                }
-                Button("Dismiss") { recorder.dismissError() }
-                    .secondaryGlassButton()
-                    .controlSize(.small)
-            }
-        }
-        .padding(.top, 4)
-    }
-
-    // MARK: Unsupported
-
-    private var unsupported: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "record.circle")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text("Meeting recording requires macOS 15")
-                .font(.title3).fontWeight(.semibold)
-            Text("On-device capture of both the meeting audio and your microphone needs macOS 15 or later. Everything else in MindExtract works on your current version.")
-                .font(.system(size: 14))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
-        }
-        .padding(40)
+    private func recordFromLink() {
+        guard let provider = meetingProvider(from: meetingLinkInput) else { return }
+        let link = meetingLinkInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: link) { NSWorkspace.shared.open(url) }
+        recorder.start(language: settings.defaultTranscriptionLanguage,
+                       meetingTitle: String(localized: "\(provider) meeting"))
+        meetingLinkInput = ""
     }
 
     /// Relaunch the app (needed for the Screen Recording permission to take effect).
@@ -426,213 +314,5 @@ struct RecordingView: View {
         let total = Int(t)
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%02d:%02d", m, s)
-    }
-}
-
-// MARK: - Confirm sheet (name / transcribe / discard)
-
-struct RecordingConfirmSheet: View {
-    let pending: MeetingRecorder.PendingRecording
-    let onTranscribe: (String, String, WhisperModel) -> Void
-    let onDiscard: () -> Void
-
-    @ObservedObject private var tm = TranscriptionManager.shared
-    @State private var name: String = ""
-    @State private var language: String = ""
-    @State private var confirmingDiscard = false
-    @State private var appleSupported = false   // conservative until the async check resolves
-    @State private var awaitingModelDownload: WhisperModel?   // the model a tapped download is for
-    @State private var selectedModel: WhisperModel = .small
-
-    private let languages = AppSettings.transcriptionLanguages
-
-    /// This language is transcribed by a downloadable model (Apple Speech can't do
-    /// it, or it's Swedish — Pianissimo beats Apple Speech there unless Apple Speech
-    /// was explicitly chosen), so let the user pick the model.
-    private var usesWhisperKit: Bool {
-        if language == "sv" && AppSettings.shared.transcriptionEngine != .appleSpeech { return true }
-        return !appleSupported
-    }
-    /// The chosen model isn't downloaded yet → offer to download it first.
-    private var needsDownload: Bool { usesWhisperKit && !tm.downloadedModels.contains(selectedModel) }
-    private var isDownloadingModel: Bool { tm.downloadingModel != nil }
-
-    /// Models offered for the chosen language — Pianissimo only appears for Swedish.
-    private var modelChoices: [WhisperModel] {
-        WhisperModel.allCases.filter { !$0.isSwedishOnly || language == "sv" }
-    }
-
-    /// Menu label for a model — section headers carry the Swedish/general context,
-    /// so strip the "(Swedish)" suffix here to avoid redundancy.
-    private func modelLabel(_ m: WhisperModel) -> String {
-        let rec = (m == WhisperModel.recommended(for: language))
-        let have = tm.downloadedModels.contains(m)
-        let name = m.displayName.replacingOccurrences(of: " (Swedish)", with: "")
-        return "\(name) · \(m.sizeDescription)\(rec ? " · Recommended" : "")\(have ? " · Installed" : "")"
-    }
-
-    /// Default to the user's explicit preference if they set one; otherwise "Auto-
-    /// detect" — the engine now detects the language and switches to Pianissimo for
-    /// Swedish on its own, so auto is the right (and smartest) default.
-    private static func defaultLanguage() -> String {
-        let pref = AppSettings.shared.defaultTranscriptionLanguage
-        return pref != "auto" ? pref : "auto"
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 6) {
-                Image(systemName: "waveform.circle.fill")
-                    .font(.system(size: 30))
-                    .foregroundStyle(DS.Colors.accent)
-                Text("Recording finished")
-                    .font(.title3).fontWeight(.semibold)
-                Text(RecordingView.formatElapsed(pending.duration) + " · stays on your Mac")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.top, 22).padding(.bottom, 16)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Name").font(.system(size: 13, weight: .semibold))
-                    TextField("Recording name", text: $name)
-                        .textFieldStyle(.roundedBorder)
-                }
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Spoken language").font(.system(size: 13, weight: .semibold))
-                        Text("Set this to the language spoken in the meeting.")
-                            .font(.caption).foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    Picker("", selection: $language) {
-                        ForEach(languages, id: \.code) { Text($0.name).tag($0.code) }
-                    }
-                    .labelsHidden()
-                    .frame(width: 160)
-                }
-
-                if usesWhisperKit {
-                    if isDownloadingModel {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Downloading \(selectedModel.displayName) model… \(Int(tm.modelDownloadProgress * 100))%")
-                                .font(.caption).foregroundColor(.secondary)
-                            ProgressView(value: tm.modelDownloadProgress).tint(DS.Colors.accent)
-                            Text("Transcription starts automatically when it's ready.")
-                                .font(.caption2).foregroundColor(.secondary.opacity(0.8))
-                        }
-                    } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("\(languageName) is transcribed on your Mac. Pick a model — Pianissimo is best for Swedish; for Whisper, larger is more accurate and smaller is faster.")
-                                .font(.caption).foregroundColor(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                            HStack {
-                                Text("Model").font(.system(size: 13, weight: .semibold))
-                                Spacer()
-                                Picker("", selection: $selectedModel) {
-                                    let kb = modelChoices.filter { $0.isSwedishOnly }
-                                    let general = modelChoices.filter { !$0.isSwedishOnly }
-                                    if !kb.isEmpty {
-                                        Section("Best for Swedish") {
-                                            ForEach(kb) { Text(modelLabel($0)).tag($0) }
-                                        }
-                                    }
-                                    Section("All languages — OpenAI Whisper") {
-                                        ForEach(general) { Text(modelLabel($0)).tag($0) }
-                                    }
-                                }
-                                .labelsHidden()
-                                .frame(width: 320)
-                            }
-                            Text(selectedModel.description)
-                                .font(.caption2).foregroundColor(.secondary.opacity(0.8))
-                            if language == "sv" {
-                                Text("Pianissimo is trained on Swedish by Klang AI — more accurate and much faster on Swedish than Whisper.")
-                                    .font(.caption2).foregroundColor(.secondary.opacity(0.8))
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(20)
-
-            Divider()
-
-            HStack(spacing: 10) {
-                Button(role: .destructive) { confirmingDiscard = true } label: {
-                    Label("Discard", systemImage: "trash")
-                }
-                .secondaryGlassButton()
-                .controlSize(.large)
-                .confirmationDialog("Discard this recording? The audio will be deleted.",
-                                    isPresented: $confirmingDiscard, titleVisibility: .visible) {
-                    Button("Discard Recording", role: .destructive) {
-                        if tm.downloadingModel != nil { tm.cancelModelDownload() }
-                        awaitingModelDownload = nil
-                        onDiscard()
-                    }
-                    Button("Keep", role: .cancel) {}
-                }
-
-                Button {
-                    if needsDownload {
-                        awaitingModelDownload = selectedModel
-                        tm.downloadModel(selectedModel)
-                    } else {
-                        onTranscribe(name, language, selectedModel)
-                    }
-                } label: {
-                    Label(needsDownload ? (isDownloadingModel ? "Downloading…" : "Download & Transcribe") : "Transcribe",
-                          systemImage: needsDownload ? "arrow.down.circle.fill" : "waveform")
-                        .frame(maxWidth: .infinity)
-                }
-                .primaryGlassButton()
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .frame(maxWidth: .infinity)
-                .disabled(isDownloadingModel)
-            }
-            .padding(16)
-        }
-        .frame(width: 420)
-        .onAppear {
-            if name.isEmpty { name = pending.title }
-            if language.isEmpty { language = Self.defaultLanguage() }
-            selectedModel = WhisperModel.recommended(for: language)
-            refreshAppleSupport()
-        }
-        .onChange(of: language) { _, newLang in
-            selectedModel = WhisperModel.recommended(for: newLang)
-            refreshAppleSupport()
-        }
-        .onChange(of: tm.downloadedModels) { _, models in
-            // The EXACT model the download was started for finished → transcribe.
-            // (Tracking the specific model avoids firing if the user switched the
-            // picker mid-download.)
-            if let waiting = awaitingModelDownload, models.contains(waiting) {
-                awaitingModelDownload = nil
-                onTranscribe(name, language, waiting)
-            }
-        }
-    }
-
-    private var languageName: String {
-        languages.first { $0.code == language }?.name ?? language
-    }
-
-    private func refreshAppleSupport() {
-        if #available(macOS 26.0, *) {
-            let lang = language
-            Task {
-                let ok = await TranscriptionManager.appleSpeechSupports(lang)
-                await MainActor.run { appleSupported = ok }
-            }
-        } else {
-            appleSupported = false   // no Apple Speech below macOS 26
-        }
     }
 }
