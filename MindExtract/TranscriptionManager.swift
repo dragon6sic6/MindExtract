@@ -1250,6 +1250,9 @@ class TranscriptionManager: ObservableObject {
 
     /// Merges consecutive segments that have the same speaker into larger paragraph-like segments.
     /// This produces output similar to MacWhisper where text is grouped by speaker turn.
+    /// Paragraphs stop at ~30 s so a long monologue keeps timestamps the notes can cite.
+    static let maxParagraphSeconds: Float = 30
+
     private func mergeSameSpeakerSegments(_ segments: [TranscriptionSegmentData]) -> [TranscriptionSegmentData] {
         guard !segments.isEmpty else { return segments }
 
@@ -1259,8 +1262,8 @@ class TranscriptionManager: ObservableObject {
         for i in 1..<segments.count {
             let next = segments[i]
 
-            // Same speaker (or both nil) — merge
-            if current.speaker == next.speaker {
+            // Same speaker (or both nil) — merge, up to a paragraph's length
+            if current.speaker == next.speaker, next.end - current.start <= Self.maxParagraphSeconds {
                 let combinedText = current.text + " " + next.text
                 let combinedWords = current.words + next.words
                 let avgProb = (current.avgLogprob + next.avgLogprob) / 2

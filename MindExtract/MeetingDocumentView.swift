@@ -394,7 +394,10 @@ struct MeetingDocumentView: View {
     }
 
     private func enhancedView(_ notes: EnhancedNotes) -> some View {
-        VStack(alignment: .leading, spacing: 22) {
+        // Jump-to buttons only help when the notes point at different moments.
+        let moments = Set(notes.sections.flatMap { $0.lines.compactMap(\.at) })
+        let showMoments = moments.count > 1 && tm.audioFilePath != nil
+        return VStack(alignment: .leading, spacing: 22) {
             ForEach(Array(notes.sections.enumerated()), id: \.offset) { _, section in
                 VStack(alignment: .leading, spacing: 8) {
                     if !section.heading.isEmpty {
@@ -412,7 +415,7 @@ struct MeetingDocumentView: View {
                             .lineSpacing(3)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            if let at = line.at, tm.audioFilePath != nil {
+                            if let at = line.at, showMoments {
                                 Button {
                                     play(from: at)
                                 } label: {
