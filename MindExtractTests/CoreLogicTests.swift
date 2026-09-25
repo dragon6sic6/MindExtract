@@ -466,4 +466,28 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertEqual(file.fileFormat.channelCount, 1)
         XCTAssertGreaterThan(file.length, 16_000)
     }
+
+    /// Opt-in: Pianissimo confidence per file (LANG_E2E = colon-separated paths).
+    func testPianissimoConfidenceAsLanguageSignal() async throws {
+        guard let list = ProcessInfo.processInfo.environment["LANG_E2E"] else { throw XCTSkip("Set LANG_E2E") }
+        for path in list.split(separator: ":").map(String.init) {
+            let wav = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+            try await AudioConverter.toWhisperWav(input: URL(fileURLWithPath: path), output: wav)
+            let samples = try TranscriptionManager.loadSamples(wavPath: wav.path, maxSeconds: 30)
+            let out = try await PianissimoEngine.shared.transcribe(samples: samples)
+            let conf = out.words.isEmpty ? 0 : out.words.map(\.confidence).reduce(0, +) / Float(out.words.count)
+            print("LANGSIG \((path as NSString).lastPathComponent): conf=\(conf) words=\(out.words.count) text=\(out.text.prefix(120))")
+        }
+    }
+
+    /// Opt-in: full language detection per file (LANG_E2E).
+    func testDetectSpokenLanguage() async throws {
+        guard let list = ProcessInfo.processInfo.environment["LANG_E2E"] else { throw XCTSkip("Set LANG_E2E") }
+        for path in list.split(separator: ":").map(String.init) {
+            let wav = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+            try await AudioConverter.toWhisperWav(input: URL(fileURLWithPath: path), output: wav)
+            let lang = await TranscriptionManager.shared.detectSpokenLanguage(audioPath: wav.path)
+            print("DETECT \((path as NSString).lastPathComponent) → \(lang)")
+        }
+    }
 }

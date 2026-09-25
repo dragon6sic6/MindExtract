@@ -588,6 +588,16 @@
         }
       }
     },
+    "Apple's speech recognition doesn't support %@. Download a speech model in Settings → Transcription and try again.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apples taligenkänning stöder inte %@. Ladda ned en talmodell i Inställningar → Transkribering och försök igen."
+          }
+        }
+      }
+    },
     "Ask": {
       "localizations": {
         "sv": {

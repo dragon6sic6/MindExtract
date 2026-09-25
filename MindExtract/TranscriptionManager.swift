@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 import SwiftUI
 import WhisperKit
 import SpeakerKit
@@ -1129,6 +1130,18 @@ class TranscriptionManager: ObservableObject {
         }
     }
 
+    /// Reads up to `maxSeconds` of a 16 kHz mono WAV as Float samples.
+    nonisolated static func loadSamples(wavPath: String, maxSeconds: Double) throws -> [Float] {
+        let file = try AVAudioFile(forReading: URL(fileURLWithPath: wavPath))
+        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: file.processingFormat.sampleRate,
+                                   channels: 1, interleaved: false)!
+        let frames = AVAudioFrameCount(min(Double(file.length), maxSeconds * file.processingFormat.sampleRate))
+        guard frames > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else { return [] }
+        try file.read(into: buffer, frameCount: frames)
+        guard let data = buffer.floatChannelData?[0] else { return [] }
+        return Array(UnsafeBufferPointer(start: data, count: Int(buffer.frameLength)))
+    }
+
     // MARK: - Dictation
 
     enum DictationError: LocalizedError {
@@ -1957,22 +1970,58 @@ extension TranscriptionManager {
         return model
     }
 
-    /// Routes an already-extracted audio file to the selected engine.
+    /// Routes an already-extracted audio file to the right engine. "Automatic"
+    /// language is resolved first (see `detectSpokenLanguage`), so no engine has
+    /// to guess — Apple Speech, for one, can't detect a language at all.
     func runTranscription(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
         activeOutputPath = outputPath
-        // Swedish goes to Pianissimo when it's installed — unless the user explicitly
-        // chose Apple Speech as their engine.
-        // Apple Speech treats "auto" as the Mac's language — so a Swedish Mac on
-        // "auto" is Swedish audio in practice, and Pianissimo should take it.
-        let appleAuto = language == "auto" && useAppleSpeech()
-            && Locale.current.language.languageCode?.identifier == "sv"
-        let pianissimoForSwedish = (language == "sv" || appleAuto) && isModelDownloaded(.pianissimo)
-            && AppSettings.shared.transcriptionEngine != .appleSpeech
-        if pianissimoForSwedish {
+        guard language == "auto" else {
+            route(audioPath: audioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
+            return
+        }
+        currentTask = Task { @MainActor in
+            let detected = await self.detectSpokenLanguage(audioPath: audioPath)
+            appLog("[MindExtract] Spoken language: \(detected)")
+            self.route(audioPath: audioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: detected, cleanup: cleanup)
+        }
+    }
+
+    /// Which language is spoken. Pianissimo transcribes the first 30 s (≈0.1 s of
+    /// work) and Apple's on-device NaturalLanguage reads the text — far steadier
+    /// than Whisper's audio-only guess, which calls Swedish English on mixed audio.
+    /// Falls back to Whisper's detection, then to the Mac's language.
+    func detectSpokenLanguage(audioPath: String) async -> String {
+        let supported = Set(AppSettings.transcriptionLanguages.map(\.code))
+        if PianissimoEngine.isInstalled,
+           let samples = try? Self.loadSamples(wavPath: audioPath, maxSeconds: 30), samples.count > 16_000,
+           let out = try? await PianissimoEngine.shared.transcribe(samples: samples), out.words.count >= 4 {
+            let recognizer = NLLanguageRecognizer()
+            recognizer.processString(out.text)
+            if let (lang, p) = recognizer.languageHypotheses(withMaximum: 1).first {
+                var code = lang.rawValue
+                if code == "nb" || code == "nn" { code = "no" }
+                if code == "sv", p >= 0.5 { return "sv" }
+                if p >= 0.8, supported.contains(code) { return code }
+            }
+        }
+        let detector = multilingualBaseModel()
+        if findModelFolder(detector) != nil,
+           let kit = try? await ensureWhisperKit(model: detector, announce: false),
+           let d = try? await kit.detectLanguage(audioPath: audioPath) {
+            return d.language
+        }
+        let mac = Locale.current.language.languageCode?.identifier ?? "en"
+        return supported.contains(mac) ? mac : "en"
+    }
+
+    private func route(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void) {
+        // Swedish always goes to Pianissimo when it's downloaded — it beats every
+        // other engine on Swedish. The engine setting decides everything else.
+        if language == "sv" && isModelDownloaded(.pianissimo) {
             runWhisperKit(audioPath: audioPath, model: .pianissimo, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
         } else if useAppleSpeech(), #available(macOS 26.0, *) {
             // Apple Speech can't do every language. If it can't do this one, route
-            // to WhisperKit (which can) so e.g. Swedish isn't transcribed as English.
+            // to WhisperKit (which can).
             currentTask = Task { @MainActor in
                 if await Self.appleSpeechSupports(language) {
                     self.runSpeechAnalyzer(audioPath: audioPath, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
@@ -1982,7 +2031,7 @@ extension TranscriptionManager {
                     self.runWhisperKit(audioPath: audioPath, model: useModel, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
                 } else {
                     let name = AppSettings.transcriptionLanguages.first { $0.code == language }?.name ?? language
-                    self.transcriptionState = .error("Apple Speech doesn’t support \(name) yet. Download a WhisperKit model in Settings to transcribe \(name) on your Mac, then try again.")
+                    self.transcriptionState = .error(String(localized: "Apple's speech recognition doesn't support \(name). Download a speech model in Settings → Transcription and try again."))
                     cleanup()
                     self.advanceBatchIfNeeded()
                 }
