@@ -11,7 +11,7 @@ extension MeetingRecorder {
     /// Records with the best context available: the calendar meeting happening now,
     /// else the call that was detected, else a blank recording.
     func startInContext() {
-        guard !isBusy else { return }
+        guard !isBusy, ensurePermissions() else { return }
         if let m = MeetingCalendar.shared.currentMeeting, m.isLive {
             start(event: m)
         } else if let app = ActiveMeetingDetector.shared.activeApp {
@@ -26,9 +26,22 @@ extension MeetingRecorder {
 
     /// Records a specific calendar meeting (title + participants carried over).
     func start(event m: MeetingCalendar.CalEvent) {
-        guard !isBusy else { return }
+        guard !isBusy, ensurePermissions() else { return }
         start(language: AppSettings.shared.defaultTranscriptionLanguage,
               meetingTitle: m.title, attendees: m.attendees, attendeeEmails: m.attendeeEmails)
+    }
+}
+
+extension MeetingRecorder {
+    /// Recording needs the microphone and meeting audio; if either is missing,
+    /// show the permissions sheet instead of failing with an error.
+    func ensurePermissions() -> Bool {
+        refreshPermissions()
+        guard micGranted && screenGranted else {
+            NotificationCenter.default.post(name: .showPermissions, object: nil)
+            return false
+        }
+        return true
     }
 }
 

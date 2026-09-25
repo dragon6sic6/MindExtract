@@ -24,6 +24,11 @@ private final class AudioRing: @unchecked Sendable {
     private var systemStarted = false
     private var mixed: [Float] = []
     private var purged = 0
+    // Per-channel copies for "you vs the others" bubbles (bounded by purgeChannel).
+    private var micAll: [Float] = []
+    private var sysAll: [Float] = []
+    private var micPurged = 0
+    private var sysPurged = 0
 
     // Persistent converters — each is only ever touched by its own capture queue.
     private var sysConv: AVAudioConverter?
@@ -33,11 +38,11 @@ private final class AudioRing: @unchecked Sendable {
 
     func appendSystem(_ sb: CMSampleBuffer) {
         guard let s = resample(sb, conv: &sysConv, inFmt: &sysInFmt) else { return }
-        lock.lock(); systemStarted = true; systemTail.append(contentsOf: s); lock.unlock()
+        lock.lock(); systemStarted = true; systemTail.append(contentsOf: s); sysAll.append(contentsOf: s); lock.unlock()
     }
     func appendMic(_ sb: CMSampleBuffer) {
         guard let s = resample(sb, conv: &micConv, inFmt: &micInFmt) else { return }
-        lock.lock(); micTail.append(contentsOf: s); lock.unlock()
+        lock.lock(); micTail.append(contentsOf: s); micAll.append(contentsOf: s); lock.unlock()
     }
 
     /// Mix newly-available aligned samples and return (mixed snapshot, purgedCount).
@@ -70,8 +75,34 @@ private final class AudioRing: @unchecked Sendable {
         purged += dropTo
     }
 
+    /// The per-channel mode doesn't use the mix — drop it so it can't grow.
+    func discardMix() {
+        lock.lock(); systemTail.removeAll(keepingCapacity: true); micTail.removeAll(keepingCapacity: true)
+        mixed.removeAll(keepingCapacity: true); lock.unlock()
+    }
+
+    /// One channel's samples (you = microphone, them = system audio) + purged count.
+    func channelSnapshot(isMe: Bool) -> (buffer: [Float], purged: Int) {
+        lock.lock(); defer { lock.unlock() }
+        return isMe ? (micAll, micPurged) : (sysAll, sysPurged)
+    }
+
+    func purgeChannel(isMe: Bool, keepFromAbsoluteSample keepFrom: Int) {
+        lock.lock(); defer { lock.unlock() }
+        if isMe {
+            let drop = keepFrom - micPurged
+            guard drop > 0, drop <= micAll.count else { return }
+            micAll.removeFirst(drop); micPurged += drop
+        } else {
+            let drop = keepFrom - sysPurged
+            guard drop > 0, drop <= sysAll.count else { return }
+            sysAll.removeFirst(drop); sysPurged += drop
+        }
+    }
+
     func reset() {
-        lock.lock(); systemTail = []; micTail = []; mixed = []; purged = 0; systemStarted = false; lock.unlock()
+        lock.lock(); systemTail = []; micTail = []; mixed = []; purged = 0; systemStarted = false
+        micAll = []; sysAll = []; micPurged = 0; sysPurged = 0; lock.unlock()
         sysConv = nil; sysInFmt = nil; micConv = nil; micInFmt = nil
     }
 
@@ -104,6 +135,15 @@ private final class AudioRing: @unchecked Sendable {
     }
 }
 
+/// One chat-bubble of live speech: you (microphone) or the others (meeting audio).
+struct LiveUtterance: Identifiable, Equatable {
+    let id = UUID()
+    let isMe: Bool
+    var text: String
+    var start: Double    // seconds into the recording
+    var end: Double
+}
+
 @MainActor
 final class LiveTranscriber: ObservableObject {
     @Published private(set) var confirmedText = ""
@@ -112,6 +152,11 @@ final class LiveTranscriber: ObservableObject {
     @Published private(set) var status = ""
     /// Which engine is previewing, e.g. "Pianissimo · Swedish" — shown in the UI.
     @Published private(set) var engineLabel = ""
+    /// Confirmed bubbles, in time order, plus the still-changing tail per side.
+    @Published private(set) var utterances: [LiveUtterance] = []
+    @Published private(set) var myTail = ""
+    @Published private(set) var theirTail = ""
+    private var channelConfirmedEnd: [Bool: Double] = [true: 0, false: 0]
 
     var displayText: String {
         let tail = liveTail.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -140,6 +185,7 @@ final class LiveTranscriber: ObservableObject {
         isRunning = true
         language = "sv"
         confirmedText = ""; liveTail = ""; lastAbsoluteProcessed = 0; lastConfirmedEnd = 0
+        utterances = []; myTail = ""; theirTail = ""; channelConfirmedEnd = [true: 0, false: 0]
         ring.reset()
         isActive = true
         engineLabel = String(localized: "Pianissimo · Swedish")
@@ -150,7 +196,8 @@ final class LiveTranscriber: ObservableObject {
         }
     }
 
-    /// Re-transcribes the unconfirmed tail every ~1.5 s; words that end well
+    /// Every ~1.5 s, re-transcribes each side's unconfirmed audio (your mic and the
+    /// meeting audio separately, so bubbles know who spoke). Words that end well
     /// before the newest audio are confirmed and their audio dropped.
     private func runPianissimo() async {
         do {
@@ -161,44 +208,72 @@ final class LiveTranscriber: ObservableObject {
             return
         }
         status = String(localized: "Listening…")
-        let pad = PianissimoEngine.leadingPadSeconds
 
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             if Task.isCancelled { break }
-
-            let (buffer, purged) = ring.produceAndSnapshot()
-            let purgedSeconds = Double(purged) / Double(sampleRate)
-            // Audio after the confirmed boundary, relative to this buffer.
-            let startIndex = max(0, Int((Double(lastConfirmedEnd) - purgedSeconds) * Double(sampleRate)))
-            guard startIndex < buffer.count else { continue }
-            let window = Array(buffer[startIndex...])
-            let windowSeconds = Double(window.count) / Double(sampleRate)
-            guard windowSeconds >= 1 else { continue }
-            if rms(window.suffix(Int(sampleRate) * 2)) < 0.004 && liveTail.isEmpty { continue }
-
-            guard let out = try? await PianissimoEngine.shared.transcribe(samples: window) else { continue }
-            if Task.isCancelled { break }
-
-            // Word times include the leading pad; make them window-relative.
-            let words = out.words.map { w -> PianissimoWord in
-                var w = w; w.start -= pad; w.end -= pad; return w
+            ring.discardMix()
+            for isMe in [true, false] {
+                await step(isMe: isMe)
+                if Task.isCancelled { break }
             }
-            // Stable = ended ≥1.5 s before the newest audio (or the window is long).
-            let stableBefore = windowSeconds - 1.5
-            let stable = words.filter { $0.end <= stableBefore }
-            if !stable.isEmpty, windowSeconds >= 4 || words.count == stable.count {
-                let text = stable.map(\.word).joined(separator: " ")
-                confirmedText = confirmedText.isEmpty ? text : confirmedText + " " + text
-                if let last = stable.last {
-                    let windowStartAbs = Double(startIndex) / Double(sampleRate) + purgedSeconds
-                    lastConfirmedEnd = Float(windowStartAbs + max(0, last.end))
-                    ring.purge(keepFromAbsoluteSample: max(0, Int((Double(lastConfirmedEnd) - 2) * Double(sampleRate))))
-                }
-                liveTail = words.dropFirst(stable.count).map(\.word).joined(separator: " ")
-            } else {
-                liveTail = words.map(\.word).joined(separator: " ")
+            // Keep the flat text (floating captions) in sync with the bubbles.
+            confirmedText = utterances.map(\.text).joined(separator: " ")
+            liveTail = [theirTail, myTail].filter { !$0.isEmpty }.joined(separator: " ")
+        }
+    }
+
+    private func step(isMe: Bool) async {
+        let rate = Double(sampleRate)
+        let (buffer, purged) = ring.channelSnapshot(isMe: isMe)
+        let purgedSeconds = Double(purged) / rate
+        let confirmedEnd = channelConfirmedEnd[isMe] ?? 0
+        let startIndex = max(0, Int((confirmedEnd - purgedSeconds) * rate))
+        guard startIndex < buffer.count else { return }
+        let window = Array(buffer[startIndex...])
+        let windowSeconds = Double(window.count) / rate
+        guard windowSeconds >= 1 else { return }
+        let tail = isMe ? myTail : theirTail
+        if rms(window.suffix(Int(sampleRate) * 2)) < 0.004 && tail.isEmpty {
+            // Silence: move the boundary on so old quiet audio isn't re-read.
+            if windowSeconds > 4 {
+                channelConfirmedEnd[isMe] = purgedSeconds + Double(buffer.count) / rate - 1
+                ring.purgeChannel(isMe: isMe, keepFromAbsoluteSample: max(0, Int(((channelConfirmedEnd[isMe] ?? 0) - 1) * rate)))
             }
+            return
+        }
+        guard let out = try? await PianissimoEngine.shared.transcribe(samples: window) else { return }
+
+        let pad = PianissimoEngine.leadingPadSeconds
+        let windowStartAbs = Double(startIndex) / rate + purgedSeconds
+        let words = out.words.map { w -> PianissimoWord in
+            var w = w; w.start -= pad; w.end -= pad; return w
+        }
+        let stableBefore = windowSeconds - 1.5
+        let stable = words.filter { $0.end <= stableBefore }
+        var newTail = words.map(\.word).joined(separator: " ")
+        if !stable.isEmpty, windowSeconds >= 4 || words.count == stable.count, let last = stable.last {
+            let text = stable.map(\.word).joined(separator: " ")
+            let start = windowStartAbs + max(0, stable.first?.start ?? 0)
+            let end = windowStartAbs + max(0, last.end)
+            append(isMe: isMe, text: text, start: start, end: end)
+            channelConfirmedEnd[isMe] = end
+            ring.purgeChannel(isMe: isMe, keepFromAbsoluteSample: max(0, Int((end - 2) * rate)))
+            newTail = words.dropFirst(stable.count).map(\.word).joined(separator: " ")
+        }
+        if isMe { myTail = newTail } else { theirTail = newTail }
+    }
+
+    /// Adds confirmed words: to the same bubble if the same side kept talking,
+    /// else as a new bubble.
+    private func append(isMe: Bool, text: String, start: Double, end: Double) {
+        if let i = utterances.lastIndex(where: { $0.isMe == isMe }), i == utterances.count - 1,
+           start - utterances[i].end < 2.5 {
+            utterances[i].text += " " + text
+            utterances[i].end = end
+        } else {
+            utterances.append(LiveUtterance(isMe: isMe, text: text, start: start, end: end))
+            utterances.sort { $0.start < $1.start }
         }
     }
 

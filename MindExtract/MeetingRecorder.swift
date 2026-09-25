@@ -51,6 +51,11 @@ final class MeetingRecorder: ObservableObject {
     /// Live transcript preview built during recording (when a model is available).
     let live = LiveTranscriber()
     private var liveLanguage = "auto"
+    /// The spoken language for this recording ("auto" = detect) — changeable live.
+    var currentLanguage: String { liveLanguage }
+    /// Set while a recording continues an earlier meeting ("Continue recording").
+    private var resumeTarget: (transcriptPath: String, audioPath: String?)?
+    var isResuming: Bool { resumeTarget != nil }
     private var liveModel: WhisperModel?
     private var sessionTitle: String?   // from a calendar event, if started that way
     private var sessionAttendees: [String] = []   // calendar attendees → speaker-name suggestions
@@ -164,7 +169,7 @@ final class MeetingRecorder: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
 
-    private func applyNewDefaultMic() async {
+    func applyNewDefaultMic() async {
         guard isRecording, let stream, let config = streamConfig else { return }
         guard #available(macOS 15.0, *) else { return }
         // resolvedMicUID() honors a user-pinned mic (and ignores system-default
@@ -417,7 +422,10 @@ final class MeetingRecorder: ObservableObject {
         // Straight to transcription (language auto-detected, Swedish → Pianissimo),
         // like Granola. The sheet remains for users who asked for it, and when no
         // engine is ready yet (it offers the model download).
-        if AppSettings.shared.confirmBeforeTranscribing || !TranscriptionManager.shared.canAutoTranscribe {
+        if let target = resumeTarget {
+            resumeTarget = nil
+            await commitResumed(pending, into: target)
+        } else if AppSettings.shared.confirmBeforeTranscribing || !TranscriptionManager.shared.canAutoTranscribe {
             pendingRecording = pending
         } else {
             commit(pending, title: pending.title, language: liveLanguage, model: Self.autoModel(for: liveLanguage))
@@ -434,6 +442,103 @@ final class MeetingRecorder: ObservableObject {
         let def = AppSettings.shared.defaultWhisperModel
         if tm.isModelDownloaded(def) { return def }
         return tm.downloadedModels.first { $0.usesWhisperKit } ?? tm.downloadedModels.first ?? def
+    }
+
+    // MARK: Live controls
+
+    /// Switch the microphone mid-recording (and remember it).
+    func setMicrophone(_ uid: String) {
+        AppSettings.shared.preferredMicrophoneID = uid
+        Task { await applyNewDefaultMic() }
+    }
+
+    /// The spoken language, used for the final transcript ("auto" detects it).
+    func setLanguage(_ code: String) {
+        liveLanguage = code
+    }
+
+    // MARK: Continue recording
+
+    /// Records more into an existing meeting: the new audio is appended to the old
+    /// and the whole meeting is transcribed again into the same transcript.
+    func resume(transcriptPath: String, title: String, notes: String) {
+        guard !isBusy, ensurePermissions() else { return }
+        resumeTarget = (transcriptPath, TranscriptionManager.audioBeside(transcript: transcriptPath))
+        start(language: AppSettings.shared.defaultTranscriptionLanguage, meetingTitle: title, notesPrefill: notes)
+    }
+
+    private func commitResumed(_ pending: PendingRecording, into target: (transcriptPath: String, audioPath: String?)) async {
+        let fm = FileManager.default
+        let oldDir = URL(fileURLWithPath: target.transcriptPath).deletingLastPathComponent()
+        var audio = pending.url
+        if let old = target.audioPath {
+            // Old + new audio, one after the other, replacing the old file.
+            let merged = oldDir.appendingPathComponent(".merge-\(UUID().uuidString).m4a")
+            if await Self.concatenate([URL(fileURLWithPath: old), pending.url], into: merged) {
+                try? fm.removeItem(atPath: old)
+                try? fm.moveItem(at: merged, to: URL(fileURLWithPath: old))
+                audio = URL(fileURLWithPath: old)
+                // Same for the separate tracks, so "you vs the others" still works.
+                for track in ["mic.m4a", "system.m4a"] {
+                    let a = oldDir.appendingPathComponent(track), b = pending.dir.appendingPathComponent(track)
+                    let out = oldDir.appendingPathComponent(".merge-\(track)")
+                    if fm.fileExists(atPath: a.path), fm.fileExists(atPath: b.path),
+                       await Self.concatenate([a, b], into: out) {
+                        try? fm.removeItem(at: a)
+                        try? fm.moveItem(at: out, to: a)
+                    }
+                }
+                try? fm.removeItem(at: pending.dir)   // merged — the session copy isn't needed
+            }
+        }
+        let tm = TranscriptionManager.shared
+        let notes = pending.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        tm.pendingMeetingNotes = notes.isEmpty ? nil : notes
+        tm.pendingMeetingExtras = (notes: notes, consentAt: consentAt)
+        let mic = oldDir.appendingPathComponent("mic.m4a"), sys = oldDir.appendingPathComponent("system.m4a")
+        if fm.fileExists(atPath: mic.path), fm.fileExists(atPath: sys.path) {
+            tm.pendingChannelSources = (mic: mic.path, system: sys.path)
+        }
+        // Old notes/brief described less of the meeting — let them rebuild.
+        if var sidecar = TranscriptAIStore.load(for: target.transcriptPath) {
+            sidecar.enhancedNotes = nil
+            sidecar.templateOutputs?[PromptTemplateLibrary.meetingBriefID.uuidString] = nil
+            sidecar.commitments = nil
+            sidecar.userNotes = notes.isEmpty ? sidecar.userNotes : notes
+            TranscriptAIStore.save(sidecar, for: target.transcriptPath)
+        }
+        tm.markPendingMeeting()
+        tm.startNewTranscription(title: pending.title, source: .meeting)
+        // transcribeAudioFile consumes its input, so hand it a copy.
+        let copy = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString + ".m4a")
+        try? fm.copyItem(at: audio, to: copy)
+        tm.transcribeAudioFile(audioPath: copy.path, model: Self.autoModel(for: liveLanguage),
+                               outputPath: target.transcriptPath, outputFormat: .txt, language: liveLanguage)
+    }
+
+    /// Joins audio files end to end into one m4a.
+    static func concatenate(_ inputs: [URL], into output: URL) async -> Bool {
+        let composition = AVMutableComposition()
+        guard let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { return false }
+        var cursor = CMTime.zero
+        for url in inputs {
+            let asset = AVURLAsset(url: url)
+            guard let source = try? await asset.loadTracks(withMediaType: .audio).first,
+                  let duration = try? await asset.load(.duration) else { return false }
+            do {
+                try track.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: source, at: cursor)
+            } catch { return false }
+            cursor = cursor + duration
+        }
+        guard let export = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetAppleM4A) else { return false }
+        try? FileManager.default.removeItem(at: output)
+        do {
+            try await export.export(to: output, as: .m4a)
+            return true
+        } catch {
+            appLog("[MeetingRecorder] concatenate failed: \(error)")
+            return false
+        }
     }
 
     /// Marks that everyone in the meeting agreed to the recording.
@@ -487,6 +592,7 @@ final class MeetingRecorder: ObservableObject {
     /// Abandon an in-progress recording and delete its audio (used on "Discard &
     /// Quit" so nothing is left behind to prompt recovery next launch).
     func discardActiveRecording() {
+        resumeTarget = nil   // a failed/discarded session must not merge into the next one
         endRecordingActivity()
         removeDefaultInputListener()
         live.stop()
@@ -509,6 +615,7 @@ final class MeetingRecorder: ObservableObject {
     }
 
     private func failActiveRecording(_ message: String) {
+        resumeTarget = nil   // a failed/discarded session must not merge into the next one
         guard isRecording || state == .starting else { return }
         state = .finishing   // set synchronously so stop()/re-entry can't double-finalize
         endRecordingActivity()
@@ -533,6 +640,7 @@ final class MeetingRecorder: ObservableObject {
     }
 
     private func cleanupAfterFailure() {
+        resumeTarget = nil   // a failed/discarded session must not merge into the next one
         endRecordingActivity()
         removeDefaultInputListener()
         stopTimer()

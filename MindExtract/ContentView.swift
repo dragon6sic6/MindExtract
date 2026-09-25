@@ -181,7 +181,9 @@ struct ContentView: View {
         // Show the in-app transcription view wherever it's triggered (Media, a
         // completed download, or opening a past transcript from History).
         .onChange(of: transcriptionManager.showTranscriptionView) { _, show in
-            if show {
+            // A meeting opened (or just recorded) from Meetings stays on Meetings.
+            let stayOnMeetings = selectedSidebarItem == .record && transcriptionManager.currentTranscriptSource == .meeting
+            if show && !stayOnMeetings {
                 withAnimation(.easeInOut(duration: 0.25)) { selectedSidebarItem = .transcripts }
             }
         }
@@ -226,11 +228,10 @@ struct ContentView: View {
             )
         }
         .sheet(isPresented: $showWelcome) {
-            WelcomeView(
-                onRecord: { selectedSidebarItem = .record; markWelcomeSeen() },
-                onTranscribe: { selectedSidebarItem = .download; markWelcomeSeen() },
-                onDismiss: { markWelcomeSeen() }
-            )
+            PermissionsOnboardingView(onDone: { markWelcomeSeen() })
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showPermissions)) { _ in
+            showWelcome = true
         }
         .onAppear {
             if !hasSeenWelcome && !showWelcome { showWelcome = true }
@@ -381,13 +382,17 @@ struct ContentView: View {
         case .transcripts:
             // Live transcription and saved transcripts both live here.
             if transcriptionManager.showTranscriptionView {
-                TranscriptionResultView(
-                    transcriptionManager: transcriptionManager,
-                    onClose: {
-                        transcriptionManager.showTranscriptionView = false
-                    }
-                )
-                .transition(.opacity)
+                if transcriptionManager.currentTranscriptSource == .meeting {
+                    MeetingPage(onBack: { transcriptionManager.showTranscriptionView = false })
+                } else {
+                    TranscriptionResultView(
+                        transcriptionManager: transcriptionManager,
+                        onClose: {
+                            transcriptionManager.showTranscriptionView = false
+                        }
+                    )
+                    .transition(.opacity)
+                }
             } else {
                 transcriptsListView
             }

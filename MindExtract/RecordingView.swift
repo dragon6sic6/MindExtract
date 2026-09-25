@@ -22,8 +22,10 @@ struct RecordingView: View {
 
     var body: some View {
         Group {
-            if recorder.isRecording {
-                MeetingNotepadView()
+            // Recording, saving, and the finished meeting are one page.
+            if recorder.isRecording || recorder.state == .finishing
+                || (transcriptionManager.showTranscriptionView && transcriptionManager.currentTranscriptSource == .meeting) {
+                MeetingPage(onBack: { transcriptionManager.showTranscriptionView = false })
             } else {
                 page
             }
@@ -37,10 +39,6 @@ struct RecordingView: View {
         }
         .onChange(of: calendar.currentMeeting) { _, _ in
             upcoming = calendar.todaysEvents().filter { $0.end > Date() }
-        }
-        // When a finished recording starts transcribing, show it in the Library.
-        .onChange(of: transcriptionManager.showTranscriptionView) { _, shown in
-            if shown { onOpenTranscripts() }
         }
     }
 
