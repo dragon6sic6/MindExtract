@@ -295,14 +295,17 @@ struct MeetingDocumentView: View {
     // MARK: After "Finish"
 
     /// The three things that happen after a recording, each with its state.
+    /// Labels read as "doing" while active and "done" once finished.
     private var steps: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            step("Recording saved", state: phase == .finishing ? .active : .done)
-            step(transcribeStepTitle,
-                 state: phase == .finishing ? .waiting : (tm.isTranscribing ? .active : .done),
-                 progress: transcribeProgress)
-            step("Writing the notes",
-                 state: isEnhancing ? .active : (phase == .finishing || tm.isTranscribing ? .waiting : .done))
+        let saving: StepState = phase == .finishing ? .active : .done
+        let transcribing: StepState = phase == .finishing ? .waiting : (tm.isTranscribing ? .active : .done)
+        let writing: StepState = isEnhancing ? .active : (transcribing == .done ? .done : .waiting)
+        return VStack(alignment: .leading, spacing: 10) {
+            step(saving == .done ? "Recording saved" : "Saving the recording", state: saving)
+            step(transcribing == .done ? "Whole conversation transcribed and speakers told apart" : transcribeStepTitle,
+                 detail: transcribing == .active ? "More accurate than the live text, which was a quick draft." : nil,
+                 state: transcribing, progress: transcribeProgress)
+            step(writing == .done ? "Notes written" : "Writing the notes", state: writing)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -312,8 +315,9 @@ struct MeetingDocumentView: View {
 
     private enum StepState { case waiting, active, done }
 
-    private func step(_ title: LocalizedStringKey, state: StepState, progress: Double? = nil) -> some View {
-        HStack(spacing: 10) {
+    private func step(_ title: LocalizedStringKey, detail: LocalizedStringKey? = nil,
+                      state: StepState, progress: Double? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             Group {
                 switch state {
                 case .done: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
@@ -322,8 +326,13 @@ struct MeetingDocumentView: View {
                 }
             }
             .frame(width: 18)
-            Text(title)
-                .foregroundStyle(state == .waiting ? .secondary : .primary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .foregroundStyle(state == .waiting ? .secondary : .primary)
+                if let detail {
+                    Text(detail).font(.callout).foregroundStyle(.secondary)
+                }
+            }
             if state == .active, let progress, progress > 0 {
                 Text(progress, format: .percent.precision(.fractionLength(0)))
                     .monospacedDigit()
@@ -335,7 +344,7 @@ struct MeetingDocumentView: View {
 
     private var transcribeStepTitle: LocalizedStringKey {
         if case .loadingModel = tm.transcriptionState { return "Getting the speech model ready" }
-        return "Transcribing the whole conversation and telling speakers apart"
+        return "Transcribing the whole conversation again and telling speakers apart"
     }
 
     private var transcribeProgress: Double? {

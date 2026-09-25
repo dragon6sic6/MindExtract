@@ -3389,6 +3389,16 @@
         }
       }
     },
+    "MindExtract": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MindExtract"
+          }
+        }
+      }
+    },
     "MindExtract Help": {
       "localizations": {
         "sv": {
@@ -3495,6 +3505,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mer"
+          }
+        }
+      }
+    },
+    "More accurate than the live text, which was a quick draft.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noggrannare än live-texten, som bara var ett snabbt utkast."
           }
         }
       }
@@ -3875,6 +3895,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Anteckningar"
+          }
+        }
+      }
+    },
+    "Notes written": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anteckningarna skrivna"
           }
         }
       }
@@ -5319,6 +5349,16 @@
         }
       }
     },
+    "Saving the recording": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sparar inspelningen"
+          }
+        }
+      }
+    },
     "Saving the recording…": {
       "localizations": {
         "sv": {
@@ -6479,6 +6519,16 @@
         }
       }
     },
+    "Transcribing the whole conversation again and telling speakers apart": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberar hela samtalet igen och skiljer på talare"
+          }
+        }
+      }
+    },
     "Transcribing the whole conversation and telling speakers apart": {
       "localizations": {
         "sv": {
@@ -6966,6 +7016,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Whisper %@"
+          }
+        }
+      }
+    },
+    "Whole conversation transcribed and speakers told apart": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hela samtalet transkriberat och talarna åtskilda"
           }
         }
       }
