@@ -266,6 +266,16 @@
         }
       }
     },
+    "A quick preview. The final transcript — with speakers — is written when you stop. Everything stays on this Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En snabb förhandsvisning. Det slutliga transkriptet – med talare – skrivs när du stoppar. Allt stannar på den här Macen."
+          }
+        }
+      }
+    },
     "A recipe is a fixed series of follow-up steps — like notes, then a recap email, then tasks in Reminders. Run it from a meeting, or switch it on to run after every meeting.": {
       "localizations": {
         "sv": {
@@ -3269,6 +3279,16 @@
         }
       }
     },
+    "No live preview — download a speech model in Settings to see text while you record. The full transcript is written when you stop.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingen förhandsvisning – ladda ned en talmodell i Inställningar för att se text medan du spelar in. Hela transkriptet skrivs när du stoppar."
+          }
+        }
+      }
+    },
     "No longer used. %@ on disk.": {
       "localizations": {
         "sv": {
@@ -3845,6 +3865,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pianissimo (svenska)"
+          }
+        }
+      }
+    },
+    "Pianissimo · Swedish": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pianissimo · svenska"
           }
         }
       }
@@ -4949,6 +4979,16 @@
         }
       }
     },
+    "Silent": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tyst"
+          }
+        }
+      }
+    },
     "Snooze %lld overdue to tomorrow": {
       "localizations": {
         "sv": {
@@ -4975,6 +5015,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sortera efter"
+          }
+        }
+      }
+    },
+    "Sound": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ljud"
           }
         }
       }
@@ -5035,6 +5085,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Börjar snart"
+          }
+        }
+      }
+    },
+    "Starting…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startar…"
           }
         }
       }
@@ -6050,6 +6110,16 @@
       }
     },
     "Whisper": {},
+    "Whisper %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whisper %@"
+          }
+        }
+      }
+    },
     "Write full notes from your cues and the transcript — with your AI engine from Settings": {
       "localizations": {
         "sv": {
@@ -6156,6 +6226,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dina mötesanteckningar"
+          }
+        }
+      }
+    },
+    "Your microphone": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Din mikrofon"
           }
         }
       }

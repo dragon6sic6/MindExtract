@@ -110,6 +110,8 @@ final class LiveTranscriber: ObservableObject {
     @Published private(set) var liveTail = ""
     @Published private(set) var isActive = false
     @Published private(set) var status = ""
+    /// Which engine is previewing, e.g. "Pianissimo · Swedish" — shown in the UI.
+    @Published private(set) var engineLabel = ""
 
     var displayText: String {
         let tail = liveTail.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -125,6 +127,81 @@ final class LiveTranscriber: ObservableObject {
     private var lastConfirmedEnd: Float = 0    // absolute seconds
     private let sampleRate: Float = 16_000
 
+    /// Pianissimo previews Swedish: it's already loaded for dictation and turns
+    /// seconds of speech into text in a tenth of a second.
+    static func pianissimoFits(language: String) -> Bool {
+        guard PianissimoEngine.isInstalled else { return false }
+        if language == "sv" { return true }
+        return language == "auto" && Locale.current.language.languageCode?.identifier == "sv"
+    }
+
+    func startPianissimo() {
+        guard !isRunning else { return }
+        isRunning = true
+        language = "sv"
+        confirmedText = ""; liveTail = ""; lastAbsoluteProcessed = 0; lastConfirmedEnd = 0
+        ring.reset()
+        isActive = true
+        engineLabel = String(localized: "Pianissimo · Swedish")
+        status = String(localized: "Starting…")
+        loop = Task {
+            await runPianissimo()
+            isRunning = false
+        }
+    }
+
+    /// Re-transcribes the unconfirmed tail every ~1.5 s; words that end well
+    /// before the newest audio are confirmed and their audio dropped.
+    private func runPianissimo() async {
+        do {
+            _ = try await PianissimoEngine.shared.load()
+        } catch {
+            isActive = false
+            status = String(localized: "Live transcript unavailable. The full transcript is written when you stop.")
+            return
+        }
+        status = String(localized: "Listening…")
+        let pad = PianissimoEngine.leadingPadSeconds
+
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            if Task.isCancelled { break }
+
+            let (buffer, purged) = ring.produceAndSnapshot()
+            let purgedSeconds = Double(purged) / Double(sampleRate)
+            // Audio after the confirmed boundary, relative to this buffer.
+            let startIndex = max(0, Int((Double(lastConfirmedEnd) - purgedSeconds) * Double(sampleRate)))
+            guard startIndex < buffer.count else { continue }
+            let window = Array(buffer[startIndex...])
+            let windowSeconds = Double(window.count) / Double(sampleRate)
+            guard windowSeconds >= 1 else { continue }
+            if rms(window.suffix(Int(sampleRate) * 2)) < 0.004 && liveTail.isEmpty { continue }
+
+            guard let out = try? await PianissimoEngine.shared.transcribe(samples: window) else { continue }
+            if Task.isCancelled { break }
+
+            // Word times include the leading pad; make them window-relative.
+            let words = out.words.map { w -> PianissimoWord in
+                var w = w; w.start -= pad; w.end -= pad; return w
+            }
+            // Stable = ended ≥1.5 s before the newest audio (or the window is long).
+            let stableBefore = windowSeconds - 1.5
+            let stable = words.filter { $0.end <= stableBefore }
+            if !stable.isEmpty, windowSeconds >= 4 || words.count == stable.count {
+                let text = stable.map(\.word).joined(separator: " ")
+                confirmedText = confirmedText.isEmpty ? text : confirmedText + " " + text
+                if let last = stable.last {
+                    let windowStartAbs = Double(startIndex) / Double(sampleRate) + purgedSeconds
+                    lastConfirmedEnd = Float(windowStartAbs + max(0, last.end))
+                    ring.purge(keepFromAbsoluteSample: max(0, Int((Double(lastConfirmedEnd) - 2) * Double(sampleRate))))
+                }
+                liveTail = words.dropFirst(stable.count).map(\.word).joined(separator: " ")
+            } else {
+                liveTail = words.map(\.word).joined(separator: " ")
+            }
+        }
+    }
+
     func start(modelFolder: String, language: String) {
         guard !isRunning else { return }      // serialize: never two model instances at once
         isRunning = true
@@ -132,6 +209,7 @@ final class LiveTranscriber: ObservableObject {
         confirmedText = ""; liveTail = ""; lastAbsoluteProcessed = 0; lastConfirmedEnd = 0
         ring.reset()
         isActive = true
+        engineLabel = String(localized: "Whisper \((modelFolder as NSString).lastPathComponent.replacingOccurrences(of: "openai_whisper-", with: "").capitalized)")
         status = String(localized: "Preparing the live transcript… The first time can take a minute.")
         loop = Task {
             await run(modelFolder: modelFolder)

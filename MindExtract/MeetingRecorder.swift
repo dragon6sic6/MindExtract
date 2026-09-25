@@ -347,7 +347,9 @@ final class MeetingRecorder: ObservableObject {
             beginRecordingActivity()
             installDefaultInputListener()
             // Live transcript preview, if we have a model for the chosen language.
-            if let m = liveModel, let folder = TranscriptionManager.shared.resolvedModelFolder(for: m) {
+            if LiveTranscriber.pianissimoFits(language: liveLanguage) {
+                live.startPianissimo()
+            } else if let m = liveModel, let folder = TranscriptionManager.shared.resolvedModelFolder(for: m) {
                 live.start(modelFolder: folder, language: liveLanguage)
             }
             startDate = Date()

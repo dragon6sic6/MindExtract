@@ -265,6 +265,9 @@ actor PianissimoEngine {
 
     /// Transcribes 16 kHz mono samples (dictation). Short clips are padded with
     /// silence — the model needs at least a second of audio.
+    /// Silence added in front of short clips; word times include it.
+    nonisolated static let leadingPadSeconds: Double = 0.3
+
     func transcribe(samples: [Float]) async throws -> PianissimoOutput {
         let asr = try await load()
         let pad = [Float](repeating: 0, count: 4_800)                 // 0.3 s each side

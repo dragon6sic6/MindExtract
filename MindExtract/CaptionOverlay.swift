@@ -27,6 +27,19 @@ final class CaptionOverlayController: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.hide() }
             .store(in: &cancellables)
+        // Captions are for when you're in Zoom/Teams. While MindExtract itself is in
+        // front, its own transcript panel shows the same text — so step aside.
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.panel?.orderOut(nil) }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, self.isVisible else { return }
+                self.panel?.orderFrontRegardless()
+            }
+            .store(in: &cancellables)
     }
 
     func toggle(transcriber: LiveTranscriber) {
@@ -37,7 +50,7 @@ final class CaptionOverlayController: ObservableObject {
         if let panel {
             // Rebind to the current transcriber in case a new session started.
             panel.contentView = NSHostingView(rootView: CaptionOverlayView(transcriber: transcriber) { [weak self] in self?.hide() })
-            panel.orderFrontRegardless()
+            if !NSApp.isActive { panel.orderFrontRegardless() }
             isVisible = true
             return
         }
@@ -69,7 +82,7 @@ final class CaptionOverlayController: ObservableObject {
             let f = screen.visibleFrame
             panel.setFrameOrigin(NSPoint(x: f.midX - 260, y: f.minY + 90))
         }
-        panel.orderFrontRegardless()
+        if !NSApp.isActive { panel.orderFrontRegardless() }
         self.panel = panel
         isVisible = true
     }

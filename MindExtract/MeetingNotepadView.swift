@@ -188,7 +188,7 @@ struct MeetingNotepadView: View {
     // MARK: Transcript panel
 
     private var transcriptPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Live transcript").font(.headline)
                 Spacer()
@@ -201,12 +201,27 @@ struct MeetingNotepadView: View {
                 .help("Hide the transcript")
                 .accessibilityLabel("Hide transcript")
             }
+
+            // What's being heard, and by what — so nothing is a mystery.
+            VStack(alignment: .leading, spacing: 6) {
+                sourceRow("Your microphone", systemImage: "mic", active: recorder.micActive)
+                sourceRow("Meeting audio", systemImage: "speaker.wave.2", active: recorder.systemActive)
+                if !live.engineLabel.isEmpty {
+                    Label(live.engineLabel, systemImage: "waveform")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: DS.Radius.md).fill(DS.Colors.inputFill))
+
             ScrollViewReader { proxy in
                 ScrollView {
                     Group {
                         if live.displayText.isEmpty {
-                            Text(live.isActive ? (live.status.isEmpty ? "Listening…" : live.status)
-                                               : "No live preview — download a Whisper model in Settings to see text while you record. The full transcript is written when you stop.")
+                            Text(live.isActive ? (live.status.isEmpty ? String(localized: "Listening…") : live.status)
+                                               : String(localized: "No live preview — download a speech model in Settings to see text while you record. The full transcript is written when you stop."))
                                 .foregroundStyle(.secondary)
                         } else {
                             Text(live.displayText)
@@ -222,13 +237,32 @@ struct MeetingNotepadView: View {
                     withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
                 }
             }
-            Label("Stays on this Mac", systemImage: "lock")
+            Text("A quick preview. The final transcript — with speakers — is written when you stop. Everything stays on this Mac.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(DS.Colors.rowFill)
+    }
+
+    private func sourceRow(_ title: LocalizedStringKey, systemImage: String, active: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .frame(width: 18)
+                .foregroundStyle(.secondary)
+            Text(title).font(.callout)
+            Spacer(minLength: 4)
+            Circle()
+                .fill(active ? Color.green : Color.secondary.opacity(0.35))
+                .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
+            Text(active ? "Sound" : "Silent")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
