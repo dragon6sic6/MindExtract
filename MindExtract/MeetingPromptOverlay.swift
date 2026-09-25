@@ -100,28 +100,33 @@ private struct MeetingPromptView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Circle().fill(Color.orange).frame(width: 9, height: 9)
-                Text(headline).font(.system(size: 13, weight: .semibold)).foregroundColor(.white)
+                Image(systemName: "record.circle.fill")
+                    .foregroundStyle(DS.Colors.recording)
+                    .symbolEffect(.pulse, options: .repeating)
+                Text(headline).font(.headline)
                 Spacer()
                 Button(action: onDismiss) {
-                    Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(.white.opacity(0.55))
+                    Image(systemName: "xmark")
                 }
-                .buttonStyle(.plain).help("Not now")
+                .buttonStyle(.borderless)
+                .help("Not now")
+                .accessibilityLabel("Not now")
             }
-            Text("Record this meeting on-device?")
-                .font(.caption).foregroundColor(.white.opacity(0.75))
+            Text("Record this meeting? It stays on your Mac.")
+                .font(.callout).foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 Button(action: onRecord) {
-                    Label("Record", systemImage: "record.circle").font(.system(size: 12, weight: .semibold))
+                    Label("Record", systemImage: "record.circle")
                 }
-                .buttonStyle(.borderedProminent).tint(.red).controlSize(.small)
-                Button("Not now", action: onDismiss).buttonStyle(.bordered).controlSize(.small)
+                .buttonStyle(.glassProminent)
+                .tint(DS.Colors.recording)
+                Button("Not now", action: onDismiss)
+                    .buttonStyle(.glass)
                 Spacer()
             }
         }
         .padding(14)
         .frame(width: 310, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.black.opacity(0.82)))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.orange.opacity(0.45), lineWidth: 1))
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }

@@ -58,7 +58,10 @@ struct PeopleView: View {
     var onOpenTranscript: (TranscriptionHistoryItem) -> Void
     var onGoToRecord: () -> Void = {}
 
-    enum Mode: String, CaseIterable { case people = "People", topics = "Topics" }
+    enum Mode: String, CaseIterable {
+        case people, topics
+        var title: LocalizedStringKey { self == .people ? "People" : "Topics" }
+    }
     @State private var mode: Mode = .people
     @State private var search = ""
 
@@ -66,11 +69,13 @@ struct PeopleView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 Picker("", selection: $mode) {
-                    ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    ForEach(Mode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented).labelsHidden()
-                .frame(maxWidth: 260)
-                .padding(.horizontal, 24).padding(.top, 18).padding(.bottom, 12)
+                .fixedSize()
+                .frame(maxWidth: DS.Layout.readingWidth, alignment: .leading)
+                .padding(.horizontal, DS.Layout.pageHorizontal).padding(.top, DS.Layout.pageTop).padding(.bottom, 12)
+                .frame(maxWidth: .infinity)
 
                 if mode == .people { peopleList } else { topicsList }
             }
@@ -110,8 +115,8 @@ struct PeopleView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 24).padding(.bottom, 22)
-                .frame(maxWidth: 760).frame(maxWidth: .infinity)
+                .padding(.horizontal, DS.Layout.pageHorizontal).padding(.bottom, 32)
+                .frame(maxWidth: DS.Layout.readingWidth).frame(maxWidth: .infinity)
             }
             .searchable(text: $search, placement: .toolbar, prompt: "Search people")
         }
@@ -119,8 +124,7 @@ struct PeopleView: View {
 
     private var reconnectStrip: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Reconnect", systemImage: "arrow.triangle.2.circlepath")
-                .font(.caption.weight(.semibold)).foregroundColor(.secondary)
+            SectionHeader("Reconnect")
             ForEach(memory.reconnectSuggestions.prefix(3)) { p in
                 NavigationLink {
                     PersonDetail(person: p, onOpenTranscript: onOpenTranscript)
@@ -180,15 +184,14 @@ struct PeopleView: View {
                                 Image(systemName: "chevron.right").font(.caption2).foregroundColor(.secondary)
                             }
                             .padding(.horizontal, 12).padding(.vertical, 10)
-                            .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-                            .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+                            .rowChrome()
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 24).padding(.bottom, 22)
-                .frame(maxWidth: 760).frame(maxWidth: .infinity)
+                .padding(.horizontal, DS.Layout.pageHorizontal).padding(.bottom, 32)
+                .frame(maxWidth: DS.Layout.readingWidth).frame(maxWidth: .infinity)
             }
         }
     }
@@ -236,8 +239,7 @@ private struct PersonRow: View {
             Image(systemName: "chevron.right").font(.caption2).foregroundColor(.secondary)
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-        .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+        .rowChrome()
         .contentShape(Rectangle())
     }
     private var subtitle: String {
@@ -396,7 +398,7 @@ private struct PersonDetail: View {
 
     private func commitments(_ title: String, systemImage: String, items: [TrackedActionItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: systemImage).font(.headline).foregroundColor(.secondary)
+            SectionHeader(LocalizedStringKey(title))
             VStack(spacing: 0) {
                 ForEach(items) { item in
                     HStack(alignment: .top, spacing: 10) {
@@ -421,21 +423,20 @@ private struct PersonDetail: View {
                     if item.id != items.last?.id { Divider().opacity(0.4) }
                 }
             }
-            .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-            .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+            .rowChrome()
         }
     }
 
     private var topicsRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Recurring topics", systemImage: "tag").font(.headline).foregroundColor(.secondary)
+            SectionHeader("Recurring topics")
             FlowChips(items: ins.recurringTopics, onTap: { _ in })
         }
     }
 
     private var timeline: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Meetings", systemImage: "calendar").font(.headline).foregroundColor(.secondary)
+            SectionHeader("Meetings")
             ForEach(Array(person.meetings.enumerated()), id: \.element.id) { idx, m in
                 Button { onOpenTranscript(m) } label: {
                     HStack(spacing: 10) {
@@ -454,8 +455,7 @@ private struct PersonDetail: View {
                         Image(systemName: "chevron.right").font(.caption2).foregroundColor(.secondary)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 10)
-                    .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-                    .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+                    .rowChrome()
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -504,7 +504,7 @@ private struct TopicDetail: View {
                 }
                 if !topic.openItems.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Open commitments", systemImage: "checklist").font(.headline).foregroundColor(.secondary)
+                        SectionHeader("Open commitments")
                         VStack(spacing: 0) {
                             ForEach(topic.openItems) { item in
                                 HStack(alignment: .top, spacing: 10) {
@@ -518,12 +518,11 @@ private struct TopicDetail: View {
                                 if item.id != topic.openItems.last?.id { Divider().opacity(0.4) }
                             }
                         }
-                        .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-                        .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+                        .rowChrome()
                     }
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Meetings", systemImage: "calendar").font(.headline).foregroundColor(.secondary)
+                    SectionHeader("Meetings")
                     ForEach(topic.meetings) { m in
                         Button { onOpenTranscript(m) } label: {
                             HStack(spacing: 10) {
@@ -537,8 +536,7 @@ private struct TopicDetail: View {
                                 Image(systemName: "chevron.right").font(.caption2).foregroundColor(.secondary)
                             }
                             .padding(.horizontal, 12).padding(.vertical, 10)
-                            .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-                            .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+                            .rowChrome()
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)

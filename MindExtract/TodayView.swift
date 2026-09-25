@@ -54,8 +54,8 @@ struct TodayView: View {
                     recapsSection
                 }
             }
-            .padding(.horizontal, 24).padding(.vertical, 22)
-            .frame(maxWidth: 760, alignment: .leading)
+            .padding(.horizontal, DS.Layout.pageHorizontal).padding(.top, DS.Layout.pageTop).padding(.bottom, 32)
+            .frame(maxWidth: DS.Layout.readingWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .onAppear { reload() }
@@ -80,14 +80,14 @@ struct TodayView: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(greeting).font(.system(.largeTitle, design: .rounded).weight(.bold))
+                Text(greeting).font(.largeTitle.weight(.bold))
                 Text(Date().formatted(.dateTime.weekday(.wide).month(.wide).day()))
                     .font(.title3).foregroundColor(.secondary)
             }
             Spacer()
             HStack(spacing: 8) {
-                Toggle(isOn: $focusMode) { Image(systemName: "scope") }
-                    .toggleStyle(.button).help("Focus mode — show only what to do now")
+                Toggle(isOn: $focusMode) { Label("Focus", systemImage: "scope") }
+                    .toggleStyle(.button).help("Focus: show only what to do now")
                 Menu {
                     if nextMeeting != nil {
                         Button("Record next meeting", systemImage: "record.circle") { if let m = nextMeeting { record(m) } }
@@ -104,8 +104,9 @@ struct TodayView: View {
                             nudgeAll(waiting)
                         }
                     }
-                } label: { Image(systemName: "bolt") }
-                    .menuStyle(.borderlessButton).help("Quick actions")
+                } label: { Label("Quick Actions", systemImage: "bolt") }
+                    .menuStyle(.button).buttonStyle(.bordered).labelStyle(.iconOnly)
+                    .menuIndicator(.hidden).fixedSize().help("Quick actions")
             }
         }
     }
@@ -175,8 +176,7 @@ struct TodayView: View {
                 commitmentMenu(c)
             }
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-            .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+            .rowChrome()
         }
     }
 
@@ -260,8 +260,7 @@ struct TodayView: View {
                 }
             }
             .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-            .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+            .rowChrome()
         }
     }
 
@@ -362,8 +361,7 @@ struct TodayView: View {
                             Image(systemName: "chevron.right").font(.caption2).foregroundColor(.secondary)
                         }
                         .padding(.horizontal, 12).padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-                        .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+                        .rowChrome()
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -404,16 +402,7 @@ struct TodayView: View {
     }
 
     private func sectionHeader(_ title: String, systemImage: String, count: Int?) -> some View {
-        HStack(spacing: 7) {
-            Image(systemName: systemImage).foregroundColor(.secondary)
-            Text(title).font(.system(.title3, design: .rounded).weight(.semibold))
-            if let count, count > 0 {
-                Text("\(count)").font(.caption.weight(.semibold))
-                    .padding(.horizontal, 7).padding(.vertical, 2)
-                    .background(Capsule().fill(DS.Colors.accent.opacity(0.18))).foregroundColor(DS.Colors.accent)
-            }
-            Spacer()
-        }
+        SectionHeader(LocalizedStringKey(title), count: count)
     }
 
     private func calmCard(icon: String, text: String) -> some View {
@@ -423,8 +412,7 @@ struct TodayView: View {
             Spacer()
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.card).fill(DS.Colors.rowFill))
-        .overlay(RoundedRectangle(cornerRadius: DS.Radius.card).strokeBorder(DS.Colors.hairline))
+        .rowChrome()
     }
 }
 

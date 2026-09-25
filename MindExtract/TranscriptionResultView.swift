@@ -96,14 +96,25 @@ enum SpeakerColors {
 
 // MARK: - Tab Selection
 
+/// Three places for everything about one transcript: what it means (Notes), what
+/// was said (Transcript), and questions about it (Ask).
 enum TranscriptionTab: String, CaseIterable {
-    case notes = "Notes"
-    case text = "Text"
-    case timeline = "Timeline"
-    case summary = "Summary"
-    case translate = "Translate"
-    case chat = "Chat"
+    case notes, transcript, ask
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .notes: return "Notes"
+        case .transcript: return "Transcript"
+        case .ask: return "Ask"
+        }
+    }
 }
+
+/// How the Transcript tab shows the text.
+enum TranscriptMode: String, CaseIterable {
+    case text, timeline
+}
+
 
 // MARK: - Audio Player
 
@@ -184,7 +195,9 @@ struct TranscriptionResultView: View {
 
     @StateObject private var audioPlayer = AudioPlayerManager()
     @State private var showCopiedAlert = false
-    @State private var selectedTab: TranscriptionTab = .text
+    @State private var selectedTab: TranscriptionTab = .transcript
+    @State private var transcriptMode: TranscriptMode = .text
+    @State private var showTranslate = false
     @State private var searchText: String = ""
     @State private var showSearch = false
     // Index of the currently focused search match + the segment to scroll to.
@@ -266,8 +279,7 @@ struct TranscriptionResultView: View {
     private var availableTabs: [TranscriptionTab] {
         TranscriptionTab.allCases.filter {
             switch $0 {
-            case .chat: return chatAvailable
-            case .notes: return isMeetingTranscript
+            case .ask: return chatAvailable
             default: return true
             }
         }
@@ -558,7 +570,8 @@ struct TranscriptionResultView: View {
         let matches = searchMatches
         guard !matches.isEmpty else { return }
         searchMatchIndex = ((searchMatchIndex + delta) % matches.count + matches.count) % matches.count
-        if selectedTab != .timeline { selectedTab = .timeline }
+        selectedTab = .transcript
+        transcriptMode = .timeline
         searchScrollTarget = matches[searchMatchIndex].id
     }
 
@@ -581,7 +594,22 @@ struct TranscriptionResultView: View {
 
             // Speaker legend (shown when diarization data is present)
             let speakersInSegments = Array(Set(transcriptionManager.segments.compactMap { $0.speaker })).sorted()
-            if !speakersInSegments.isEmpty {
+            if selectedTab == .transcript {
+                HStack(spacing: 12) {
+                    Picker("Show", selection: $transcriptMode) {
+                        Text("Text").tag(TranscriptMode.text)
+                        Text("Timeline").tag(TranscriptMode.timeline)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, speakersInSegments.isEmpty ? 8 : 0)
+            }
+            if selectedTab == .transcript && !speakersInSegments.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                   HStack(spacing: 16) {
                     // Hints that the chips are editable (rename was easy to miss).
@@ -657,32 +685,14 @@ struct TranscriptionResultView: View {
                 Divider()
             }
 
-            // Content area — every view (incl. full-screen Chat) is a tab, so
-            // navigation is uniform. The AI already has the transcript, so Chat
-            // lets you ask *about* it; tap another tab to jump back to reading.
+            // Content — one of three tabs.
             Group {
                 switch selectedTab {
                 case .notes:
-                    MeetingNotesPanel(
-                        path: transcriptionManager.lastSavedPath,
-                        userNotes: userNotes,
-                        segments: transcriptionManager.segments,
-                        isTranscribing: !isCompleted,
-                        hasAudio: transcriptionManager.audioFilePath != nil,
-                        onSeek: { time in
-                            audioPlayer.seek(to: time)
-                            if !audioPlayer.isPlaying { audioPlayer.togglePlayPause() }
-                        }
-                    )
-                case .text:
-                    textView
-                case .timeline:
-                    timelineView
-                case .summary:
-                    summaryView
-                case .translate:
-                    translateView
-                case .chat:
+                    notesTab
+                case .transcript:
+                    if transcriptMode == .timeline { timelineView } else { textView }
+                case .ask:
                     chatFullView
                 }
             }
@@ -700,6 +710,20 @@ struct TranscriptionResultView: View {
             bottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .sheet(isPresented: $showTranslate) {
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Translate").font(.headline)
+                    Spacer()
+                    Button("Done") { showTranslate = false }
+                        .keyboardShortcut(.defaultAction)
+                }
+                .padding(16)
+                Divider()
+                translateView
+            }
+            .frame(width: 720, height: 560)
+        }
         .onChange(of: transcriptionManager.audioFilePath) { _, path in
             if let path = path {
                 audioPlayer.load(path: path)
@@ -757,30 +781,48 @@ struct TranscriptionResultView: View {
         }
     }
 
+    // MARK: - Notes tab
+
+    /// Meetings: your enhanced notes, with the summary one click away. Everything
+    /// else (imports): the summary and note styles.
+    @ViewBuilder
+    private var notesTab: some View {
+        if isMeetingTranscript {
+            MeetingNotesPanel(
+                path: transcriptionManager.lastSavedPath,
+                userNotes: userNotes,
+                segments: transcriptionManager.segments,
+                isTranscribing: !isCompleted,
+                hasAudio: transcriptionManager.audioFilePath != nil,
+                onSeek: { time in
+                    audioPlayer.seek(to: time)
+                    if !audioPlayer.isPlaying { audioPlayer.togglePlayPause() }
+                },
+                summary: { summaryView }
+            )
+            .id(transcriptionManager.lastSavedPath)
+        } else {
+            summaryView
+        }
+    }
+
     // MARK: - Header
 
     private var headerView: some View {
         HStack(spacing: 12) {
             // Back to the Transcripts list (kept in memory — not discarded).
             Button(action: { if !isTranscribing { audioPlayer.stop(); onClose?() } }) {
-                HStack(spacing: 3) {
-                    Image(systemName: "chevron.left")
-                    Text("Library")
-                }
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(isTranscribing ? .secondary.opacity(0.4) : .accentColor)
-                .chromeText()
-                .contentShape(Rectangle())
+                Label("Library", systemImage: "chevron.left")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .disabled(isTranscribing)
-            .help(isTranscribing ? "Available when transcription finishes" : "Back to transcripts")
+            .help(isTranscribing ? "Available when the transcript is ready" : "Back to the Library")
             .layoutPriority(1)
 
             Text(transcriptionManager.currentTranscriptionTitle.isEmpty
-                 ? "Transcription"
+                 ? String(localized: "Transcript")
                  : transcriptionManager.currentTranscriptionTitle)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.headline)
                 .chromeText(.tail, flexible: true)
 
             Spacer()
@@ -795,53 +837,7 @@ struct TranscriptionResultView: View {
             // Tab switcher (pill style) — includes Chat as a uniform tab.
             tabPicker
 
-            // ⌘L jumps to the Chat tab (kept as a shortcut now that the
-            // standalone Chat button is gone).
-            if chatAvailable {
-                Button("") { withAnimation(.easeInOut(duration: 0.15)) { selectedTab = .chat } }
-                    .buttonStyle(.plain)
-                    .frame(width: 0, height: 0)
-                    .opacity(0)
-                    .keyboardShortcut("l", modifiers: .command)
-                    .accessibilityLabel("Chat with transcript")
-            }
-
-            // Re-transcribe in another language — for when it came out wrong.
-            if isCompleted, transcriptionManager.audioFilePath != nil {
-                Menu {
-                    Button("Auto-detect") { transcriptionManager.retranscribe(language: "auto") }
-                    Divider()
-                    ForEach(AppSettings.transcriptionLanguages.filter { $0.code != "auto" }, id: \.code) { lang in
-                        Button(lang.name) { transcriptionManager.retranscribe(language: lang.code) }
-                    }
-                } label: {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 14))
-                        .frame(width: 26, height: 26).contentShape(Rectangle())
-                }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .disabled(isTranscribing)
-                .help("Re-transcribe in another language")
-            }
-
-            // Search toggle
-            if isCompleted || !transcriptionManager.segments.isEmpty {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showSearch.toggle()
-                        if !showSearch { searchText = "" }
-                    }
-                }) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 13))
-                        .foregroundColor(showSearch ? .accentColor : .secondary)
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("f", modifiers: .command)
-                .help("Search transcript (⌘F)")
-            }
+            moreMenu
 
         }
         .padding(.horizontal, 16)
@@ -904,32 +900,60 @@ struct TranscriptionResultView: View {
     // MARK: - Tab Picker (Segmented)
 
     private var tabPicker: some View {
-        HStack(spacing: 0) {
+        Picker("View", selection: $selectedTab) {
             ForEach(availableTabs, id: \.self) { tab in
-                Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tab } }) {
-                    let isActiveTab = selectedTab == tab
-                    Text(tab.rawValue)
-                        .font(.system(size: 12, weight: isActiveTab ? .semibold : .regular))
-                        .foregroundColor(isActiveTab ? .primary : .secondary)
-                        .chromeText()
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 5)
-                        .background(
-                            isActiveTab
-                                ? Color.primary.opacity(0.12)
-                                : Color.clear
-                        )
-                        .cornerRadius(6)
-                        // Whole padded chip is clickable, not just the glyphs —
-                        // a transparent background isn't hit-testable on its own.
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                Text(tab.title).tag(tab)
             }
         }
-        .padding(2)
-        .background(Color.primary.opacity(0.06))
-        .cornerRadius(8)
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
+    }
+
+    /// Everything else you can do with this transcript, in one place.
+    private var moreMenu: some View {
+        Menu {
+            Button("Find in Transcript", systemImage: "magnifyingglass") {
+                selectedTab = .transcript
+                withAnimation(.easeInOut(duration: 0.2)) { showSearch = true }
+            }
+            .keyboardShortcut("f", modifiers: .command)
+            if chatAvailable {
+                Button("Ask About This", systemImage: "bubble.left.and.text.bubble.right") { selectedTab = .ask }
+                    .keyboardShortcut("l", modifiers: .command)
+            }
+            Button("Translate…", systemImage: "character.book.closed") { showTranslate = true }
+                .disabled(!isCompleted)
+            if !RecipeStore.shared.recipes.isEmpty, transcriptionManager.lastSavedPath != nil {
+                Menu("Run Recipe", systemImage: "wand.and.stars") {
+                    ForEach(RecipeStore.shared.recipes) { r in
+                        Button(r.name) { runRecipe(r) }
+                    }
+                }
+            }
+            Divider()
+            if transcriptionManager.canRetranscribe {
+                Menu("Transcribe Again in", systemImage: "arrow.triangle.2.circlepath") {
+                    ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
+                        Button(lang.name) { transcriptionManager.retranscribe(language: lang.code) }
+                    }
+                }
+                .disabled(isTranscribing)
+            }
+            if let path = transcriptionManager.lastSavedPath {
+                Button("Show in Finder", systemImage: "folder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+                }
+            }
+        } label: {
+            Label("More", systemImage: "ellipsis.circle")
+        }
+        .menuStyle(.button)
+        .buttonStyle(.borderless)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("More actions")
+        .disabled(!isCompleted && transcriptionManager.segments.isEmpty)
     }
 
     // MARK: - Status Pill
@@ -953,7 +977,7 @@ struct TranscriptionResultView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Color.blue.opacity(0.1))
+            .background(DS.Colors.inputFill)
             .cornerRadius(12)
 
         case .loadingModel(let modelName):
@@ -987,7 +1011,7 @@ struct TranscriptionResultView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Color.blue.opacity(0.1))
+            .background(DS.Colors.inputFill)
             .cornerRadius(12)
             .fixedSize()
 
@@ -1009,7 +1033,7 @@ struct TranscriptionResultView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .background(Color.blue.opacity(0.1))
+        .background(DS.Colors.inputFill)
         .cornerRadius(12)
     }
 
@@ -1023,56 +1047,6 @@ struct TranscriptionResultView: View {
 
         case .transcribing(let progress) where progress > 0:
             progressBanner(progress, tint: .accentColor)
-
-        case .completed:
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 12))
-                    .foregroundColor(.green)
-                Text("Transcription complete")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.secondary)
-                Spacer()
-                // Run a recipe (Brief → format → reminders → recap → export → hand to AI).
-                if !RecipeStore.shared.recipes.isEmpty, transcriptionManager.lastSavedPath != nil {
-                    Menu {
-                        ForEach(RecipeStore.shared.recipes) { r in
-                            Button { runRecipe(r) } label: { Text("\(r.name)  ·  \(r.summary)") }
-                        }
-                    } label: {
-                        Label("Run recipe", systemImage: "wand.and.stars").font(.system(size: 12))
-                    }
-                    .menuStyle(.borderlessButton).fixedSize()
-                    .help("Run a saved recipe on this transcript")
-                }
-                // Wrong language? Re-run on the same audio in one click.
-                if transcriptionManager.canRetranscribe {
-                    Menu {
-                        Button("Auto-detect") { transcriptionManager.retranscribe(language: "auto") }
-                        Divider()
-                        ForEach(AppSettings.transcriptionLanguages.filter { $0.code != "auto" }, id: \.code) { lang in
-                            Button(lang.name) { transcriptionManager.retranscribe(language: lang.code) }
-                        }
-                    } label: {
-                        Label("Re-transcribe", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12))
-                    }
-                    .menuStyle(.borderlessButton).fixedSize()
-                    .help("Came out in the wrong language? Run it again.")
-                }
-                if let path = transcriptionManager.lastSavedPath {
-                    Button(action: {
-                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
-                    }) {
-                        Label("Show in Finder", systemImage: "folder")
-                            .font(.system(size: 12))
-                    }
-                    .secondaryGlassButton()
-                    .controlSize(.mini)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-            .background(Color.green.opacity(0.08))
 
         case .error(let message):
             HStack(spacing: 8) {
@@ -1800,8 +1774,8 @@ struct TranscriptionResultView: View {
         let saved = transcriptionManager.lastSavedPath.flatMap { TranscriptAIStore.load(for: $0) }
         defer {
             // Meetings open on their notes; everything else on the text.
-            if isMeetingTranscript { selectedTab = .notes }
-            else if selectedTab == .notes { selectedTab = .text }
+            // Meetings open on their notes; everything else on what was said.
+            selectedTab = isMeetingTranscript ? .notes : .transcript
         }
         summarizer.bind(toText: transcriptionManager.liveTranscriptionText,
                         restoredSummary: saved?.summary)

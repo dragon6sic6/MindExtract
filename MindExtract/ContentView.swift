@@ -40,7 +40,10 @@ struct ContentView: View {
 
     // Transcribe page sub-tabs — "New" (paste a link / drop a file) and "Downloads"
     // (the imports list, formerly the standalone History tab).
-    enum TranscribeTab: String, CaseIterable { case new = "New", downloads = "Downloads" }
+    enum TranscribeTab: String, CaseIterable {
+        case new, downloads
+        var title: LocalizedStringKey { self == .new ? "Import" : "Downloaded" }
+    }
     @State private var transcribeTab: TranscribeTab = .new
 
     // First-run welcome
@@ -300,7 +303,7 @@ struct ContentView: View {
                     transcribeTab = .new
                     selectedSidebarItem = .download
                 }
-                Button("Downloads", systemImage: "arrow.down.circle") {
+                Button("Downloaded", systemImage: "arrow.down.circle") {
                     transcribeTab = .downloads
                     selectedSidebarItem = .download
                 }
@@ -398,12 +401,14 @@ struct ContentView: View {
     @ViewBuilder
     private var transcribeDetailView: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $transcribeTab) {
-                ForEach(TranscribeTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            Picker("Show", selection: $transcribeTab) {
+                ForEach(TranscribeTab.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented).labelsHidden()
-            .frame(maxWidth: 240)
-            .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 6)
+            .fixedSize()
+            .frame(maxWidth: DS.Layout.readingWidth, alignment: .leading)
+            .padding(.horizontal, DS.Layout.pageHorizontal).padding(.top, DS.Layout.pageTop).padding(.bottom, 8)
+            .frame(maxWidth: .infinity)
 
             if transcribeTab == .new {
                 downloadDetailView

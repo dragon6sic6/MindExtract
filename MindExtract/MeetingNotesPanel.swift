@@ -7,18 +7,22 @@ import AppKit
 // secondary color, and a ▶ chip on each line that plays that moment of the
 // recording. "My notes" shows exactly what you typed.
 
-struct MeetingNotesPanel: View {
+struct MeetingNotesPanel<Summary: View>: View {
+    enum Mode: Hashable { case enhanced, mine, summary }
+
     let path: String?
     let userNotes: String?
     let segments: [TranscriptionSegmentData]
     let isTranscribing: Bool
     let hasAudio: Bool
     var onSeek: (Double) -> Void
+    /// The summary / note-style view, shown under "Summary".
+    @ViewBuilder var summary: () -> Summary
 
     @ObservedObject private var manager = TranscriptionManager.shared
     @State private var enhanced: EnhancedNotes?
     @State private var consentAt: Double?
-    @State private var showMine = false
+    @State private var mode: Mode = .enhanced
     @State private var copied = false
 
     private var notesText: String { (userNotes ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -27,8 +31,22 @@ struct MeetingNotesPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-                .padding(.horizontal, 40).padding(.vertical, 12)
+                .padding(.horizontal, 16).padding(.vertical, 8)
             Divider()
+            if mode == .summary {
+                summary()
+            } else {
+                notesScroll
+            }
+        }
+        .onAppear(perform: load)
+        .onChange(of: path) { _, _ in load() }
+        .onReceive(NotificationCenter.default.publisher(for: .enhancedNotesUpdated)) { note in
+            if (note.object as? String) == path { load() }
+        }
+    }
+
+    private var notesScroll: some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     if let consentAt {
@@ -39,35 +57,30 @@ struct MeetingNotesPanel: View {
                     }
                     content
                 }
-                .padding(.horizontal, 40).padding(.vertical, 24)
-                .frame(maxWidth: 760, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, DS.Layout.pageHorizontal).padding(.vertical, 24)
+                .frame(maxWidth: DS.Layout.readingWidth, alignment: .leading)
+                .frame(maxWidth: .infinity)
             }
-        }
-        .onAppear(perform: load)
-        .onChange(of: path) { _, _ in load() }
-        .onReceive(NotificationCenter.default.publisher(for: .enhancedNotesUpdated)) { note in
-            if (note.object as? String) == path { load() }
-        }
     }
 
     // MARK: Header
 
     private var header: some View {
         HStack(spacing: 10) {
-            if enhanced != nil && !notesText.isEmpty {
-                Picker("View", selection: $showMine) {
-                    Text("Enhanced").tag(false)
-                    Text("My notes").tag(true)
+            Picker("Show", selection: $mode) {
+                Text("Notes").tag(Mode.enhanced)
+                if !notesText.isEmpty {
+                    Text("What I wrote").tag(Mode.mine)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-            } else {
-                Text(enhanced != nil ? "Enhanced notes" : "Your notes").font(.headline)
+                Text("Summary").tag(Mode.summary)
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
             Spacer()
-            if let enhanced, !showMine {
+            if mode == .summary {
+                EmptyView()
+            } else if let enhanced, mode == .enhanced {
                 Text(enhanced.badge)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -81,6 +94,7 @@ struct MeetingNotesPanel: View {
                 }
                 .secondaryGlassButton()
             }
+            if mode != .summary {
             Button {
                 enhance()
             } label: {
@@ -90,6 +104,7 @@ struct MeetingNotesPanel: View {
             .primaryGlassButton()
             .disabled(isEnhancing || isTranscribing || segments.isEmpty)
             .help("Write full notes from your cues and the transcript — with your AI engine from Settings")
+            }
         }
         .controlSize(.regular)
     }
@@ -103,7 +118,7 @@ struct MeetingNotesPanel: View {
                 ProgressView().controlSize(.small)
                 Text("Writing your notes from the transcript…").foregroundStyle(.secondary)
             }
-        } else if let enhanced, !showMine {
+        } else if let enhanced, mode == .enhanced {
             enhancedView(enhanced)
         } else if !notesText.isEmpty {
             Text(notesText)
@@ -194,7 +209,7 @@ struct MeetingNotesPanel: View {
 
     private func enhance() {
         guard let path else { return }
-        showMine = false
+        mode = .enhanced
         manager.generateEnhancedNotes(path: path, userNotes: notesText, segments: segments)
     }
 }

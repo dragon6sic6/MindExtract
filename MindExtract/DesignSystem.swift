@@ -288,6 +288,7 @@ struct CountBadge: View {
 struct TranscriptRow: View {
     let item: TranscriptionHistoryItem
     var subtitle: String? = nil
+    var isFavorite = false
     var action: () -> Void
 
     @State private var hovering = false
@@ -303,10 +304,23 @@ struct TranscriptRow: View {
                     .frame(width: 28, height: 28)
                     .background(Circle().fill(source.tint.opacity(0.12)))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title)
-                        .font(.body.weight(.medium))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    HStack(spacing: 5) {
+                        Text(item.title)
+                            .font(.body.weight(.medium))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        if isFavorite {
+                            Image(systemName: "star.fill")
+                                .font(.caption)
+                                .foregroundStyle(.yellow)
+                                .accessibilityLabel("Favorite")
+                        }
+                        if !item.fileExists {
+                            Text("Missing")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.orange)
+                        }
+                    }
                     Text(subtitle ?? Self.meta(for: item))
                         .font(.callout)
                         .foregroundStyle(.secondary)
