@@ -84,6 +84,26 @@
       }
     },
     "%@%@": {},
+    "%@, downloaded once, then works offline. Until then Swedish uses a less accurate engine.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, laddas ned en gång och fungerar sedan offline. Tills dess används en mindre noggrann motor för svenska."
+          }
+        }
+      }
+    },
+    "%@, once. You can keep using MindExtract meanwhile.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, en gång. Du kan använda MindExtract under tiden."
+          }
+        }
+      }
+    },
     "%lld": {},
     "%lld File%@ Selected": {
       "localizations": {
@@ -1768,6 +1788,16 @@
         }
       }
     },
+    "Couldn't download the model: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunde inte ladda ned modellen: %@"
+          }
+        }
+      }
+    },
     "Couldn't reach Ollama. Make sure the Ollama app is running.": {
       "localizations": {
         "sv": {
@@ -2204,6 +2234,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Laddar ned %@…"
+          }
+        }
+      }
+    },
+    "Downloading Pianissimo, the Swedish speech model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laddar ned Pianissimo, den svenska talmodellen"
           }
         }
       }
@@ -2818,6 +2858,16 @@
         }
       }
     },
+    "Get Pianissimo for the best Swedish": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hämta Pianissimo för bäst svenska"
+          }
+        }
+      }
+    },
     "Get an API key": {
       "localizations": {
         "sv": {
@@ -2974,6 +3024,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dölj transkript"
+          }
+        }
+      }
+    },
+    "Hide — you can download it later in Settings → Transcription": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dölj – du kan ladda ned den senare i Inställningar → Transkribering"
           }
         }
       }
@@ -3875,6 +3935,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Flytta ”%@” till papperskorgen?"
+          }
+        }
+      }
+    },
+    "Much better Swedish dictation. %@, downloaded once.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mycket bättre svensk diktering. %@, laddas ned en gång."
           }
         }
       }
@@ -4859,6 +4929,26 @@
         }
       }
     },
+    "Pianissimo for Swedish": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pianissimo för svenska"
+          }
+        }
+      }
+    },
+    "Pianissimo is downloaded": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pianissimo är nedladdad"
+          }
+        }
+      }
+    },
     "Pianissimo · Swedish": {
       "localizations": {
         "sv": {
@@ -4999,6 +5089,16 @@
         }
       }
     },
+    "Preparing it for your Mac — a few minutes the first time.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbereder den för din Mac – tar några minuter första gången."
+          }
+        }
+      }
+    },
     "Preparing the live transcript… The first time can take a minute.": {
       "localizations": {
         "sv": {
@@ -5009,12 +5109,32 @@
         }
       }
     },
+    "Preparing the model for your Mac — a few minutes the first time.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbereder modellen för din Mac – tar några minuter första gången."
+          }
+        }
+      }
+    },
     "Preparing the model for your Mac…": {
       "localizations": {
         "sv": {
           "stringUnit": {
             "state": "translated",
             "value": "Förbereder modellen för din Mac…"
+          }
+        }
+      }
+    },
+    "Preparing…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbereder…"
           }
         }
       }
@@ -6725,6 +6845,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nedladdningen blev inte klar. Försök igen."
+          }
+        }
+      }
+    },
+    "The download finished but the files aren't valid. Try again.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningen blev klar men filerna är inte giltiga. Försök igen."
           }
         }
       }

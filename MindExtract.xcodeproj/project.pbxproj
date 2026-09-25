@@ -16,6 +16,7 @@
 		B1000E41 /* MeetingDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E42 /* MeetingDocumentView.swift */; };
 		B1000E3F /* PermissionsOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E40 /* PermissionsOnboardingView.swift */; };
 		B1000E3B /* AudioConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E3C /* AudioConverter.swift */; };
+		B1000E49 /* PianissimoOffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E4A /* PianissimoOffer.swift */; };
 		B1000E47 /* DictationPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E48 /* DictationPage.swift */; };
 		B1000E45 /* DownloaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E46 /* DownloaderView.swift */; };
 		B1000E43 /* MeetingText.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E44 /* MeetingText.swift */; };
@@ -95,6 +96,7 @@
 		B1000E42 /* MeetingDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDocumentView.swift; sourceTree = "<group>"; };
 		B1000E40 /* PermissionsOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsOnboardingView.swift; sourceTree = "<group>"; };
 		B1000E3C /* AudioConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioConverter.swift; sourceTree = "<group>"; };
+		B1000E4A /* PianissimoOffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianissimoOffer.swift; sourceTree = "<group>"; };
 		B1000E48 /* DictationPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationPage.swift; sourceTree = "<group>"; };
 		B1000E46 /* DownloaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloaderView.swift; sourceTree = "<group>"; };
 		B1000E44 /* MeetingText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingText.swift; sourceTree = "<group>"; };
@@ -185,6 +187,7 @@
 				B1000E42 /* MeetingDocumentView.swift */,
 				B1000E40 /* PermissionsOnboardingView.swift */,
 				B1000E3C /* AudioConverter.swift */,
+				B1000E4A /* PianissimoOffer.swift */,
 				B1000E48 /* DictationPage.swift */,
 				B1000E46 /* DownloaderView.swift */,
 				B1000E44 /* MeetingText.swift */,
@@ -348,6 +351,7 @@
 				B1000E41 /* MeetingDocumentView.swift in Sources */,
 				B1000E3F /* PermissionsOnboardingView.swift in Sources */,
 				B1000E3B /* AudioConverter.swift in Sources */,
+				B1000E49 /* PianissimoOffer.swift in Sources */,
 				B1000E47 /* DictationPage.swift in Sources */,
 				B1000E45 /* DownloaderView.swift in Sources */,
 				B1000E43 /* MeetingText.swift in Sources */,

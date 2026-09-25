@@ -938,7 +938,13 @@ struct ModelRow: View {
             }
         } label: {
             Text(model.displayName)
-            Text(model.description)
+            if let failure = transcriptionManager.modelDownloadError, failure.model == model, !isDownloading, !isDownloaded {
+                Text(verbatim: failure.message).foregroundStyle(.orange)
+            } else if isDownloaded && isPrewarming {
+                Text("Preparing the model for your Mac — a few minutes the first time.")
+            } else {
+                Text(model.description)
+            }
         }
     }
 }

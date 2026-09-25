@@ -122,23 +122,14 @@ struct PermissionsOnboardingView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Swedish at its best").font(.body.weight(.medium))
-                Text("The Pianissimo speech model, \(WhisperModel.pianissimo.sizeDescription). Downloads once, then works offline.")
+                Text(tm.modelDownloadError?.model == .pianissimo && tm.downloadingModel == nil
+                     ? tm.modelDownloadError!.message
+                     : String(localized: "The Pianissimo speech model, \(WhisperModel.pianissimo.sizeDescription). Downloads once, then works offline."))
                     .font(.callout).foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)
-            if tm.downloadingModel == .pianissimo {
-                ProgressView(value: tm.modelDownloadProgress).frame(width: 110)
-            } else {
-                Button {
-                    tm.downloadModel(.pianissimo)
-                } label: {
-                    Label("Download", systemImage: "arrow.down.circle")
-                }
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
+            PianissimoDownloadControl()
                 .controlSize(.large)
-                .disabled(tm.downloadingModel != nil)
-            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)

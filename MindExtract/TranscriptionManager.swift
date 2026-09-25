@@ -50,6 +50,10 @@ class TranscriptionManager: ObservableObject {
 
     @Published var downloadingModel: WhisperModel?
     @Published var modelDownloadProgress: Double = 0
+    /// The model whose last download failed, and why (shown where it was offered).
+    @Published var modelDownloadError: (model: WhisperModel, message: String)?
+    /// Its own task, so a model download and a transcription never cancel each other.
+    private var modelDownloadTask: Task<Void, Never>?
     @Published var downloadedModels: Set<WhisperModel> = []
     @Published var prewarmingModel: WhisperModel?
 
@@ -358,12 +362,11 @@ class TranscriptionManager: ObservableObject {
     func downloadModel(_ model: WhisperModel) {
         guard downloadingModel == nil else { return }
 
-        DispatchQueue.main.async {
-            self.downloadingModel = model
-            self.modelDownloadProgress = 0
-        }
+        downloadingModel = model
+        modelDownloadProgress = 0
+        modelDownloadError = nil
 
-        currentTask = Task {
+        modelDownloadTask = Task {
             do {
                 if model.usesWhisperKit {
                     try fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
@@ -398,8 +401,7 @@ class TranscriptionManager: ObservableObject {
                             AppSettings.shared.defaultWhisperModel = model
                         }
                     } else {
-                        // Download completed but model not valid on disk
-                        self.transcriptionState = .error("Model download completed but files are invalid. Please try again.")
+                        self.modelDownloadError = (model, String(localized: "The download finished but the files aren't valid. Try again."))
                     }
                 }
 
@@ -409,19 +411,19 @@ class TranscriptionManager: ObservableObject {
                 await MainActor.run {
                     self.downloadingModel = nil
                     self.modelDownloadProgress = 0
-                    self.transcriptionState = .error("Model download failed: \(error.localizedDescription)")
+                    if !(error is CancellationError) {
+                        self.modelDownloadError = (model, String(localized: "Couldn't download the model: \(error.localizedDescription)"))
+                    }
                 }
             }
         }
     }
 
     func cancelModelDownload() {
-        currentTask?.cancel()
-        currentTask = nil
-        DispatchQueue.main.async {
-            self.downloadingModel = nil
-            self.modelDownloadProgress = 0
-        }
+        modelDownloadTask?.cancel()
+        modelDownloadTask = nil
+        downloadingModel = nil
+        modelDownloadProgress = 0
     }
 
     func deleteModel(_ model: WhisperModel) {

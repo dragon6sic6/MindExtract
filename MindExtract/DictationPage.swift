@@ -77,6 +77,12 @@ struct DictationPage: View {
                                 .font(.caption).foregroundStyle(.green)
                         }
                     }
+                    if wantsPianissimo && !tm.isModelDownloaded(.pianissimo) || tm.downloadingModel == .pianissimo {
+                        Divider()
+                        row("Pianissimo for Swedish", pianissimoDetail) {
+                            PianissimoDownloadControl()
+                        }
+                    }
                 }
             }
             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(DS.Colors.rowFill))
@@ -130,6 +136,15 @@ struct DictationPage: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             dictation.refresh()
         }
+    }
+
+    private var wantsPianissimo: Bool { ["sv", "auto"].contains(settings.dictationLanguage) }
+
+    private var pianissimoDetail: LocalizedStringKey {
+        if let failure = tm.modelDownloadError, failure.model == .pianissimo, tm.downloadingModel == nil {
+            return LocalizedStringKey(failure.message)
+        }
+        return "Much better Swedish dictation. \(WhisperModel.pianissimo.sizeDescription), downloaded once."
     }
 
     private var engine: String {

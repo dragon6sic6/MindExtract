@@ -184,6 +184,11 @@ struct ContentView: View {
                 CorpusChatView()
             }
         }
+        .task {
+            // Swedish users get Pianissimo on first launch (once the model list is loaded).
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            PianissimoOffer.autoStartIfNeeded()
+        }
         .task(id: searchText) {
             // Debounce keystrokes; search reads files so we don't run it per frame.
             guard !searchText.isEmpty else { searchHits = []; return }
@@ -218,12 +223,15 @@ struct ContentView: View {
     private var sectionDetail: some View {
         switch section {
         case .notes:
-            HStack(spacing: 0) {
-                notesColumn
-                    .frame(width: 280)
-                Divider()
-                noteDetail
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            VStack(spacing: 0) {
+                PianissimoBanner()
+                HStack(spacing: 0) {
+                    notesColumn
+                        .frame(width: 280)
+                    Divider()
+                    noteDetail
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
             }
         case .downloads:
             DownloaderView()
