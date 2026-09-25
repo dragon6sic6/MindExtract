@@ -18,6 +18,13 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
     let s = raw.lowercased()
     func has(_ needles: String...) -> Bool { needles.contains { s.contains($0) } }
 
+    if has("http error 403", "403: forbidden") {
+        return DownloadErrorInfo(message: String(localized: "The site blocked the download. Try again in a moment — if it keeps happening, update MindExtract."), needsYouTubeAuth: false)
+    }
+    if has("ffmpeg not found", "ffmpeg is not installed", "ffprobe and ffmpeg not found", "bad cpu type") {
+        return DownloadErrorInfo(message: String(localized: "A conversion tool is missing, so this download can't be finished. Reinstall MindExtract."), needsYouTubeAuth: false)
+    }
+
     if has("sign in to confirm you're not a bot", "sign in to confirm you’re not a bot", "confirm you're not a bot", "confirm you’re not a bot", "sign in to confirm") {
         return DownloadErrorInfo(message: "YouTube wants to confirm you're not a bot. Sign in to YouTube to continue.", needsYouTubeAuth: true)
     }
@@ -49,11 +56,14 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
         return DownloadErrorInfo(message: "This link isn't supported, or the site changed. Updating the app may help.", needsYouTubeAuth: false)
     }
 
-    // Fallback: surface a cleaned first meaningful line, not the whole dump.
-    let firstLine = raw
+    // Fallback: surface the last ERROR line (not a WARNING), cleaned.
+    let lines = raw
         .split(separator: "\n")
         .map { $0.trimmingCharacters(in: .whitespaces) }
-        .first(where: { !$0.isEmpty }) ?? "Something went wrong."
+        .filter { !$0.isEmpty }
+    let firstLine = lines.last(where: { $0.hasPrefix("ERROR") })
+        ?? lines.first(where: { !$0.hasPrefix("WARNING") && !$0.hasPrefix("[") })
+        ?? String(localized: "The download didn't finish. Try again.")
     let cleaned = firstLine
         .replacingOccurrences(of: "ERROR: ", with: "")
         .replacingOccurrences(of: "\u{001B}[0;31m", with: "")
@@ -133,7 +143,9 @@ class YTDLPWrapper: ObservableObject {
 
     // Common args to work around YouTube issues
     private var youtubeWorkaroundArgs: [String] {
-        var args = ["--cache-dir", ytdlpCacheDir]
+        var args = ["--cache-dir", ytdlpCacheDir, "--no-update"]
+        // Point yt-dlp at an ffmpeg that runs on this Mac (merging video + audio).
+        if let dir = BundledTools.ffmpegDirectory { args += ["--ffmpeg-location", dir] }
 
         // Authentication methods are mutually exclusive. Sending OAuth *and* a cookies
         // file together makes yt-dlp use conflicting credentials and can invalidate the
@@ -1176,7 +1188,7 @@ class YTDLPWrapper: ObservableObject {
     func downloadAudio(url: String, outputPath: String) {
         state = .downloading(progress: 0, speed: "Starting audio extraction…")
         startDownloadStallDetection()
-        outputLog = "Starting audio download (MP3)...\n"
+        outputLog = "Starting audio download (M4A)...\n"
 
         // Use truncated title + video ID for filename
         let outputTemplate = "\(outputPath)/%(title).80s [%(id)s].%(ext)s"
@@ -1184,7 +1196,7 @@ class YTDLPWrapper: ObservableObject {
         var args = [
             "-f", "bestaudio",
             "-x",  // Extract audio
-            "--audio-format", "mp3",
+            "--audio-format", "m4a",
             "--audio-quality", "0",  // Best quality
             "-o", outputTemplate,
             "--newline", "--progress", "--no-playlist", "--restrict-filenames"
@@ -1420,7 +1432,7 @@ class YTDLPWrapper: ObservableObject {
             args = [
                 "-f", "bestaudio",
                 "-x",
-                "--audio-format", "mp3",
+                "--audio-format", "m4a",
                 "--audio-quality", "0",
                 "-o", outputTemplate,
                 "--newline", "--progress", "--no-playlist", "--restrict-filenames"

@@ -1,71 +1,39 @@
-# Bundling Binaries for Transcription
+# Bundled tools
 
-This document explains how to add the required binaries for the transcription feature.
+MindExtract ships two external tools in `Resources/`. Transcription itself needs
+neither: audio is converted with AVFoundation (`AudioConverter.swift`).
 
-## Required Binaries
+## ffmpeg + ffprobe (downloads: merging video and audio, audio extraction)
 
-1. **whisper** (~5 MB) - The whisper.cpp main binary for transcription
-2. **ffmpeg** (~80 MB static build) - For extracting audio from video files
+Universal (Apple Silicon + Intel), static, LGPL build made from the official
+FFmpeg source. It only links frameworks and libraries that ship with macOS, so it
+runs on every Mac without Rosetta or Homebrew.
 
-## Important: Static vs Dynamic Builds
+Rebuild:
 
-Homebrew installs dynamically-linked binaries that depend on shared libraries. These will **NOT** work when bundled in the app because the libraries won't be available.
-
-You need **static builds** that include all dependencies in a single binary.
-
-## Recommended: Download Static Builds
-
-### FFmpeg (Static Build)
-
-1. Go to: https://evermeet.cx/ffmpeg/
-2. Download the latest `ffmpeg-X.X.X.zip` (about 80 MB)
-3. Extract and copy the `ffmpeg` binary to this Resources folder
-4. Make it executable: `chmod +x ffmpeg`
-
-### Whisper.cpp
-
-1. Go to: https://github.com/ggerganov/whisper.cpp/releases
-2. Download the macOS release (e.g., `whisper-1.x.x-bin-macos-arm64.zip`)
-3. Extract and find the `main` binary (this is the transcription tool)
-4. Rename it to `whisper` and copy to this Resources folder
-5. Make it executable: `chmod +x whisper`
-
-**Alternative: Build from source**
 ```bash
-git clone https://github.com/ggerganov/whisper.cpp
-cd whisper.cpp
-make
-cp main /path/to/MindExtract/Resources/whisper
+mkdir -p /tmp/ffbuild && cd /tmp/ffbuild
+curl -LO https://ffmpeg.org/releases/ffmpeg-7.1.2.tar.xz
+curl -LO https://ffmpeg.org/releases/ffmpeg-7.1.2.tar.xz.asc
+gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys B4322F04D67658D8   # FFmpeg release key
+gpg --verify ffmpeg-7.1.2.tar.xz.asc ffmpeg-7.1.2.tar.xz
+cp /path/to/repo/scripts/build-ffmpeg.sh . && ./build-ffmpeg.sh
+cp universal/ffmpeg universal/ffprobe /path/to/repo/MindExtract/Resources/
 ```
 
-## Fallback Behavior
+Check: `file Resources/ffmpeg` must list both `x86_64` and `arm64`.
 
-If binaries are not bundled, the app will try to use system-installed binaries from:
-- `/opt/homebrew/bin/` (Apple Silicon Homebrew)
-- `/usr/local/bin/` (Intel Homebrew)
-- `/usr/bin/`
+Don't bundle an Intel-only or Homebrew (dynamically linked) ffmpeg — it fails with
+"Bad CPU type" or missing libraries on other Macs.
 
-This means users with Homebrew installed will still be able to use transcription even without bundled binaries.
+## yt-dlp (downloads)
 
-## After Adding Binaries
+The official `yt-dlp_macos.zip` (universal onedir build) from
+https://github.com/yt-dlp/yt-dlp/releases, unpacked into `Resources/ytdlp/`.
+Verify it against `SHA2-256SUMS` from the same release. Update it regularly —
+sites like YouTube change often and old versions start failing (HTTP 403).
 
-1. In Xcode, right-click on the Resources folder in the Project Navigator
-2. Select "Add Files to 'MindExtract'..."
-3. Select the `whisper` and `ffmpeg` binaries
-4. Make sure "Copy items if needed" is **unchecked** (files are already in place)
-5. Ensure "Add to targets: MindExtract" is checked
-6. Click "Add"
+The app passes `--ffmpeg-location` so yt-dlp always uses a working ffmpeg
+(`BundledTools` in `AudioConverter.swift`), and `--no-update`.
 
-## Verification
-
-After building, go to **Settings > Transcription > Manage Models** in the app.
-You should see green checkmarks next to "Whisper" and "FFmpeg" indicating they're available.
-
-## File Sizes (Approximate)
-
-| Binary | Dynamic (Homebrew) | Static (Recommended) |
-|--------|-------------------|---------------------|
-| ffmpeg | ~400 KB | ~80 MB |
-| whisper | ~500 KB | ~5 MB |
-
-The static builds are larger because they include all dependencies.
+Both are signed by `sign_and_notarize.sh` during release.

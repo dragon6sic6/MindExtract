@@ -963,7 +963,7 @@ struct ContentView: View {
 
             mediaActionPill("Audio", icon: "music.note", action: downloadAsAudio)
                 .disabled(isDownloading || isTranscribing)
-                .help("Download audio only (MP3)")
+                .help("Download audio only (M4A)")
             mediaActionPill("Queue", icon: "plus", action: addVideoToQueue)
                 .help("Add to queue and load another video")
         }
@@ -1102,7 +1102,7 @@ struct ContentView: View {
                     .secondaryGlassButton()
                     .controlSize(.large)
                     .disabled(downloader.isProcessingQueue)
-                    .help("Download the selected videos as audio (MP3)")
+                    .help("Download the selected videos as audio (M4A)")
                 }
             }
 
@@ -1913,7 +1913,7 @@ struct QueueItemRow: View {
                 HStack(spacing: 6) {
                     Text(item.title).font(.caption).fontWeight(.medium).lineLimit(1)
                     if item.isAudioOnly {
-                        Text("MP3")
+                        Text(verbatim: "M4A")
                             .font(.caption2)
                             .padding(.horizontal, 4).padding(.vertical, 1)
                             .background(Color.purple.opacity(0.12))

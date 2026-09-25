@@ -74,3 +74,33 @@ enum AudioConverter {
         }
     }
 }
+
+// MARK: - External tools
+
+/// The ffmpeg to use: the bundled one if it can actually run on this Mac (right
+/// processor type), else a Homebrew install. Checked once per launch.
+enum BundledTools {
+    static let ffmpegPath: String? = {
+        var candidates: [String] = []
+        if let bundled = Bundle.main.path(forResource: "ffmpeg", ofType: nil) { candidates.append(bundled) }
+        candidates += ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]
+        return candidates.first { runs($0) }
+    }()
+
+    /// The folder holding that ffmpeg (and ffprobe), for yt-dlp's --ffmpeg-location.
+    static var ffmpegDirectory: String? {
+        ffmpegPath.map { ($0 as NSString).deletingLastPathComponent }
+    }
+
+    private static func runs(_ path: String) -> Bool {
+        guard FileManager.default.isExecutableFile(atPath: path) else { return false }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: path)
+        p.arguments = ["-version"]
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        do { try p.run() } catch { return false }   // e.g. "Bad CPU type" without Rosetta
+        p.waitUntilExit()
+        return p.terminationStatus == 0
+    }
+}

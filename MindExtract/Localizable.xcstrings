@@ -246,6 +246,16 @@
         }
       }
     },
+    "A conversion tool is missing, so this download can't be finished. Reinstall MindExtract.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ett konverteringsverktyg saknas, så nedladdningen kan inte slutföras. Installera om MindExtract."
+          }
+        }
+      }
+    },
     "A floating window with the live text, on top of Zoom and Teams.": {
       "localizations": {
         "sv": {
@@ -1718,6 +1728,16 @@
         }
       }
     },
+    "Download audio only (M4A)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda bara ned ljudet (M4A)"
+          }
+        }
+      }
+    },
     "Download audio only (MP3)": {
       "localizations": {
         "sv": {
@@ -1734,6 +1754,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nedladdningen är klar!"
+          }
+        }
+      }
+    },
+    "Download the selected videos as audio (M4A)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned de markerade videorna som ljud (M4A)"
           }
         }
       }
@@ -5269,6 +5299,16 @@
         }
       }
     },
+    "The download didn't finish. Try again.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningen blev inte klar. Försök igen."
+          }
+        }
+      }
+    },
     "The file has no audio to transcribe.": {
       "localizations": {
         "sv": {
@@ -5315,6 +5355,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Den valda modellen är inte installerad i Ollama."
+          }
+        }
+      }
+    },
+    "The site blocked the download. Try again in a moment — if it keeps happening, update MindExtract.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Webbplatsen blockerade nedladdningen. Försök igen om en stund – händer det igen, uppdatera MindExtract."
           }
         }
       }

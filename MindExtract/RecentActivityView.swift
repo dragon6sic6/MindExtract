@@ -208,7 +208,7 @@ struct DownloadHistoryRowImproved: View {
                         .foregroundColor(isMissing ? .secondary : .primary)
 
                     if item.isAudioOnly {
-                        Text("MP3")
+                        Text(verbatim: "M4A")
                             .font(.caption)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)

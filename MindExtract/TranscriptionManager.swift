@@ -296,26 +296,10 @@ class TranscriptionManager: ObservableObject {
         applicationSupportPath.appendingPathComponent("WhisperKitModels")
     }
 
-    private var ffmpegBinaryPath: String? {
-        if let bundledPath = Bundle.main.path(forResource: "ffmpeg", ofType: nil) {
-            return bundledPath
-        }
-        let paths = [
-            "/opt/homebrew/bin/ffmpeg",
-            "/usr/local/bin/ffmpeg",
-            "/usr/bin/ffmpeg"
-        ]
-        for path in paths {
-            if fileManager.fileExists(atPath: path) {
-                return path
-            }
-        }
-        return nil
-    }
+    private var ffmpegBinaryPath: String? { BundledTools.ffmpegPath }
 
-    var isFfmpegAvailable: Bool {
-        ffmpegBinaryPath != nil
-    }
+    /// Transcription converts audio natively, so it never depends on ffmpeg.
+    var isFfmpegAvailable: Bool { true }
 
     /// WhisperKit is always available (compiled in), so we only check ffmpeg
     var areBinariesAvailable: Bool {
