@@ -220,6 +220,16 @@ class TranscriptionManager: ObservableObject {
 
     private init() {
         loadDownloadedModels()
+        removeWhisperCppModels()
+    }
+
+    /// Models from the whisper.cpp engine used before WhisperKit (WhisperModels/
+    /// ggml-*.bin). Nothing reads them anymore, so they're removed at launch.
+    private func removeWhisperCppModels() {
+        let dir = applicationSupportPath.appendingPathComponent("WhisperModels")
+        DispatchQueue.global(qos: .utility).async {
+            try? FileManager.default.removeItem(at: dir)
+        }
     }
 
     // MARK: - Token Cleaning
