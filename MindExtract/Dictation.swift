@@ -163,9 +163,29 @@ final class DictationController: ObservableObject {
 
     // MARK: Hotkey
 
+    /// The parts of a key event the hotkey needs, so it can cross to the main actor.
+    private struct KeyEvent: Sendable {
+        let isKeyDown: Bool
+        let isFlagsChanged: Bool
+        let keyCode: UInt16
+        let flags: UInt
+    }
+
     private func installMonitors() {
+        // Hop to the main actor with a plain copy of the event. MainActor.assumeIsolated
+        // inside AppKit's event callback crashed in the Swift runtime's executor check
+        // (EXC_BAD_ACCESS in swift_task_isMainExecutor, 2026-10-11); the main queue keeps
+        // the events in order.
         let handler: (NSEvent) -> Void = { event in
-            MainActor.assumeIsolated { DictationController.shared.handle(event) }
+            let e = KeyEvent(isKeyDown: event.type == .keyDown,
+                             isFlagsChanged: event.type == .flagsChanged,
+                             keyCode: event.keyCode,
+                             flags: event.modifierFlags.rawValue)
+            // The compiler treats a main-queue block as main-actor isolated — no
+            // runtime executor check needed.
+            DispatchQueue.main.async {
+                DictationController.shared.handle(e)
+            }
         }
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.flagsChanged, .keyDown], handler: handler) {
             monitors.append(global)
@@ -183,12 +203,11 @@ final class DictationController: ObservableObject {
         monitors = []
     }
 
-    private func handle(_ event: NSEvent) {
-        switch event.type {
-        case .keyDown:
+    private func handle(_ event: KeyEvent) {
+        if event.isKeyDown {
             // Any key while the dictation key is held = a shortcut (e.g. ⌥2 → @), not dictation.
             if keyDownAt != nil { chordUsed = true; cancelCapture() }
-        case .flagsChanged:
+        } else if event.isFlagsChanged {
             guard event.keyCode == key.keyCode else {
                 // Another modifier joined in (⌘, ⇧…) — treat as a shortcut, not speech.
                 if keyDownAt != nil { chordUsed = true; cancelCapture() }
@@ -196,10 +215,8 @@ final class DictationController: ObservableObject {
             }
             // The device-specific bit, so holding the key's twin (left vs right) at
             // the same time can't confuse press/release.
-            let down = event.modifierFlags.rawValue & key.downMask != 0
+            let down = event.flags & key.downMask != 0
             down ? keyPressed() : keyReleased()
-        default:
-            break
         }
     }
 
