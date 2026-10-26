@@ -47,6 +47,12 @@ final class NotchPanel: NSPanel {
         MainActor.assumeIsolated { NotchController.shared.close() }
     }
 
+    /// Edit › Paste (or any paste that reaches the window itself) also counts
+    /// in the introduction's paste step.
+    @objc func paste(_ sender: Any?) {
+        _ = MainActor.assumeIsolated { Onboarding.pasteIfWaiting() }
+    }
+
     /// The app is never active while you use the notch, so the Edit menu never
     /// sees ⌘V and friends — send them to the text field directly.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {

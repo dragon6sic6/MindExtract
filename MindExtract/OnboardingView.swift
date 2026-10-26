@@ -134,22 +134,26 @@ struct OnboardingView: View {
                 .frame(height: heroHeight)
                 .accessibilityHidden(true)
 
+            // Title and body sharpen in on their own: a new body line doesn't
+            // replay the title.
             VStack(spacing: 8) {
                 RevealText(copy.title, font: .system(size: 26, weight: .semibold), tracking: -0.5)
+                    .id(copy.title)
+                    .transition(NotchStyle.swap)
                 RevealText(copy.body, font: .system(size: 14), color: NotchStyle.secondary, delay: 0.08)
-                    .frame(maxWidth: 400)
+                    .frame(maxWidth: 440)
+                    .id(copy.body)
+                    .transition(NotchStyle.swap)
             }
             .multilineTextAlignment(.center)
-            .id(copy.title + copy.body)
-            .transition(NotchStyle.swap)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
 
             controls
-                .padding(.top, 20)
+                .padding(.top, beat == .finish ? 14 : 20)
                 .transition(NotchStyle.swap)
 
-            Spacer(minLength: 18)
+            Spacer(minLength: beat == .finish ? 12 : 18)
             footer
         }
         .padding(.horizontal, 12)
@@ -175,7 +179,7 @@ struct OnboardingView: View {
         case .welcome, .summon: return 168
         case .tryIt: return 132
         case .paste: return 116
-        case .finish: return 104
+        case .finish: return 62
         }
     }
 
@@ -193,8 +197,9 @@ struct OnboardingView: View {
             switch model.stage {
             case .loadingInfo:
                 return (String(localized: "Reading the link."), String(localized: "Looking up the video."))
-            case .working(_, _, let phase, _):
-                return (String(localized: "Turning it into text."), phase)
+            case .working:
+                // The capsule above shows each phase; this line stays put.
+                return (String(localized: "Turning it into text."), String(localized: "It takes a few seconds."))
             case .failed(_, _, let message, _, _):
                 return (String(localized: "That didn't work."), message)
             default:
@@ -410,24 +415,28 @@ private struct FinishCards: View {
             .animation(NotchStyle.snappy, value: tm.isModelInstalled)
 
             if upgrader {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Your 2.x library is safe.").font(.system(size: 14, weight: .medium))
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Your 2.x library is safe.").font(.system(size: 14, weight: .medium))
+                        Spacer(minLength: 8)
+                        ChipButton(icon: "folder", title: String(localized: "Show")) {
+                            let folder = TranscriptionHistoryManager.recordingsFolder
+                            if FileManager.default.fileExists(atPath: folder.path) {
+                                NSWorkspace.shared.activateFileViewerSelecting([folder])
+                            } else {
+                                NSWorkspace.shared.open(URL(fileURLWithPath: AppSettings.shared.downloadPath))
+                            }
+                        }
+                        .accessibilityLabel(String(localized: "Show my old recordings"))
+                    }
                     Text("Nothing was deleted. Meetings, dictation and summaries are retired, so MindExtract now does one thing: video and audio in, text out.")
                         .font(NotchStyle.small)
                         .foregroundStyle(NotchStyle.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    ChipButton(icon: "folder", title: String(localized: "Show My Old Recordings")) {
-                        let folder = TranscriptionHistoryManager.recordingsFolder
-                        if FileManager.default.fileExists(atPath: folder.path) {
-                            NSWorkspace.shared.activateFileViewerSelecting([folder])
-                        } else {
-                            NSWorkspace.shared.open(URL(fileURLWithPath: AppSettings.shared.downloadPath))
-                        }
-                    }
-                    .padding(.top, 2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
                 .background(card)
             }
         }
@@ -451,7 +460,7 @@ private struct FinishCards: View {
             control()
         }
         .padding(.horizontal, 16)
-        .frame(height: 56)
+        .frame(height: 50)
     }
 }
 
@@ -594,7 +603,7 @@ private struct HeroStage: View {
         case .paste:
             return Form(size: CGSize(width: 220, height: 46), top: 23, bottom: 23, y: -18)
         case .finish:
-            return Form(size: CGSize(width: 150, height: 38), top: 0, bottom: 16, y: -30)
+            return Form(size: CGSize(width: 150, height: 38), top: 0, bottom: 16, y: -12)
         }
     }
 
@@ -604,9 +613,12 @@ private struct HeroStage: View {
                                            bottomTrailingRadius: f.bottom, topTrailingRadius: f.top,
                                            style: .continuous)
         ZStack {
-            // Light, not a box.
-            RadialGradient(colors: [Color.white.opacity(swell ? 0.11 : 0.07), .clear],
-                           center: .center, startRadius: 0, endRadius: 230)
+            // Light, not a box: a soft glow that fades out well inside the stage.
+            Ellipse()
+                .fill(Color.white.opacity(swell ? 0.10 : 0.06))
+                .frame(width: 360, height: 90)
+                .blur(radius: 38)
+                .offset(y: f.y + f.size.height / 2)
 
             // The top edge of the screen, for the steps where the object is a notch.
             if hangsFromEdge {
@@ -703,8 +715,13 @@ private struct HeroStage: View {
                     Image(systemName: "waveform")
                         .symbolEffect(.variableColor.iterative, isActive: !NotchStyle.reduceMotion)
                     Text(verbatim: phase).lineLimit(1)
+                        .contentTransition(.identity)   // a new phase replaces the old, no crossfade
                     Spacer(minLength: 4)
-                    if let p { Text(p, format: .percent.precision(.fractionLength(0))).monospacedDigit() }
+                    if let p {
+                        Text(p, format: .percent.precision(.fractionLength(0)))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                    }
                 case .loadingInfo:
                     ProgressRing(progress: nil).frame(width: 14, height: 14)
                     Text(verbatim: model.input).lineLimit(1).truncationMode(.middle)

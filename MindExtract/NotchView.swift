@@ -96,6 +96,14 @@ struct NotchRootView: View {
     var body: some View {
         VStack(spacing: 10) {
             NotchSurface()
+                .overlay(alignment: .bottom) {
+                    // "Here I am": light leaking out under the closed notch.
+                    if model.onboarding == .summon, !model.isOpen {
+                        SummonGlow(width: model.geometry.notchSize.width)
+                            .offset(y: 3)
+                            .transition(.opacity)
+                    }
+                }
             // The introduction's hint under the closed notch.
             if let caption = model.onboardingCaption, !model.isOpen {
                 OnboardingCaption(text: caption)
@@ -107,6 +115,28 @@ struct NotchRootView: View {
         .animation(NotchStyle.snappy, value: model.isOpen)
         .frame(width: NotchController.panelSize.width, height: NotchController.panelSize.height, alignment: .top)
         .preferredColorScheme(.dark)
+    }
+}
+
+/// A soft white line under the notch that breathes while the introduction
+/// waits for you to open it.
+private struct SummonGlow: View {
+    let width: CGFloat
+    @State private var bright = false
+
+    var body: some View {
+        ZStack {
+            Capsule().fill(Color.white.opacity(bright ? 0.55 : 0.18))
+                .frame(width: width * 0.8, height: 6)
+                .blur(radius: 6)
+            Capsule().fill(Color.white.opacity(bright ? 0.95 : 0.4))
+                .frame(width: width * 0.6, height: 1.5)
+        }
+        .allowsHitTesting(false)
+        .onAppear {
+            guard !NotchStyle.reduceMotion else { bright = true; return }
+            withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) { bright = true }
+        }
     }
 }
 
@@ -130,7 +160,6 @@ struct NotchSurface: View {
     private var invisible: Bool { !g.hasNotch && !model.isOpen && !showsActivity && !summoning }
     /// The introduction is waiting for you to open the notch yourself.
     private var summoning: Bool { model.onboarding == .summon && !model.isOpen }
-    @State private var breathe = false
 
     var body: some View {
         let shape = NotchShape(top: topRadius, bottom: bottomRadius)
@@ -163,20 +192,7 @@ struct NotchSurface: View {
                 .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.18)],
                                      startPoint: .top, endPoint: .bottom))
         }
-        .overlay {
-            // "Here I am": a slow breathing rim while the introduction waits for you.
-            if summoning {
-                shape.stroke(Color.white.opacity(breathe ? 0.75 : 0.2), lineWidth: 1.5)
-                    .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.35)],
-                                         startPoint: .top, endPoint: .bottom))
-                    .onAppear {
-                        breathe = NotchStyle.reduceMotion
-                        guard !NotchStyle.reduceMotion else { return }
-                        withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { breathe = true }
-                    }
-                    .onDisappear { breathe = false }
-            }
-        }
+
         .clipShape(shape)
         .shadow(color: .black.opacity(model.isOpen ? 0.35 : 0), radius: 24, y: 10)
         .opacity(invisible ? 0 : 1)
