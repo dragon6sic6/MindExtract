@@ -1,6 +1,6 @@
-MindExtract
-Download and transcribe video from anywhere.
-© 2025 Mindact Solutions AB
+MindExtract 3.0
+Download and transcribe video from anywhere, right from the notch.
+© 2026 Mindact Solutions AB
 
 
 ──────────────────────────────────────────────
@@ -9,52 +9,42 @@ Download and transcribe video from anywhere.
 
   1. Drag MindExtract.app to the Applications folder.
   2. Open MindExtract from Applications.
-  3. On first launch, the Setup Guide will help you
-     download an AI model for transcription.
+  3. The notch introduces itself in four short steps.
 
 
 ──────────────────────────────────────────────
   HOW IT WORKS
 ──────────────────────────────────────────────
 
-  Download
-    Paste any video URL (YouTube, Vimeo, etc.)
-    and choose Download Video or Download Audio.
-    Add multiple URLs to the queue and download
-    them all at once.
+  Open the notch
+    Rest the pointer on the notch, click it, or
+    press Control Option Space from any app.
 
-  Transcribe
-    Paste a URL or drop a local media file.
-    MindExtract transcribes speech to text locally
-    on your Mac — no internet or account needed.
+  Paste a link or drag a file
+    YouTube and over a thousand other sites.
+    Choose Transcribe, or Save Video.
 
-  History
-    All downloads and transcriptions are saved
-    in the History tab for easy access.
+  Paste the text anywhere
+    The finished transcript is copied for you.
+    Press Command V in Claude, ChatGPT or any app.
 
 
 ──────────────────────────────────────────────
   SYSTEM REQUIREMENTS
 ──────────────────────────────────────────────
 
-  • macOS 13 Ventura or later
+  • macOS 26 or later
   • Apple Silicon or Intel Mac
-  • ~150 MB free space (Base AI model)
-  • Internet connection for downloading videos
+  • Internet connection for fetching videos
 
 
 ──────────────────────────────────────────────
-  AI MODELS
+  PRIVACY
 ──────────────────────────────────────────────
 
-  MindExtract uses OpenAI Whisper to transcribe
-  audio locally. Models are downloaded once and
-  stored on your Mac:
-
-    Tiny   (75 MB)  — Fastest, basic accuracy
-    Base   (142 MB) — Recommended
-    Small  (466 MB) — More accurate, slower
-    Medium (1.5 GB) — Best accuracy, 8GB+ RAM
+  Transcription runs on your Mac. Nothing is
+  uploaded. Only the video itself is fetched
+  from the site.
 
 
 ──────────────────────────────────────────────

@@ -295,11 +295,22 @@ if os.path.exists(notes_file):
 else:
     notes = f"<h2>What's new in {version}</h2>\n<p>Bug fixes and improvements.</p>"
 
+# Swedish notes next to the English ones; Sparkle shows the one that matches
+# the Mac's language.
+sv_file = notes_file.replace(".html", ".sv.html")
+sv_block = ""
+if os.path.exists(sv_file):
+    with open(sv_file) as f:
+        sv_block = f"""
+      <description xml:lang="sv"><![CDATA[
+{f.read().strip()}
+      ]]></description>"""
+
 xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>MindExtract</title>
-    <description>MindExtract — download and transcribe video from anywhere</description>
+    <description>MindExtract. Download and transcribe video from anywhere.</description>
     <language>en</language>
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
@@ -311,7 +322,7 @@ xml = f"""<?xml version="1.0" encoding="utf-8"?>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
 {notes}
-      ]]></description>
+      ]]></description>{sv_block}
       <enclosure
         url="{url}"
         sparkle:edSignature="{ed_sig}"
