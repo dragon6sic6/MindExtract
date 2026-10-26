@@ -208,8 +208,19 @@ final class NotchController {
     /// Typing needs MindExtract to be the active app: a panel above the menu bar
     /// doesn't reliably get key presses otherwise. close() gives them back.
     private func takeKeyboard() {
-        if !NSApp.isActive { NSApp.activate() }
-        panel?.makeKey()
+        // NSApp.isActive can say yes while another app still gets the key
+        // presses, so don't trust it: ask whenever we're not the app the
+        // keyboard actually goes to.
+        if !Self.hasKeyboard {
+            NSRunningApplication.current.activate(options: [.activateAllWindows])
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        panel?.makeKeyAndOrderFront(nil)
+    }
+
+    /// The keyboard goes to MindExtract right now.
+    static var hasKeyboard: Bool {
+        NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier
     }
 
     func close() {

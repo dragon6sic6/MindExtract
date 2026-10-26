@@ -503,7 +503,7 @@ private struct PasteWell: View {
     @State private var caret = true
     /// macOS only hands MindExtract the keyboard after you click it, so when
     /// this step appears by itself, ⌘V would still go to the app you used last.
-    @State private var hasKeyboard = NSApp.isActive
+    @State private var hasKeyboard = NotchController.hasKeyboard
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -550,15 +550,13 @@ private struct PasteWell: View {
         .frame(height: 124)
         .contentShape(Rectangle())
         .onTapGesture { NotchController.shared.takeKeyboardForIntroduction() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            withAnimation(NotchStyle.snappy) { hasKeyboard = true }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
-            withAnimation(NotchStyle.snappy) { hasKeyboard = false }
+        // Whichever app the keyboard moves to, check again.
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)) { _ in
+            withAnimation(NotchStyle.snappy) { hasKeyboard = NotchController.hasKeyboard }
         }
         .onAppear {
-            // The request to take the keyboard may be declined a moment after this appears.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { hasKeyboard = NSApp.isActive }
+            // Taking the keyboard can take a moment, or be declined.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { hasKeyboard = NotchController.hasKeyboard }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(text == nil ? String(localized: "Paste area. Press Command V.") : String(localized: "Pasted transcript"))
