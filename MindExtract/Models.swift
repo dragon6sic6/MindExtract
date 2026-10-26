@@ -430,13 +430,6 @@ struct WordTimingData: Identifiable {
     let probability: Float // 0–1 confidence
 }
 
-enum YouTubeSignInState: Equatable {
-    case idle
-    case signingIn
-    case signedIn
-    case error(String)
-}
-
 enum CookieBrowser: String, CaseIterable, Codable {
     case none = "none"
     case safari = "safari"
@@ -493,10 +486,7 @@ class AppSettings: ObservableObject {
     @AppStorage("showNotifications") var showNotifications: Bool = true
     @AppStorage("downloadPath") var downloadPath: String = NSHomeDirectory() + "/Downloads"
 
-    // YouTube authentication
-    @AppStorage("youtubeSignedIn") var youtubeSignedIn: Bool = false
-
-    // Fallback: Browser cookies for authentication
+    // Signing in: a browser's cookies, or an exported cookies file
     @AppStorage("cookieBrowser") var cookieBrowser: CookieBrowser = .none
     @AppStorage("cookiesFilePath") var cookiesFilePath: String = ""
 
@@ -561,6 +551,16 @@ class AppSettings: ObservableObject {
     func resetToDefaults() {
         objectWillChange.send()
         for key in Self.resettableKeys { UserDefaults.standard.removeObject(forKey: key) }
+    }
+
+    /// Tidies settings left by older versions. Runs once per launch, cheap.
+    func migrate() {
+        let d = UserDefaults.standard
+        d.removeObject(forKey: "youtubeSignedIn")           // YouTube ended yt-dlp's own login
+        if translateToEnglish { translateToEnglish = false } // no switch for it in 3.0
+        if downloadQuality == .audioOnly { downloadQuality = .best }   // the notch chooses audio now
+        if transcriptionEngine == .automatic { transcriptionEngine = .appleSpeech }
+        if subtitleLanguage == "auto" { subtitleLanguage = "en" }      // yt-dlp has no "auto" subtitles
     }
 
     private init() {}

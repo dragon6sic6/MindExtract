@@ -22,7 +22,10 @@ struct NotchGeometry: Equatable {
     var hasNotch: Bool
 
     static func current() -> NotchGeometry {
-        let menuBarScreen = NSScreen.screens.first ?? NSScreen.main!
+        // No screen at all (lid closed, display asleep): park it, nothing to show on.
+        guard let menuBarScreen = NSScreen.screens.first ?? NSScreen.main else {
+            return NotchGeometry(screenFrame: .zero, notchSize: CGSize(width: 190, height: 24), hasNotch: false)
+        }
         let screen = UserDefaults.standard.string(forKey: "notchScreen") == "main"
             ? menuBarScreen
             : (NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? menuBarScreen)

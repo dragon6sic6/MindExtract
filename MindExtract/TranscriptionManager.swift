@@ -89,6 +89,12 @@ class TranscriptionManager: ObservableObject {
     private var whisperKit: WhisperKit?
     private var currentLoadedModel: WhisperModel?
     private var currentTask: Task<Void, Never>?
+    /// Bumped by every new job and by cancel, so work that finishes after it
+    /// was cancelled (extraction, a slow engine) is dropped instead of
+    /// reporting a result for the next job.
+    private var jobID = 0
+    /// Which model the last `.modelNotDownloaded` was about.
+    private(set) var neededModel: WhisperModel?
     private var currentProcess: Process? // for ffmpeg
     private var activeOutputPath: String?   // where the in-flight transcript will save
     private var downloadTask: URLSessionDataTask?
@@ -545,6 +551,9 @@ class TranscriptionManager: ObservableObject {
     }
 
     func transcribe(videoPath: String, model: WhisperModel, outputFormat: TranscriptionOutputFormat, language: String = "auto") {
+        jobID += 1
+        let job = jobID
+        neededModel = nil
         // Sync with file system before checking model availability
         loadDownloadedModels(synchronous: true)
 
@@ -554,6 +563,7 @@ class TranscriptionManager: ObservableObject {
         // Apple Speech needs no downloaded model; only require one for WhisperKit.
         if !usingApple {
             guard isModelDownloaded(model) else {
+                neededModel = model
                 DispatchQueue.main.async {
                     self.transcriptionState = .modelNotDownloaded
                     self.advanceBatchIfNeeded()
@@ -582,6 +592,7 @@ class TranscriptionManager: ObservableObject {
 
             if !success {
                 DispatchQueue.main.async {
+                    guard job == self.jobID else { return }
                     self.transcriptionState = .error(error ?? "Failed to extract audio")
                     self.advanceBatchIfNeeded()
                 }
@@ -590,7 +601,7 @@ class TranscriptionManager: ObservableObject {
             }
 
             // Run transcription with the selected engine
-            self.runTranscription(audioPath: tempAudioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language) {
+            self.runTranscription(audioPath: tempAudioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language, job: job) {
                 // Clean up temp audio
                 try? self.fileManager.removeItem(atPath: tempAudioPath)
             }
@@ -600,6 +611,9 @@ class TranscriptionManager: ObservableObject {
     // MARK: - Transcribe Audio File Directly (for URL transcription)
 
     func transcribeAudioFile(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String = "auto") {
+        jobID += 1
+        let job = jobID
+        neededModel = nil
         // Sync with file system before checking model availability
         loadDownloadedModels(synchronous: true)
 
@@ -608,6 +622,7 @@ class TranscriptionManager: ObservableObject {
         // Apple Speech needs no downloaded model; only require one for WhisperKit.
         if !usingApple {
             guard isModelDownloaded(model) else {
+                neededModel = model
                 DispatchQueue.main.async {
                     self.transcriptionState = .modelNotDownloaded
                 }
@@ -633,13 +648,14 @@ class TranscriptionManager: ObservableObject {
 
             if !success {
                 DispatchQueue.main.async {
+                    guard job == self.jobID else { return }
                     self.transcriptionState = .error(error ?? "Failed to convert audio")
                 }
                 try? self.fileManager.removeItem(atPath: tempWavPath)
                 return
             }
 
-            self.runTranscription(audioPath: tempWavPath, model: model, outputPath: outputPath, outputFormat: .txt, language: language) {
+            self.runTranscription(audioPath: tempWavPath, model: model, outputPath: outputPath, outputFormat: .txt, language: language, job: job) {
                 try? self.fileManager.removeItem(atPath: tempWavPath)
             }
         }
@@ -812,6 +828,9 @@ class TranscriptionManager: ObservableObject {
                     }
                 }
 
+                // Pianissimo doesn't stop mid-file; drop its result if cancelled.
+                try Task.checkCancellation()
+
                 // Speaker diarization (if enabled)
                 if AppSettings.shared.enableSpeakerDiarization {
                     await MainActor.run {
@@ -920,6 +939,7 @@ class TranscriptionManager: ObservableObject {
                 }
 
                 // Save to file
+                try Task.checkCancellation()
                 try fullText.write(toFile: outputPath, atomically: true, encoding: .utf8)
 
                 appLog("[MindExtract] Completing transcription: \(allSegments.count) segments, title: '\(self.currentTranscriptionTitle)', output: \(outputPath)")
@@ -937,11 +957,9 @@ class TranscriptionManager: ObservableObject {
                 cleanup()
 
             } catch {
-                if Task.isCancelled {
-                    await MainActor.run {
-                        self.transcriptionState = .idle
-                    }
-                } else {
+                // Cancelled: cancelTranscription already reset the state, and a
+                // new job may own it by now.
+                if !Task.isCancelled {
                     await MainActor.run {
                         // If the error is about a missing model, show the helpful download prompt
                         if error.localizedDescription.contains("not downloaded") || error.localizedDescription.contains("Model not") {
@@ -1198,27 +1216,14 @@ class TranscriptionManager: ObservableObject {
     // MARK: - Cancel / Reset
 
     func cancelTranscription() {
+        jobID += 1
         currentTask?.cancel()
         currentTask = nil
         currentProcess?.terminate()
         currentProcess = nil
+        // Cancel means stop: nothing half-done is saved.
+        transcriptionState = .idle
         DispatchQueue.main.async {
-            // Don't throw away work already transcribed — save the partial result
-            // so the user can still read, copy, and export it.
-            if !self.segments.isEmpty, let path = self.activeOutputPath {
-                let partialPath = path.replacingOccurrences(of: ".\(URL(fileURLWithPath: path).pathExtension)",
-                                                            with: " (partial).\(URL(fileURLWithPath: path).pathExtension)")
-                let text = self.segments.map { $0.text }.joined(separator: "\n\n")
-                try? text.write(toFile: partialPath, atomically: true, encoding: .utf8)
-                self.lastSavedPath = partialPath
-                if !self.currentTranscriptionTitle.hasSuffix("(partial)") {
-                    self.currentTranscriptionTitle += " (partial)"
-                }
-                self.saveToHistory(title: self.currentTranscriptionTitle, filePath: partialPath)
-                self.transcriptionState = .completed(outputPath: partialPath)
-            } else {
-                self.transcriptionState = .idle
-            }
             self.activeOutputPath = nil
             // Cancelling stops the whole batch (and frees the navigation suppression).
             self.batchActive = false
@@ -1725,7 +1730,8 @@ extension TranscriptionManager {
     /// Routes an already-extracted audio file to the right engine. "Automatic"
     /// language is resolved first (see `detectSpokenLanguage`), so no engine has
     /// to guess — Apple Speech, for one, can't detect a language at all.
-    func runTranscription(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void = {}) {
+    func runTranscription(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, job: Int? = nil, cleanup: @escaping () -> Void = {}) {
+        if let job, job != jobID { cleanup(); return }   // cancelled while the audio was read
         activeOutputPath = outputPath
         guard language == "auto" else {
             route(audioPath: audioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
@@ -1733,6 +1739,7 @@ extension TranscriptionManager {
         }
         currentTask = Task { @MainActor in
             let detected = await self.detectSpokenLanguage(audioPath: audioPath)
+            guard !Task.isCancelled else { cleanup(); return }
             appLog("[MindExtract] Spoken language: \(detected)")
             self.route(audioPath: audioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: detected, cleanup: cleanup)
         }
@@ -1769,18 +1776,30 @@ extension TranscriptionManager {
     private func route(audioPath: String, model: WhisperModel, outputPath: String, outputFormat: TranscriptionOutputFormat, language: String, cleanup: @escaping () -> Void) {
         // Swedish always goes to Pianissimo when it's downloaded — it beats every
         // other engine on Swedish. The engine setting decides everything else.
-        if language == "sv" && isModelDownloaded(.pianissimo) {
+        if language == "sv", !isModelDownloaded(.pianissimo), downloadingModel == .pianissimo {
+            // Swedish, and Pianissimo is on its way: wait for it rather than settle for less.
+            neededModel = .pianissimo
+            transcriptionState = .modelNotDownloaded
+            cleanup()
+        } else if language == "sv" && isModelDownloaded(.pianissimo) {
             runWhisperKit(audioPath: audioPath, model: .pianissimo, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
         } else if useAppleSpeech(), #available(macOS 26.0, *) {
             // Apple Speech can't do every language. If it can't do this one, route
             // to WhisperKit (which can).
             currentTask = Task { @MainActor in
-                if await Self.appleSpeechSupports(language) {
+                let supported = await Self.appleSpeechSupports(language)
+                guard !Task.isCancelled else { cleanup(); return }
+                if supported {
                     self.runSpeechAnalyzer(audioPath: audioPath, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
                 } else if self.isModelDownloaded(model) || !self.downloadedModels.isEmpty {
                     let picked = self.isModelDownloaded(model) ? model : (self.downloadedModels.first ?? model)
                     let useModel = self.effectiveWhisperModel(picked, language: language)
                     self.runWhisperKit(audioPath: audioPath, model: useModel, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
+                } else if language == "sv" {
+                    // Swedish heard but Pianissimo isn't here yet: ask for it.
+                    self.neededModel = .pianissimo
+                    self.transcriptionState = .modelNotDownloaded
+                    cleanup()
                 } else {
                     let name = AppSettings.transcriptionLanguages.first { $0.code == language }?.name ?? language
                     self.transcriptionState = .error(String(localized: "Apple's speech recognition doesn't support \(name). Download a speech model in Settings → Transcription and try again."))
@@ -1888,7 +1907,6 @@ extension TranscriptionManager {
                 }
 
                 if Task.isCancelled {
-                    transcriptionState = .idle
                     cleanup()
                     return
                 }
@@ -1901,6 +1919,7 @@ extension TranscriptionManager {
                     finalSegments = await assignSpeakersByOverlap(to: collected, audioPath: audioPath)
                 }
 
+                try Task.checkCancellation()
                 let fullText = buildTranscriptText(finalSegments, format: outputFormat)
                 try fullText.write(toFile: outputPath, atomically: true, encoding: .utf8)
 
@@ -1913,9 +1932,7 @@ extension TranscriptionManager {
                 advanceBatchIfNeeded()
                 cleanup()
             } catch {
-                if Task.isCancelled {
-                    transcriptionState = .idle
-                } else {
+                if !Task.isCancelled {
                     transcriptionState = .error("Transcription failed: \(error.localizedDescription)")
                 }
                 advanceBatchIfNeeded()

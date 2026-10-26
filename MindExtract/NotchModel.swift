@@ -98,6 +98,10 @@ final class NotchModel: ObservableObject {
     /// A speech model we're downloading so a transcription can continue.
     private var awaitedModel: WhisperModel?
     private var quietWork: DispatchWorkItem?
+    /// The downloader's lookup that belongs to the link we're waiting on.
+    private var awaitedLoad = -1
+    /// Bumped by every start and cancel, so audio that arrives after Cancel isn't transcribed.
+    private var jobToken = 0
 
     private init() {
         downloader.$state.combineLatest(downloader.$videoInfo)
@@ -175,6 +179,7 @@ final class NotchModel: ObservableObject {
         if clipboardLink == url { clipboardLink = nil }
         stage = .loadingInfo(url: url, then: next)
         downloader.loadURL(url)
+        awaitedLoad = downloader.loadGeneration
     }
 
     func useFile(_ url: URL) {
@@ -202,6 +207,7 @@ final class NotchModel: ObservableObject {
         guard case .ready(let item) = stage, let url = item.url else { return }
         jobPasteboardCount = NSPasteboard.general.changeCount
         stage = .working(item, .download, phase: String(localized: "Saving…"), progress: nil)
+        downloader.cancelLoad(keepInfo: true)   // a slower lookup finishing now would reset the download's state
         if audioOnly {
             downloader.downloadAudio(url: url, outputPath: AppSettings.shared.downloadPath)
         } else {
@@ -237,6 +243,8 @@ final class NotchModel: ObservableObject {
     private func start(_ item: Item) {
         let model = AppSettings.shared.defaultWhisperModel
         let language = language
+        jobToken += 1
+        let token = jobToken
         jobPasteboardCount = NSPasteboard.general.changeCount
         stage = .working(item, .transcribe, phase: String(localized: "Getting ready…"), progress: nil)
 
@@ -244,10 +252,14 @@ final class NotchModel: ObservableObject {
             tm.startNewTranscription(title: item.title, model: model, source: .file)
             tm.transcribe(videoPath: path, model: model, outputFormat: .txt, language: language)
         } else if let url = item.url {
+            downloader.cancelLoad(keepInfo: true)
             tm.startNewTranscription(title: item.title, model: model, source: .download)
             tm.transcriptionState = .downloadingAudio(progress: 0)
             downloader.downloadAudioForTranscription(url: url) { [weak self] audioPath, error in
-                guard let self else { return }
+                guard let self, token == self.jobToken else {
+                    if let audioPath { try? FileManager.default.removeItem(atPath: audioPath) }
+                    return
+                }
                 guard let audioPath, error == nil else {
                     self.tm.transcriptionState = .error(error ?? String(localized: "Couldn't get the audio."))
                     return
@@ -279,6 +291,7 @@ final class NotchModel: ObservableObject {
     }
 
     func cancel() {
+        jobToken += 1
         switch stage {
         case .working(let item, let work, _, _):
             if awaitedModel != nil {
@@ -290,7 +303,7 @@ final class NotchModel: ObservableObject {
             }
             stage = .ready(item)
         case .loadingInfo:
-            downloader.cancelDownload()
+            downloader.cancelLoad()
             stage = .idle
         default:
             break
@@ -338,7 +351,17 @@ final class NotchModel: ObservableObject {
 
     // MARK: Engine updates
 
-    private func downloaderChanged(_ state: DownloadState, _ info: VideoInfo?) {
+    private func downloaderChanged(_ emittedState: DownloadState, _ emittedInfo: VideoInfo?) {
+        // Updates arrive a moment late, so an older link's info or error can
+        // still be in flight. While loading, trust only the downloader's
+        // current values, and only for the lookup we started.
+        var state = emittedState
+        var info = emittedInfo
+        if case .loadingInfo = stage {
+            guard downloader.loadGeneration == awaitedLoad else { return }
+            state = downloader.state
+            info = downloader.videoInfo
+        }
         switch stage {
         case .loadingInfo(let url, let next):
             if let info {
@@ -404,9 +427,17 @@ final class NotchModel: ObservableObject {
                 autoCopiedPath = path
             }
         case .error(let message):
-            fail(item, work: .transcribe, message, problem: downloader.lastErrorNeedsAuth ? .needsSignIn : .general)
+            let needsSignIn = item.filePath == nil && downloader.lastErrorNeedsAuth
+            fail(item, work: .transcribe, message, problem: needsSignIn ? .needsSignIn : .general)
         case .modelNotDownloaded:
-            let model = language == "sv" ? WhisperModel.pianissimo : tm.multilingualBaseModel()
+            let model = tm.neededModel ?? (language == "sv" ? WhisperModel.pianissimo : tm.multilingualBaseModel())
+            if tm.downloadingModel == model {
+                // Already on its way (the Swedish model downloads on first run): wait for it.
+                awaitedModel = model
+                stage = .working(item, .transcribe, phase: String(localized: "Downloading the speech model…"),
+                                 progress: tm.modelDownloadProgress)
+                return
+            }
             fail(item, work: .transcribe,
                  String(localized: "This language needs a speech model (\(model.sizeDescription)). It downloads once, then works offline."),
                  problem: .needsSpeechModel(model))

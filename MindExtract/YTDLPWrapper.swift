@@ -105,12 +105,6 @@ class YTDLPWrapper: ObservableObject {
         outputLog += "\nError: \(raw)\n"
     }
 
-    // YouTube OAuth sign-in
-    @Published var youtubeSignInState: YouTubeSignInState = .idle
-    @Published var youtubeDeviceCode: String = ""
-    @Published var youtubeVerificationURL: String = ""
-    private var signInTask: Process?
-
     // Download Queue
     @Published var downloadQueue: [QueueItem] = []
     @Published var isProcessingQueue: Bool = false
@@ -121,6 +115,9 @@ class YTDLPWrapper: ObservableObject {
 
     private var downloadTask: Process?
     private var fetchTask: Process?
+    /// Bumped by every loadURL / cancelLoad, so a slow lookup that finishes after
+    /// a newer one started (or was cancelled) can't write its results.
+    private(set) var loadGeneration = 0
     private var ytdlpPath: String?
     private var timeoutTimer: Timer?
     private var lastProgressTime: Date?
@@ -133,7 +130,7 @@ class YTDLPWrapper: ObservableObject {
     private let fetchTimeout: TimeInterval = 45
     private let downloadStallTimeout: TimeInterval = 30
 
-    // yt-dlp cache directory (persists OAuth tokens)
+    // yt-dlp's cache directory
     private var ytdlpCacheDir: String {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let cacheDir = appSupport.appendingPathComponent("com.mindact.mindextract/yt-dlp-cache").path
@@ -147,18 +144,13 @@ class YTDLPWrapper: ObservableObject {
         // Point yt-dlp at an ffmpeg that runs on this Mac (merging video + audio).
         if let dir = BundledTools.ffmpegDirectory { args += ["--ffmpeg-location", dir] }
 
-        // Authentication methods are mutually exclusive. Sending OAuth *and* a cookies
-        // file together makes yt-dlp use conflicting credentials and can invalidate the
-        // OAuth token. Priority: OAuth → cookies file → browser cookies.
-        if settings.youtubeSignedIn {
-            args += ["--username", "oauth2", "--password", ""]
-        } else {
-            let cookiesFile = settings.cookiesFilePath
-            if !cookiesFile.isEmpty && FileManager.default.fileExists(atPath: cookiesFile) {
-                args += ["--cookies", cookiesFile]
-            } else if settings.cookieBrowser != .none {
-                args += ["--cookies-from-browser", settings.cookieBrowser.rawValue]
-            }
+        // Sign-in comes from a browser's cookies (YouTube ended yt-dlp's own
+        // OAuth login). A cookies file, if chosen, wins over the browser.
+        let cookiesFile = settings.cookiesFilePath
+        if !cookiesFile.isEmpty && FileManager.default.fileExists(atPath: cookiesFile) {
+            args += ["--cookies", cookiesFile]
+        } else if settings.cookieBrowser != .none {
+            args += ["--cookies-from-browser", settings.cookieBrowser.rawValue]
         }
         return args
     }
@@ -236,138 +228,12 @@ class YTDLPWrapper: ObservableObject {
         ytdlpPath != nil
     }
 
-    // MARK: - YouTube OAuth Sign-In
-
-    func startYouTubeSignIn() {
-        guard let ytdlp = ytdlpPath else { return }
-
-        DispatchQueue.main.async {
-            self.youtubeSignInState = .signingIn
-            self.youtubeDeviceCode = ""
-            self.youtubeVerificationURL = ""
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-
-            let task = Process()
-            self.signInTask = task
-            task.executableURL = URL(fileURLWithPath: ytdlp)
-            // Use a short public video to trigger OAuth flow
-            task.arguments = [
-                "--username", "oauth2",
-                "--password", "",
-                "--cache-dir", self.ytdlpCacheDir,
-                "--skip-download",
-                "-J",
-                "https://www.youtube.com/watch?v=jNQXAC9IVRw"
-            ]
-
-            var env = ProcessInfo.processInfo.environment
-            env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-            task.environment = env
-
-            let outputPipe = Pipe()
-            let errorPipe = Pipe()
-            task.standardOutput = outputPipe
-            task.standardError = errorPipe
-            // Provide empty stdin so yt-dlp doesn't hang waiting for input
-            task.standardInput = Pipe()
-
-            // Read stderr in real-time to capture the device code
-            errorPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-                let data = handle.availableData
-                guard !data.isEmpty, let line = String(data: data, encoding: .utf8) else { return }
-
-                appLog("yt-dlp OAuth: \(line)")
-
-                // Parse device code output
-                // yt-dlp outputs something like:
-                // "To give yt-dlp access to your account, go to  https://www.google.com/device  and enter code XXX-XXX-XXX"
-                if line.contains("google.com/device") || line.contains("verification") || line.contains("enter code") {
-                    // Extract URL
-                    if let urlRange = line.range(of: "https://[^\\s]+", options: .regularExpression) {
-                        let url = String(line[urlRange])
-                        DispatchQueue.main.async {
-                            self?.youtubeVerificationURL = url
-                        }
-                        // Auto-open the URL in browser
-                        if let nsurl = URL(string: url) {
-                            NSWorkspace.shared.open(nsurl)
-                        }
-                    }
-                    // Extract code (typically formatted as XXX-XXX-XXX or similar)
-                    if let codeRange = line.range(of: "[A-Z0-9]{3,}-[A-Z0-9]{3,}(-[A-Z0-9]{3,})?", options: .regularExpression) {
-                        let code = String(line[codeRange])
-                        DispatchQueue.main.async {
-                            self?.youtubeDeviceCode = code
-                        }
-                    }
-                }
-            }
-
-            do {
-                try task.run()
-                task.waitUntilExit()
-
-                errorPipe.fileHandleForReading.readabilityHandler = nil
-
-                let exitCode = task.terminationStatus
-
-                DispatchQueue.main.async {
-                    if exitCode == 0 {
-                        self.youtubeSignInState = .signedIn
-                        self.settings.youtubeSignedIn = true
-                    } else {
-                        // Read any remaining error output
-                        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                        let errorStr = String(data: errorData, encoding: .utf8) ?? ""
-                        if errorStr.contains("already") || exitCode == 0 {
-                            self.youtubeSignInState = .signedIn
-                            self.settings.youtubeSignedIn = true
-                        } else {
-                            self.youtubeSignInState = .error("Sign-in failed. Please try again.")
-                            appLog("OAuth error: \(errorStr)")
-                        }
-                    }
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.youtubeSignInState = .error("Failed to start sign-in: \(error.localizedDescription)")
-                }
-            }
-        }
-    }
-
-    func signOutYouTube() {
-        // Remove cached OAuth token
-        let cacheDir = ytdlpCacheDir
-        let tokenPath = "\(cacheDir)/youtube-nsig"
-        try? FileManager.default.removeItem(atPath: tokenPath)
-        // Also try removing the oauth2 token files
-        if let contents = try? FileManager.default.contentsOfDirectory(atPath: cacheDir) {
-            for file in contents where file.contains("oauth") || file.contains("token") {
-                try? FileManager.default.removeItem(atPath: "\(cacheDir)/\(file)")
-            }
-        }
-        settings.youtubeSignedIn = false
-        youtubeSignInState = .idle
-    }
-
-    func cancelSignIn() {
-        signInTask?.terminate()
-        signInTask = nil
-        DispatchQueue.main.async {
-            self.youtubeSignInState = .idle
-        }
-    }
-
     // MARK: - Scan Page for Videos
 
     /// Instant preview via oEmbed (~300 ms) so the media card appears immediately
     /// while yt-dlp fetches the full format list in the background. YouTube and
     /// Vimeo support it; other sites simply skip the preview.
-    private func fetchQuickPreview(for url: String) {
+    private func fetchQuickPreview(for url: String, generation: Int) {
         let lower = url.lowercased()
         let oembedURL: String?
         if lower.contains("youtube.com/watch") || lower.contains("youtu.be/") || lower.contains("youtube.com/shorts") {
@@ -388,7 +254,7 @@ class YTDLPWrapper: ObservableObject {
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let title = json["title"] as? String else { return }
             // Only show the preview if the full info hasn't already arrived.
-            guard self.videoInfo == nil, case .fetchingFormats = self.state else { return }
+            guard generation == self.loadGeneration, self.videoInfo == nil, case .fetchingFormats = self.state else { return }
             self.videoInfo = VideoInfo(
                 id: url,
                 title: title,
@@ -410,12 +276,16 @@ class YTDLPWrapper: ObservableObject {
             return
         }
 
+        loadGeneration += 1
+        let generation = loadGeneration
+        fetchTask?.terminate()
+        // State first, so nothing reads the previous video's info as this one's.
         state = .fetchingFormats
         scannedVideos = []
         videoInfo = nil
         lastErrorNeedsAuth = false
         outputLog = "Loading: \(url)\n"
-        fetchQuickPreview(for: url)
+        fetchQuickPreview(for: url, generation: generation)
         startFetchTimeout()
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -449,6 +319,7 @@ class YTDLPWrapper: ObservableObject {
                 let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
 
                 DispatchQueue.main.async {
+                    guard generation == self.loadGeneration else { return }
                     self.cancelTimeoutTimer()
                     self.fetchTask = nil
 
@@ -479,11 +350,12 @@ class YTDLPWrapper: ObservableObject {
                         self.outputLog += "Loaded: \(info.title)\n"
                     } else {
                         // Rare: 1-item playlist wrapper without formats → full fetch.
-                        self.fetchFormats(url: url)
+                        self.fetchFormats(url: url, generation: generation)
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
+                    guard generation == self.loadGeneration else { return }
                     self.cancelTimeoutTimer()
                     self.fetchTask = nil
                     self.state = .error("Error: \(error.localizedDescription)")
@@ -624,7 +496,7 @@ class YTDLPWrapper: ObservableObject {
 
     // MARK: - Fetch Formats for Single Video
 
-    func fetchFormats(url: String) {
+    func fetchFormats(url: String, generation: Int? = nil) {
         guard let ytdlp = ytdlpPath else {
             state = .error("yt-dlp not found. Please install it with: brew install yt-dlp")
             return
@@ -671,6 +543,7 @@ class YTDLPWrapper: ObservableObject {
                 let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
 
                 DispatchQueue.main.async {
+                    if let generation, generation != self.loadGeneration { return }
                     self.cancelTimeoutTimer()
                     self.fetchTask = nil
 
@@ -698,6 +571,7 @@ class YTDLPWrapper: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
+                    if let generation, generation != self.loadGeneration { return }
                     self.cancelTimeoutTimer()
                     self.fetchTask = nil
                     self.state = .error("Error: \(error.localizedDescription)")
@@ -908,9 +782,13 @@ class YTDLPWrapper: ObservableObject {
                 Task { @MainActor in progressHandler(output) }
             }
         }
+        // The handler drains stderr as it arrives, so keep a copy: it's what
+        // the error is classified from when the run fails.
+        let errorBuffer = ErrorBuffer()
         errorPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             if data.isEmpty { return }
+            errorBuffer.append(data)
             if let output = String(data: data, encoding: .utf8) {
                 Task { @MainActor in self?.outputLog += output }
             }
@@ -935,8 +813,9 @@ class YTDLPWrapper: ObservableObject {
                 if success {
                     errorOutput = nil
                 } else {
-                    let errorData = runErrorPipe.fileHandleForReading.readDataToEndOfFile()
-                    errorOutput = String(data: errorData, encoding: .utf8) ?? "Unknown error"
+                    errorBuffer.append(runErrorPipe.fileHandleForReading.readDataToEndOfFile())
+                    let text = errorBuffer.text
+                    errorOutput = text.isEmpty ? "Unknown error" : text
                 }
 
                 Task { @MainActor in
@@ -1011,8 +890,10 @@ class YTDLPWrapper: ObservableObject {
         }
         args.append(contentsOf: youtubeWorkaroundArgs)
         if settings.downloadSubtitles {
-            args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage])
+            args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage + ".*"])
         }
+        let savedPathFile = Self.makeSavedPathFile()
+        args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
         args.append(url)
 
         runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
@@ -1021,7 +902,7 @@ class YTDLPWrapper: ObservableObject {
             if success {
                 self.state = .completed
                 self.outputLog += "\nDownload completed!\n"
-                self.lastDownloadedFilePath = self.findLatestDownloadedFile(in: outputPath)
+                self.lastDownloadedFilePath = Self.savedPath(from: savedPathFile) ?? self.findLatestDownloadedFile(in: outputPath)
                 if let info = self.videoInfo {
                     let historyItem = HistoryItem(
                         url: url,
@@ -1064,8 +945,10 @@ class YTDLPWrapper: ObservableObject {
         ]
         args.append(contentsOf: youtubeWorkaroundArgs)
         if settings.downloadSubtitles {
-            args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage])
+            args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage + ".*"])
         }
+        let savedPathFile = Self.makeSavedPathFile()
+        args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
         args.append(url)
 
         runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
@@ -1074,7 +957,7 @@ class YTDLPWrapper: ObservableObject {
             if success {
                 self.state = .completed
                 self.outputLog += "\nDownload completed!\n"
-                self.lastDownloadedFilePath = self.findLatestDownloadedFile(in: outputPath)
+                self.lastDownloadedFilePath = Self.savedPath(from: savedPathFile) ?? self.findLatestDownloadedFile(in: outputPath)
                 if let info = self.videoInfo {
                     let historyItem = HistoryItem(
                         url: url,
@@ -1117,6 +1000,20 @@ class YTDLPWrapper: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Stops looking up a link: the lookup's late results are ignored.
+    /// A job about to start keeps the info it already has (for its history entry).
+    func cancelLoad(keepInfo: Bool = false) {
+        loadGeneration += 1
+        fetchTask?.terminate()
+        fetchTask = nil
+        cancelTimeoutTimer()
+        if !keepInfo {
+            videoInfo = nil
+            scannedVideos = []
+        }
+        if case .fetchingFormats = state { state = .idle }
     }
 
     func cancelDownload() {
@@ -1184,6 +1081,8 @@ class YTDLPWrapper: ObservableObject {
             "--newline", "--progress", "--no-playlist", "--restrict-filenames"
         ]
         args.append(contentsOf: youtubeWorkaroundArgs)
+        let savedPathFile = Self.makeSavedPathFile()
+        args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
         args.append(url)
 
         runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
@@ -1192,7 +1091,7 @@ class YTDLPWrapper: ObservableObject {
             if success {
                 self.state = .completed
                 self.outputLog += "\nAudio download completed!\n"
-                self.lastDownloadedFilePath = self.findLatestDownloadedFile(in: outputPath)
+                self.lastDownloadedFilePath = Self.savedPath(from: savedPathFile) ?? self.findLatestDownloadedFile(in: outputPath)
                 // Record audio downloads in History too (this was missing — only
                 // video downloads were saved, so audio files vanished from History).
                 if let info = self.videoInfo {
@@ -1433,7 +1332,7 @@ class YTDLPWrapper: ObservableObject {
         args.append(contentsOf: youtubeWorkaroundArgs)
         // Match the single-download paths: honor the subtitle preference here too.
         if settings.downloadSubtitles && !item.isAudioOnly {
-            args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage])
+            args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage + ".*"])
         }
         // Print the final file path (after merge/move). Parallel downloads can't
         // rely on the shared lastDownloadedFilePath, so each item captures its own.
@@ -1506,6 +1405,20 @@ class YTDLPWrapper: ObservableObject {
 
     // MARK: - File Path Helper
 
+    /// A temp file yt-dlp writes the final path into, so we know exactly what
+    /// was saved instead of guessing from the newest file in the folder.
+    private static func makeSavedPathFile() -> String {
+        NSTemporaryDirectory() + "mindextract-saved-\(UUID().uuidString).txt"
+    }
+
+    private static func savedPath(from file: String) -> String? {
+        defer { try? FileManager.default.removeItem(atPath: file) }
+        guard let text = try? String(contentsOfFile: file, encoding: .utf8) else { return nil }
+        let path = text.split(separator: "\n").last.map(String.init)?.trimmingCharacters(in: .whitespaces)
+        guard let path, FileManager.default.fileExists(atPath: path) else { return nil }
+        return path
+    }
+
     private func findLatestDownloadedFile(in directory: String) -> String? {
         let fileManager = FileManager.default
         let directoryURL = URL(fileURLWithPath: directory)
@@ -1539,5 +1452,21 @@ class YTDLPWrapper: ObservableObject {
         }
 
         return latestFile?.path
+    }
+}
+
+
+/// Collects a process's stderr from a background handler.
+private final class ErrorBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+
+    func append(_ chunk: Data) {
+        lock.lock(); data.append(chunk); lock.unlock()
+    }
+
+    var text: String {
+        lock.lock(); defer { lock.unlock() }
+        return String(data: data, encoding: .utf8) ?? ""
     }
 }

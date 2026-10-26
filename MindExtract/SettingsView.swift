@@ -29,10 +29,9 @@ struct SettingsView: View {
     @AppStorage("settingsCategory") private var category: SettingsCategory = .general
     @State private var showResetConfirmation = false
     @State private var confirmRemoveLegacyKB = false
-    @State private var showYouTubeSignOutConfirm = false
     @State private var loginItemOn = LoginItem.isEnabled
     @State private var showMoreModels = false
-    @State private var showAdvancedSignIn = false
+    @State private var showCookiesFile = false
     @State private var showAcknowledgements = false
 
     var body: some View {
@@ -61,7 +60,6 @@ struct SettingsView: View {
         .tint(.white)
         .onAppear {
             transcriptionManager.loadDownloadedModels()
-            if settings.downloadQuality == .audioOnly { settings.downloadQuality = .best }   // the notch chooses audio now
             if !SettingsCategory.allCases.map(\.rawValue).contains(UserDefaults.standard.string(forKey: "settingsCategory") ?? "") {
                 category = .general
             }
@@ -75,12 +73,6 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Every preference goes back to its default. Your transcripts and downloads are not touched.")
-        }
-        .confirmationDialog("Sign out of YouTube?", isPresented: $showYouTubeSignOutConfirm, titleVisibility: .visible) {
-            Button("Sign Out", role: .destructive) { downloader.signOutYouTube() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("You'll need to sign in again to download members-only or age-restricted videos.")
         }
     }
 
@@ -239,20 +231,22 @@ struct SettingsView: View {
             if settings.downloadSubtitles {
                 SettingsRow("Subtitle language") {
                     MonoMenu(selection: $settings.subtitleLanguage,
-                             options: AppSettings.transcriptionLanguages.map { ($0.code, $0.name) })
+                             options: AppSettings.transcriptionLanguages.filter { $0.code != "auto" }.map { ($0.code, $0.name) })
                 }
             }
         }
 
-        SettingsSection("YouTube",
-                        footer: "Most videos download without signing in. Sign in only if YouTube blocks one, for example an age-restricted or members-only video.") {
-            youtubeRows
-            DisclosureRow(title: "Other ways to sign in", isOpen: $showAdvancedSignIn)
-            if showAdvancedSignIn {
-                SettingsRow("Use a browser's sign-in", detail: "Borrows the sign-in from a browser on this Mac.") {
-                    MonoMenu(selection: $settings.cookieBrowser,
-                             options: CookieBrowser.allCases.map { ($0, $0.displayName) })
-                }
+        SettingsSection("Signing in",
+                        footer: "Most videos download without signing in. If a site blocks one, for example an age-restricted or members-only video, borrow the sign-in from a browser where you're logged in.") {
+            SettingsRow("Use the sign-in from",
+                        detail: settings.cookieBrowser == .safari
+                            ? "Safari needs Full Disk Access for MindExtract in System Settings."
+                            : "A browser on this Mac.") {
+                MonoMenu(selection: $settings.cookieBrowser,
+                         options: CookieBrowser.allCases.map { ($0, $0.displayName) })
+            }
+            DisclosureRow(title: "Use a cookies file instead", isOpen: $showCookiesFile)
+            if showCookiesFile || !settings.cookiesFilePath.isEmpty {
                 SettingsRow("Cookies file", detail: settings.cookiesFilePath.isEmpty
                                 ? "A cookies.txt exported from your browser."
                                 : LocalizedStringKey(URL(fileURLWithPath: settings.cookiesFilePath).lastPathComponent)) {
@@ -262,39 +256,6 @@ struct SettingsView: View {
                     }
                 }
             }
-        }
-    }
-
-    @ViewBuilder private var youtubeRows: some View {
-        switch downloader.youtubeSignInState {
-        case .idle, .signedIn:
-            if settings.youtubeSignedIn || downloader.youtubeSignInState == .signedIn {
-                SettingsRow("Signed in") { SmallButton("Sign Out…") { showYouTubeSignOutConfirm = true } }
-            } else {
-                SettingsRow("Not signed in") { SmallButton("Sign In…") { downloader.startYouTubeSignIn() } }
-            }
-        case .signingIn:
-            SettingsRow("Waiting for sign-in…", detail: "Finish signing in in your browser.") {
-                SmallButton("Cancel") { downloader.cancelSignIn() }
-            }
-            if !downloader.youtubeDeviceCode.isEmpty {
-                SettingsRow("Code to enter") {
-                    HStack(spacing: 8) {
-                        Text(verbatim: downloader.youtubeDeviceCode)
-                            .font(.system(size: 15, weight: .bold, design: .monospaced))
-                            .textSelection(.enabled)
-                        SmallButton("Copy") {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(downloader.youtubeDeviceCode, forType: .string)
-                        }
-                    }
-                }
-                if let url = URL(string: downloader.youtubeVerificationURL), !downloader.youtubeVerificationURL.isEmpty {
-                    SettingsRow("Sign-in page") { SmallButton("Open Again") { NSWorkspace.shared.open(url) } }
-                }
-            }
-        case .error(let message):
-            SettingsRow(LocalizedStringKey(message)) { SmallButton("Try Again") { downloader.startYouTubeSignIn() } }
         }
     }
 

@@ -802,7 +802,7 @@ struct FailedCard: View {
                     .disabled(tm.downloadingModel != nil)
                 case .needsSignIn:
                     Button { model.signInToYouTube() } label: {
-                        Label("Sign In to YouTube", systemImage: "person.crop.circle")
+                        Label("Sign In…", systemImage: "person.crop.circle")
                     }
                     .buttonStyle(NotchButtonStyle(kind: .primary))
                 case .general:
