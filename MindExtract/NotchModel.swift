@@ -208,6 +208,7 @@ final class NotchModel: ObservableObject {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(header + "\n\n" + body, forType: .string)
         lastPasteboardCount = NSPasteboard.general.changeCount   // don't offer our own copy back
+        clipboardLink = nil                                       // the clipboard holds the transcript now
         justCopied = path
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { [weak self] in
             if self?.justCopied == path { self?.justCopied = nil }

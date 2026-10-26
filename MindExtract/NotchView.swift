@@ -11,9 +11,9 @@ enum NotchStyle {
     static let text = Color(white: 0.96)
     static let secondary = Color(white: 0.62)
     static let tertiary = Color(white: 0.42)
-    /// The one accent: a clear lime that reads well on black.
-    static let accent = Color(red: 0.776, green: 0.957, blue: 0.196)
-    static let warning = Color(red: 1.0, green: 0.62, blue: 0.27)
+    /// Black and white only: the accent is white, emphasis comes from weight and fill.
+    static let accent = Color.white
+    static let warning = Color(white: 0.96)
 
     static let open = Animation.spring(response: 0.42, dampingFraction: 0.78)
     static let snappy = Animation.spring(response: 0.3, dampingFraction: 0.85)
@@ -325,8 +325,8 @@ struct LinkField: View {
                     }
                     .padding(.horizontal, 12)
                     .frame(height: 34)
-                    .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(NotchStyle.accent.opacity(0.14)))
-                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(NotchStyle.accent.opacity(0.35)))
+                    .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(NotchStyle.accent.opacity(0.08)))
+                    .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(NotchStyle.accent.opacity(0.22)))
                     .foregroundStyle(NotchStyle.accent)
                     .contentShape(Rectangle())
                 }
@@ -365,7 +365,7 @@ struct LinkField: View {
             .frame(height: 42)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(NotchStyle.field))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(focused ? NotchStyle.accent.opacity(0.6) : NotchStyle.stroke))
+                .strokeBorder(focused ? NotchStyle.accent.opacity(0.45) : NotchStyle.stroke))
         }
         .animation(NotchStyle.snappy, value: model.input.isEmpty)
         .animation(NotchStyle.snappy, value: model.clipboardLink)
@@ -736,9 +736,9 @@ struct DropZone: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 140)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(NotchStyle.accent.opacity(0.07)))
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(NotchStyle.accent.opacity(0.05)))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .strokeBorder(NotchStyle.accent.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])))
+            .strokeBorder(NotchStyle.accent.opacity(0.55), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])))
     }
 }
 
@@ -854,7 +854,7 @@ struct NotchButtonStyle: ButtonStyle {
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(kind == .primary ? NotchStyle.accent : (hovering ? NotchStyle.fieldHover : NotchStyle.field))
-                    .brightness(kind == .primary && hovering ? 0.06 : 0)
+                    .opacity(kind == .primary && hovering ? 0.88 : 1)
             )
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(kind == .primary ? .clear : NotchStyle.stroke))
