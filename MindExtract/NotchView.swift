@@ -94,10 +94,17 @@ struct NotchRootView: View {
     @EnvironmentObject var model: NotchModel
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 10) {
             NotchSurface()
+            // The introduction's hint under the closed notch.
+            if let caption = model.onboardingCaption, !model.isOpen {
+                OnboardingCaption(text: caption)
+                    .transition(.opacity.combined(with: .offset(y: -6)))
+            }
             Spacer(minLength: 0)
         }
+        .animation(NotchStyle.snappy, value: model.onboardingCaption)
+        .animation(NotchStyle.snappy, value: model.isOpen)
         .frame(width: NotchController.panelSize.width, height: NotchController.panelSize.height, alignment: .top)
         .preferredColorScheme(.dark)
     }
@@ -118,8 +125,12 @@ struct NotchSurface: View {
     private var bottomRadius: CGFloat {
         model.isOpen ? NotchStyle.shellBottom : (showsActivity ? 14 : min(12, g.notchSize.height * 0.35))
     }
-    /// Without a hardware notch there is nothing to cover while idle.
-    private var invisible: Bool { !g.hasNotch && !model.isOpen && !showsActivity }
+    /// Without a hardware notch there is nothing to cover while idle (except
+    /// while the introduction points at it).
+    private var invisible: Bool { !g.hasNotch && !model.isOpen && !showsActivity && !summoning }
+    /// The introduction is waiting for you to open the notch yourself.
+    private var summoning: Bool { model.onboarding == .summon && !model.isOpen }
+    @State private var breathe = false
 
     var body: some View {
         let shape = NotchShape(top: topRadius, bottom: bottomRadius)
@@ -151,6 +162,20 @@ struct NotchSurface: View {
             shape.stroke(Color.white.opacity(model.isOpen ? 0.09 : 0), lineWidth: 1)
                 .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.18)],
                                      startPoint: .top, endPoint: .bottom))
+        }
+        .overlay {
+            // "Here I am": a slow breathing rim while the introduction waits for you.
+            if summoning {
+                shape.stroke(Color.white.opacity(breathe ? 0.75 : 0.2), lineWidth: 1.5)
+                    .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.35)],
+                                         startPoint: .top, endPoint: .bottom))
+                    .onAppear {
+                        breathe = NotchStyle.reduceMotion
+                        guard !NotchStyle.reduceMotion else { return }
+                        withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { breathe = true }
+                    }
+                    .onDisappear { breathe = false }
+            }
         }
         .clipShape(shape)
         .shadow(color: .black.opacity(model.isOpen ? 0.35 : 0), radius: 24, y: 10)
@@ -320,8 +345,8 @@ struct OpenNotch: View {
                 // One screen at a time: the next one fades in, the old one leaves at
                 // once, so text never shows through text.
                 Group {
-                    if let step = model.onboardingStep {
-                        OnboardingView(step: step)
+                    if let beat = model.onboarding, beat != .summon {
+                        OnboardingView(beat: beat)
                     } else if let kind = model.dragKind {
                         DropZone(kind: kind, busy: model.isBusy, highlighted: dropHover)
                     } else {
@@ -330,7 +355,7 @@ struct OpenNotch: View {
                     }
                 }
                 .transition(NotchStyle.swap)
-                if tm.isDownloadingModel, !model.isBusy, model.onboardingStep == nil {
+                if tm.isDownloadingModel, !model.isBusy, model.onboarding == nil {
                     ModelDownloadLine(name: String(localized: "the speech model"), progress: tm.modelDownloadProgress)
                 }
             }
@@ -346,7 +371,7 @@ struct OpenNotch: View {
 
     /// Not on the start screen, not mid-job, not in the introduction.
     private var showsBack: Bool {
-        guard model.onboardingStep == nil, !model.isBusy else { return false }
+        guard model.onboarding == nil, !model.isBusy else { return false }
         if case .idle = model.stage { return false }
         return true
     }

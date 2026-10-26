@@ -26,6 +26,7 @@
 		B1000031 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000024 /* SettingsView.swift */; };
 		B1000033 /* TranscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000026 /* TranscriptionManager.swift */; };
 		B1000061 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = B1000051 /* ffmpeg */; };
+		SMP00001 /* Sample.m4a in Resources */ = {isa = PBXBuildFile; fileRef = SMP00002 /* Sample.m4a */; };
 		B1000E3D /* ffprobe in Resources */ = {isa = PBXBuildFile; fileRef = B1000E3E /* ffprobe */; };
 /* End PBXBuildFile section */
 
@@ -68,6 +69,7 @@
 		B1000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B1000026 /* TranscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionManager.swift; sourceTree = "<group>"; };
 		B1000051 /* ffmpeg */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = ffmpeg; sourceTree = "<group>"; };
+		SMP00002 /* Sample.m4a */ = {isa = PBXFileReference; lastKnownFileType = file; path = Sample.m4a; sourceTree = "<group>"; };
 		B1000E3E /* ffprobe */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = ffprobe; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -145,6 +147,7 @@
 			children = (
 				B1000023 /* ytdlp */,
 				B1000051 /* ffmpeg */,
+				SMP00002 /* Sample.m4a */,
 				B1000E3E /* ffprobe */,
 			);
 			path = Resources;
@@ -242,6 +245,7 @@
 				B1000005 /* Assets.xcassets in Resources */,
 				B1000007 /* ytdlp in Resources */,
 				B1000061 /* ffmpeg in Resources */,
+				SMP00001 /* Sample.m4a in Resources */,
 				B1000E3D /* ffprobe in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

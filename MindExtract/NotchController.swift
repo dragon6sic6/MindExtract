@@ -54,6 +54,8 @@ final class NotchPanel: NSPanel {
         guard mods == .command || mods == [.command, .shift], let key = event.charactersIgnoringModifiers?.lowercased() else {
             return super.performKeyEquivalent(with: event)
         }
+        // The introduction's "press ⌘V" step catches the paste itself.
+        if key == "v", mods == .command, MainActor.assumeIsolated({ Onboarding.pasteIfWaiting() }) { return true }
         let action: Selector?
         switch (key, mods.contains(.shift)) {
         case ("v", false): action = #selector(NSText.paste(_:))
@@ -189,7 +191,13 @@ final class NotchController {
             takeKeyboard()
             model.requestFocus()
         }
+        // The introduction asked you to open it yourself: that was it.
+        if model.onboarding == .summon { Onboarding.summoned(by: reason) }
     }
+
+    /// The introduction's paste step needs the keyboard even if the notch was
+    /// opened by hovering.
+    func takeKeyboardForIntroduction() { takeKeyboard() }
 
     /// Typing needs MindExtract to be the active app: a panel above the menu bar
     /// doesn't reliably get key presses otherwise. close() gives them back.
@@ -322,7 +330,7 @@ final class NotchController {
         }
 
         let typing = model.isEditing && !model.input.isEmpty
-        let onboarding = model.onboardingStep != nil   // the introduction stays until it's finished
+        let onboarding = model.onboarding != nil && model.onboarding != .summon   // the introduction stays open
         if (stickyOpen && !mouseWasInside) || inside || typing || model.isMenuOpen || model.dragKind != nil || onboarding {
             closeWork?.cancel(); closeWork = nil
         } else if closeWork == nil {
@@ -332,7 +340,7 @@ final class NotchController {
                 self.closeWork = nil
                 let typing = self.model.isEditing && !self.model.input.isEmpty
                 if !self.openRect.contains(NSEvent.mouseLocation), !typing, !self.model.isMenuOpen, self.model.dragKind == nil,
-                   self.model.onboardingStep == nil {
+                   (self.model.onboarding == nil || self.model.onboarding == .summon) {
                     self.close()
                 }
             }

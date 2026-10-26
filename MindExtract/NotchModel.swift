@@ -74,8 +74,14 @@ final class NotchModel: ObservableObject {
     /// Bumped to move keyboard focus to the link field.
     @Published private(set) var focusCount = 0
     @Published var isEditing = false
-    /// The first-run introduction's page, while it's showing.
-    @Published var onboardingStep: Int?
+    /// Where the first-run introduction is, while it runs.
+    @Published var onboarding: Onboarding.Beat?
+    /// A short line shown under the closed notch (during and right after the introduction).
+    @Published var onboardingCaption: String?
+    /// What you pasted into the introduction's paste step.
+    @Published var onboardingPaste: String?
+    /// You just opened the notch yourself in the introduction.
+    @Published var onboardingJustSummoned = false
     @Published var openSize: CGSize = .zero
     @Published var geometry = NotchGeometry.current()
     /// A menu from the notch is showing.
@@ -254,7 +260,10 @@ final class NotchModel: ObservableObject {
         stage = .working(item, .transcribe, phase: String(localized: "Getting ready…"), progress: nil)
 
         if let path = item.filePath {
-            tm.transcribe(mediaPath: path, title: item.title, language: language, source: .file)
+            let isSample = path == Self.sampleURL?.path
+            if isSample { try? FileManager.default.removeItem(atPath: Self.sampleTranscriptPath) }
+            tm.transcribe(mediaPath: path, title: item.title, language: language, source: .file,
+                          outputPath: isSample ? Self.sampleTranscriptPath : nil)
         } else if let url = item.url {
             downloader.cancelLoad(keepInfo: true)
             tm.transcriptionState = .downloadingAudio(progress: 0)
@@ -473,8 +482,17 @@ final class NotchModel: ObservableObject {
     private func finish(_ result: Stage) {
         stage = result
         input = ""
+        // The introduction's first transcript: straight on to pasting it.
+        if onboarding == .tryIt, case .transcribed(let item, let path) = result {
+            // The paste step needs it on the clipboard, even if something else was copied meanwhile.
+            if autoCopiedPath != path { copyTranscript(path: path, item: item); autoCopiedPath = path }
+            Onboarding.advance(to: .paste)
+            NotchController.shared.open(.reopen)
+            return
+        }
         guard !isOpen else { return }
-        notify(result)
+        // No notification (or permission prompt) in the middle of the introduction.
+        if onboarding == nil { notify(result) }
         hasUnseenResult = true
         unseenIsQuiet = false
         popCount += 1
@@ -531,6 +549,27 @@ final class NotchModel: ObservableObject {
         if let url = URL(string: text), let scheme = url.scheme, ["http", "https"].contains(scheme), url.host != nil { return true }
         // "youtube.com/watch?v=…" without a scheme
         return text.range(of: #"^[\w-]+(\.[\w-]+)+(/\S*)?$"#, options: .regularExpression) != nil
+    }
+
+    // MARK: The introduction's sample
+
+    /// A short spoken clip bundled with the app, for a first transcript without a link.
+    static var sampleURL: URL? { Bundle.main.url(forResource: "Sample", withExtension: "m4a") }
+
+    /// Its transcript goes to the app's own folder, not the user's Downloads.
+    private static var sampleTranscriptPath: String {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("com.mindact.mindextract")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("Welcome to MindExtract.txt").path
+    }
+
+    func transcribeSample() {
+        guard let url = Self.sampleURL, !isBusy else { return }
+        input = ""
+        stage = .ready(Item(title: String(localized: "Welcome to MindExtract"), duration: "0:18",
+                            detail: String(localized: "Sample"), filePath: url.path))
+        transcribe()
     }
 
     static func wordCount(ofTranscriptAt path: String) -> Int {
