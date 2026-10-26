@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         updaterController.startUpdater()
         UNUserNotificationCenter.current().delegate = self
         NotchController.shared.start()
+        LoginItem.enableOnFirstRun()
         NotificationCenter.default.addObserver(forName: .checkForUpdates, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.updaterController.checkForUpdates(nil) }
         }
@@ -45,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
 
     // Opening the app again (Spotlight, Finder) opens the notch.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        NotchController.shared.open(sticky: true)
+        NotchController.shared.open(.reopen)
         return false
     }
 }

@@ -48,6 +48,7 @@ struct SettingsView: View {
     @State private var showResetConfirmation = false
     @State private var confirmRemoveLegacyKB = false
     @State private var showYouTubeSignOutConfirm = false
+    @State private var loginItemOn = LoginItem.isEnabled
 
     var body: some View {
         HStack(spacing: 0) {
@@ -200,16 +201,37 @@ struct SettingsView: View {
     @ViewBuilder
     private var generalPane: some View {
         Section {
-            Picker("Appearance", selection: $settings.appAppearance) {
-                Text("Automatic").tag("system")
-                Text("Light").tag("light")
-                Text("Dark").tag("dark")
+            LabeledContent {
+                HotKeyRecorder()
+            } label: {
+                Text("Open the notch")
+                Text("Works in any app. Hovering or clicking the notch always works too.")
             }
-            .pickerStyle(.segmented)
+            Toggle("Open MindExtract when you log in", isOn: Binding(
+                get: { loginItemOn },
+                set: { loginItemOn = $0; LoginItem.set($0) }))
         } header: {
-            Text("Appearance")
-        } footer: {
-            Text("Automatic follows your Mac's light or dark mode and accent color.")
+            Text("Notch")
+        }
+
+        Section {
+            Toggle(isOn: $settings.autoCopyWhenDone) {
+                Text("Copy the transcript when it's done")
+                Text("Only if you haven't copied anything else in the meantime.")
+            }
+            Picker(selection: Binding(
+                get: { Assistant.preferred },
+                set: { settings.preferredAssistant = $0.rawValue })) {
+                ForEach(Assistant.allCases) { a in Text(verbatim: a.name).tag(a) }
+            } label: {
+                Text("Open in")
+                Text("A button next to Copy that opens the app — or its website if it isn't installed.")
+            }
+            Toggle("Notify me when it's done", isOn: Binding(
+                get: { settings.notifyOnTranscriptionComplete },
+                set: { settings.notifyOnTranscriptionComplete = $0; settings.showNotifications = $0 }))
+        } header: {
+            Text("When it's done")
         }
 
         Section("About MindExtract") {
@@ -282,14 +304,8 @@ struct SettingsView: View {
             }
             Toggle(isOn: $settings.enableSpeakerDiarization) {
                 Text("Tell speakers apart")
-                Text("Labels who said what. You can rename speakers afterwards.")
+                Text("Marks who said what when there's more than one voice.")
             }
-            Picker("Save transcripts as", selection: $settings.transcriptionOutputFormat) {
-                ForEach(TranscriptionOutputFormat.allCases, id: \.self) { format in
-                    Text(format.displayName).tag(format)
-                }
-            }
-            Toggle("Notify me when a transcript is ready", isOn: $settings.notifyOnTranscriptionComplete)
         } header: {
             Text("Transcripts")
         } footer: {
@@ -325,7 +341,7 @@ struct SettingsView: View {
         } header: {
             Text("Which engine is used")
         } footer: {
-            Text("Everything here runs on your Mac. Notes and summaries are written afterwards by the AI engine (Settings → AI), from the finished transcript.")
+            Text("Everything here runs on your Mac.")
         }
 
         Section {
@@ -404,13 +420,6 @@ struct SettingsView: View {
         }
 
         Section {
-            Toggle("Notify me when a download finishes", isOn: $settings.showNotifications)
-            Toggle("Play a sound", isOn: $settings.playSoundOnComplete)
-        } header: {
-            Text("Notifications")
-        }
-
-        Section {
             youtubeAuthContent
         } header: {
             Text("YouTube")
@@ -485,7 +494,6 @@ struct SettingsView: View {
 
     private func resetSettingsToDefaults() {
         settings.resetToDefaults()
-        AppDelegate.applyAppearance(settings.appAppearance)
         category = .overview
     }
 
@@ -567,4 +575,51 @@ struct ModelRow: View {
 
 #Preview {
     SettingsView(downloader: YTDLPWrapper())
+}
+
+// MARK: - Shortcut recorder
+
+struct HotKeyRecorder: View {
+    @ObservedObject private var hotKey = GlobalHotKey.shared
+    @State private var recording = false
+    @State private var monitor: Any?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button {
+                recording ? stop() : start()
+            } label: {
+                Text(recording ? String(localized: "Press the shortcut…") : (hotKey.combo?.display ?? String(localized: "Off")))
+                    .monospacedDigit()
+                    .frame(minWidth: 120)
+            }
+            if !recording, hotKey.combo != .standard {
+                Button("Reset") { hotKey.set(.standard) }
+            }
+            if !recording, hotKey.combo != nil {
+                Button("Turn Off") { hotKey.set(nil) }
+            }
+        }
+        .onDisappear(perform: stop)
+    }
+
+    private func start() {
+        recording = true
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { stop(); return nil }               // Esc cancels
+            if let combo = GlobalHotKey.combo(from: event) {
+                hotKey.set(combo)
+                stop()
+            } else {
+                NSSound.beep()                                          // needs ⌃, ⌥ or ⌘
+            }
+            return nil
+        }
+    }
+
+    private func stop() {
+        recording = false
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+    }
 }

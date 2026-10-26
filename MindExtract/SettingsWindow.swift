@@ -10,6 +10,8 @@ import SwiftUI
 enum SettingsWindow {
     private static var window: NSWindow?
 
+    static var isVisible: Bool { window?.isVisible == true }
+
     static func show() {
         NotchController.shared.close()
         if window == nil {

@@ -26,34 +26,34 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
     }
 
     if has("sign in to confirm you're not a bot", "sign in to confirm you’re not a bot", "confirm you're not a bot", "confirm you’re not a bot", "sign in to confirm") {
-        return DownloadErrorInfo(message: "YouTube wants to confirm you're not a bot. Sign in to YouTube to continue.", needsYouTubeAuth: true)
+        return DownloadErrorInfo(message: String(localized: "YouTube wants to confirm you're not a bot. Sign in to YouTube to continue."), needsYouTubeAuth: true)
     }
     if has("confirm your age", "age-restricted", "age restricted", "inappropriate for some users") {
-        return DownloadErrorInfo(message: "This video is age-restricted. Sign in to YouTube to download it.", needsYouTubeAuth: true)
+        return DownloadErrorInfo(message: String(localized: "This video is age-restricted. Sign in to YouTube to download it."), needsYouTubeAuth: true)
     }
     if has("members-only", "join this channel", "available to this channel's members") {
-        return DownloadErrorInfo(message: "This is members-only content. Sign in with an account that has access.", needsYouTubeAuth: true)
+        return DownloadErrorInfo(message: String(localized: "This is members-only content. Sign in with an account that has access."), needsYouTubeAuth: true)
     }
     if has("private video", "this video is private") {
-        return DownloadErrorInfo(message: "This video is private and can't be downloaded.", needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "This video is private and can't be downloaded."), needsYouTubeAuth: false)
     }
     if has("video unavailable", "is not available", "no longer available", "has been removed", "this video has been removed") {
-        return DownloadErrorInfo(message: "This video is unavailable or has been removed.", needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "This video is unavailable or has been removed."), needsYouTubeAuth: false)
     }
     if has("requested format is not available", "requested format not available") {
-        return DownloadErrorInfo(message: "The selected quality isn't available for this video. Try a different format.", needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "The selected quality isn't available for this video. Try a different format."), needsYouTubeAuth: false)
     }
     if has("not available in your country", "not available from your location", "blocked in your country", "geo restrict") {
-        return DownloadErrorInfo(message: "This video isn't available in your region.", needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "This video isn't available in your region."), needsYouTubeAuth: false)
     }
     if has("failed to resolve", "temporary failure in name resolution", "could not resolve host", "connection refused", "network is unreachable", "timed out", "connection timed out") {
-        return DownloadErrorInfo(message: "Network problem — check your internet connection and try again.", needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "Network problem — check your internet connection and try again."), needsYouTubeAuth: false)
     }
     if has("http error 404", "unable to download webpage", "404: not found") {
-        return DownloadErrorInfo(message: "Couldn't reach that page. Check the link and try again.", needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "Couldn't reach that page. Check the link and try again."), needsYouTubeAuth: false)
     }
     if has("unsupported url", "no video formats found", "unable to extract", "unable to find") {
-        return DownloadErrorInfo(message: "This link isn't supported, or the site changed. Updating the app may help.", needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "This link isn't supported, or the site changed. Updating the app may help."), needsYouTubeAuth: false)
     }
 
     // Fallback: surface the last ERROR line (not a WARNING), cleaned.
@@ -738,7 +738,7 @@ class YTDLPWrapper: ObservableObject {
     private func handleFetchTimeout() {
         fetchTask?.terminate()
         fetchTask = nil
-        state = .timeout("Operation is taking too long. The server might be slow or unresponsive.")
+        state = .timeout(String(localized: "This is taking unusually long. The site may be slow — try again in a moment."))
         outputLog += "\n⚠️ TIMEOUT: Operation exceeded \(Int(fetchTimeout)) seconds.\n"
         outputLog += "You can try again or check if the URL is correct.\n"
     }
@@ -752,7 +752,7 @@ class YTDLPWrapper: ObservableObject {
             downloadTask?.terminate()
             downloadTask = nil
             cancelTimeoutTimer()
-            state = .timeout("Download appears to be stalled. No progress for \(Int(stallTime)) seconds.")
+            state = .timeout(String(localized: "The download stopped moving. Check your connection and try again."))
             outputLog += "\n⚠️ STALL DETECTED: No download progress for \(Int(stallTime)) seconds.\n"
             outputLog += "The connection may have been lost. You can try again.\n"
         }
@@ -1036,7 +1036,7 @@ class YTDLPWrapper: ObservableObject {
                     self.historyManager.addToHistory(historyItem)
                 }
                 if self.settings.showNotifications {
-                    self.sendNotification(title: "Download Complete", body: "Video saved to Downloads")
+                    self.sendNotification(title: String(localized: "Download finished"), body: self.videoInfo?.title ?? "")
                 }
                 if self.settings.playSoundOnComplete {
                     self.playCompletionSound()
@@ -1088,7 +1088,7 @@ class YTDLPWrapper: ObservableObject {
                 }
                 if self.settings.showNotifications {
                     let what = self.settings.downloadQuality == .audioOnly ? "Audio" : "Video"
-                    self.sendNotification(title: "Download Complete", body: "\(what) saved to Downloads")
+                    self.sendNotification(title: String(localized: "Download finished"), body: self.videoInfo?.title ?? what)
                 }
                 if self.settings.playSoundOnComplete {
                     self.playCompletionSound()
@@ -1207,7 +1207,7 @@ class YTDLPWrapper: ObservableObject {
                     self.historyManager.addToHistory(historyItem)
                 }
                 if self.settings.showNotifications {
-                    self.sendNotification(title: "Download Complete", body: "Audio file saved to Downloads")
+                    self.sendNotification(title: String(localized: "Download finished"), body: self.videoInfo?.title ?? "")
                 }
                 if self.settings.playSoundOnComplete {
                     self.playCompletionSound()
@@ -1267,7 +1267,7 @@ class YTDLPWrapper: ObservableObject {
             } else {
                 let msg = errorOutput ?? "Unknown error"
                 self.setDownloadError(msg)
-                completion(nil, msg)
+                completion(nil, classifyDownloadError(msg).message)
             }
         }
     }

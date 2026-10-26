@@ -8957,6 +8957,746 @@
           }
         }
       }
+    },
+    "(Automatic transcript — may contain errors.)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(Automatisk transkribering – kan innehålla fel.)"
+          }
+        }
+      }
+    },
+    "A button next to Copy that opens the app — or its website if it isn't installed.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En knapp bredvid Kopiera som öppnar appen – eller webbplatsen om appen inte finns."
+          }
+        }
+      }
+    },
+    "Any site that plays video": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla webbplatser som spelar video"
+          }
+        }
+      }
+    },
+    "Channel: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanal: %@"
+          }
+        }
+      }
+    },
+    "Copied automatically — paste with ⌘V in Claude, ChatGPT or anywhere.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopierat automatiskt – klistra in med ⌘V i Claude, ChatGPT eller var du vill."
+          }
+        }
+      }
+    },
+    "Copied link": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopierad länk"
+          }
+        }
+      }
+    },
+    "Copies the transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopierar transkriptet"
+          }
+        }
+      }
+    },
+    "Copies the transcript and opens %@ — paste with ⌘V": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopierar transkriptet och öppnar %@ – klistra in med ⌘V"
+          }
+        }
+      }
+    },
+    "Copy the transcript when it's done": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera transkriptet när det är klart"
+          }
+        }
+      }
+    },
+    "Couldn't get the audio.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunde inte hämta ljudet."
+          }
+        }
+      }
+    },
+    "Couldn't reach that page. Check the link and try again.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sidan gick inte att nå. Kontrollera länken och försök igen."
+          }
+        }
+      }
+    },
+    "Download finished": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningen är klar"
+          }
+        }
+      }
+    },
+    "Downloading the Swedish speech model…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hämtar den svenska talmodellen…"
+          }
+        }
+      }
+    },
+    "Downloading the speech model…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hämtar talmodellen…"
+          }
+        }
+      }
+    },
+    "Drop the link": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Släpp länken"
+          }
+        }
+      }
+    },
+    "Everything here runs on your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allt här körs på din Mac."
+          }
+        }
+      }
+    },
+    "Fetch": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hämta"
+          }
+        }
+      }
+    },
+    "Finish or cancel the current one first": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gör klart eller avbryt den pågående först"
+          }
+        }
+      }
+    },
+    "In progress": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pågår"
+          }
+        }
+      }
+    },
+    "Language: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Språk: %@"
+          }
+        }
+      }
+    },
+    "Length: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Längd: %@"
+          }
+        }
+      }
+    },
+    "Marks who said what when there's more than one voice.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Märker ut vem som säger vad när det är fler än en röst."
+          }
+        }
+      }
+    },
+    "More Options": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fler alternativ"
+          }
+        }
+      }
+    },
+    "Network problem — check your internet connection and try again.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingen internetanslutning. Kontrollera nätverket och försök igen."
+          }
+        }
+      }
+    },
+    "New Link": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ny länk"
+          }
+        }
+      }
+    },
+    "New link": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ny länk"
+          }
+        }
+      }
+    },
+    "Notch": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notchen"
+          }
+        }
+      }
+    },
+    "Notify me when it's done": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meddela mig när det är klart"
+          }
+        }
+      }
+    },
+    "One more step": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ett steg till"
+          }
+        }
+      }
+    },
+    "Only if you haven't copied anything else in the meantime.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bara om du inte har kopierat något annat under tiden."
+          }
+        }
+      }
+    },
+    "Open %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna %@"
+          }
+        }
+      }
+    },
+    "Open MindExtract when you log in": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna MindExtract när du loggar in"
+          }
+        }
+      }
+    },
+    "Open in": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna i"
+          }
+        }
+      }
+    },
+    "Open the notch": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna notchen"
+          }
+        }
+      }
+    },
+    "Opens it": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppnar den"
+          }
+        }
+      }
+    },
+    "Paste a link or drag a file here": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in en länk eller dra hit en fil"
+          }
+        }
+      }
+    },
+    "Paste with ⌘V in Claude, ChatGPT or anywhere.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in med ⌘V i Claude, ChatGPT eller var du vill."
+          }
+        }
+      }
+    },
+    "Press the shortcut…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tryck kortkommandot…"
+          }
+        }
+      }
+    },
+    "Progress": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förlopp"
+          }
+        }
+      }
+    },
+    "Save Audio": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara ljud"
+          }
+        }
+      }
+    },
+    "Save Video": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara video"
+          }
+        }
+      }
+    },
+    "Save as": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara som"
+          }
+        }
+      }
+    },
+    "Save: Audio only": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara: Bara ljud"
+          }
+        }
+      }
+    },
+    "Save: Video": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara: Video"
+          }
+        }
+      }
+    },
+    "Saved": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sparad"
+          }
+        }
+      }
+    },
+    "Saved video, %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sparad video, %@"
+          }
+        }
+      }
+    },
+    "Show Saved Files": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa sparade filer"
+          }
+        }
+      }
+    },
+    "Sign In to YouTube": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logga in på YouTube"
+          }
+        }
+      }
+    },
+    "Something went wrong": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Något gick fel"
+          }
+        }
+      }
+    },
+    "Source: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Källa: %@"
+          }
+        }
+      }
+    },
+    "Space": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mellanslag"
+          }
+        }
+      }
+    },
+    "Starting speech recognition…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startar taligenkänningen…"
+          }
+        }
+      }
+    },
+    "Swedish needs the Pianissimo speech model (690 MB). It downloads once, then works offline.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svenska behöver talmodellen Pianissimo (690 MB). Den laddas ned en gång och fungerar sedan offline."
+          }
+        }
+      }
+    },
+    "That didn't work": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det gick inte"
+          }
+        }
+      }
+    },
+    "That isn't a link. Paste a web address or drag a file here.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det är ingen länk. Klistra in en webbadress eller dra hit en fil."
+          }
+        }
+      }
+    },
+    "The download stopped moving. Check your connection and try again.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningen har stannat. Kontrollera anslutningen och försök igen."
+          }
+        }
+      }
+    },
+    "The selected quality isn't available for this video. Try a different format.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den valda kvaliteten finns inte för den här videon. Prova ett annat format."
+          }
+        }
+      }
+    },
+    "The speech model didn't download.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talmodellen laddades inte ned."
+          }
+        }
+      }
+    },
+    "This is members-only content. Sign in with an account that has access.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det här är för medlemmar. Logga in med ett konto som har tillgång."
+          }
+        }
+      }
+    },
+    "This is taking unusually long. The site may be slow — try again in a moment.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det tar ovanligt lång tid. Sidan kan vara långsam – försök igen om en stund."
+          }
+        }
+      }
+    },
+    "This language needs a speech model (%@). It downloads once, then works offline.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det här språket behöver en talmodell (%@). Den laddas ned en gång och fungerar sedan offline."
+          }
+        }
+      }
+    },
+    "This link isn't supported, or the site changed. Updating the app may help.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sidan stöds inte, eller har ändrats. Prova att uppdatera MindExtract."
+          }
+        }
+      }
+    },
+    "This video is age-restricted. Sign in to YouTube to download it.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videon är åldersbegränsad. Logga in på YouTube för att hämta den."
+          }
+        }
+      }
+    },
+    "This video is private and can't be downloaded.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videon är privat och kan inte hämtas."
+          }
+        }
+      }
+    },
+    "This video is unavailable or has been removed.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videon finns inte längre."
+          }
+        }
+      }
+    },
+    "This video isn't available in your region.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videon är inte tillgänglig i ditt land."
+          }
+        }
+      }
+    },
+    "Transcript copied": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriptet har kopierats"
+          }
+        }
+      }
+    },
+    "Transcript ready": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriptet är klart"
+          }
+        }
+      }
+    },
+    "Transcript, %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript, %@"
+          }
+        }
+      }
+    },
+    "Turn Off": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stäng av"
+          }
+        }
+      }
+    },
+    "When it's done": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "När det är klart"
+          }
+        }
+      }
+    },
+    "Works in any app. Hovering or clicking the notch always works too.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fungerar i alla appar. Att hålla över eller klicka på notchen fungerar alltid också."
+          }
+        }
+      }
+    },
+    "YouTube wants to confirm you're not a bot. Sign in to YouTube to continue.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube vill att du loggar in för att fortsätta."
+          }
+        }
+      }
+    },
+    "≈ %lld words": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %lld ord"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

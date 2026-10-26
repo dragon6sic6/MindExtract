@@ -523,6 +523,12 @@ class AppSettings: ObservableObject {
     /// Post a notification when a transcription finishes.
     @AppStorage("notifyOnTranscriptionComplete") var notifyOnTranscriptionComplete: Bool = true
 
+    // MARK: Notch
+    /// Copy a finished transcript automatically (only if the clipboard wasn't used meanwhile).
+    @AppStorage("autoCopyWhenDone") var autoCopyWhenDone: Bool = true
+    /// Where "Open in…" takes you after copying: "claude", "chatgpt", "none", or "" = pick what's installed.
+    @AppStorage("preferredAssistant") var preferredAssistant: String = ""
+
     // Default language a new transcription starts with (the picker pre-selects it).
     @AppStorage("defaultTranscriptionLanguage") var defaultTranscriptionLanguage: String = "auto"
 
@@ -545,7 +551,7 @@ class AppSettings: ObservableObject {
         "downloadPath", "cookieBrowser", "cookiesFilePath", "defaultWhisperModel", "transcriptionOutputFormat",
         "enableSpeakerDiarization", "transcriptionEngine", "translateToEnglish",
         "customVocabulary", "appAppearance", "downloadQuality", "notifyOnTranscriptionComplete",
-        "defaultTranscriptionLanguage",
+        "defaultTranscriptionLanguage", "autoCopyWhenDone", "preferredAssistant",
         "settingsCategory",
     ]
 
@@ -601,6 +607,8 @@ struct TranscriptionHistoryItem: Identifiable, Codable, Equatable {
     var isFavorite: Bool?
     /// Source category (meeting/download/file). Optional for backward compat.
     var source: String?
+    /// The link a transcript was made from, so copying it later keeps the source.
+    var sourceURL: String?
     var sourceType: TranscriptSource? { source.flatMap(TranscriptSource.init(rawValue:)) }
 
     init(title: String, filePath: String, duration: String? = nil, modelUsed: String) {
@@ -737,6 +745,12 @@ class TranscriptionHistoryManager: ObservableObject {
             history = Array(history.prefix(maxHistoryItems))
         }
 
+        saveHistory()
+    }
+
+    func setSourceURL(_ url: String, forPath path: String) {
+        guard let i = history.firstIndex(where: { $0.filePath == path }) else { return }
+        history[i].sourceURL = url
         saveHistory()
     }
 

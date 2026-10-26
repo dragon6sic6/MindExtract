@@ -24,7 +24,13 @@ final class CoreLogicTests: XCTestCase {
 
         [1:02:03] Anna: Skönt.
         """
-        XCTAssertEqual(TranscriptCopy.plain(raw), "Anna: Hej. Hur mår du?\n\nSpeaker 2: Bra!\n\nAnna: Skönt.")
+        let other = TranscriptCopy.localizedSpeaker("Speaker 2")
+        XCTAssertEqual(TranscriptCopy.plain(raw), "Anna: Hej. Hur mår du?\n\n\(other): Bra!\n\nAnna: Skönt.")
+    }
+
+    func testPlainCopySkipsTheFilesOwnTitleHeader() {
+        let raw = "# Möte\n2026-10-26 08:12\n\n[00:00] Speaker 1: Hej allihop."
+        XCTAssertEqual(TranscriptCopy.plain(raw), "Hej allihop.")
     }
 
     func testPlainCopyLeavesSentencesWithColonsAlone() {
