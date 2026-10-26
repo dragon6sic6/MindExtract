@@ -10,6 +10,11 @@ extension Locale {
     static let appEnglish = Locale(identifier: "en_US")
 }
 
+extension Int64 {
+    /// "632.2 MB", in English whatever the Mac's language.
+    var fileSizeText: String { formatted(.byteCount(style: .file).locale(.appEnglish)) }
+}
+
 // MARK: - Global shortcut
 //
 // One system-wide shortcut opens the notch with the link field focused

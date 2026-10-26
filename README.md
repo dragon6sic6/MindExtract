@@ -24,6 +24,15 @@ Paste a link, or drag a file onto the notch, and MindExtract saves the video or 
 - **About 40 languages, recognized automatically** for the 25 European ones.
 - **Save the video** in the quality you choose, or only the audio.
 
+## Settings
+
+Four short tabs, each choice explained.
+
+<p align="center">
+  <img src="docs/images/settings-general.jpg" width="49%" alt="General settings: the shortcut that opens the notch, open at login, automatic copy, timestamps and notifications">
+  <img src="docs/images/settings-transcription.jpg" width="49%" alt="Transcription settings: spoken language, telling speakers apart, and the NVIDIA Parakeet speech model">
+</p>
+
 ## How it works
 
 | Step | What does it | Where |

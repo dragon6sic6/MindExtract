@@ -165,7 +165,7 @@ struct SettingsView: View {
             return LocalizedStringKey(error)
         }
         if let size = transcriptionManager.modelSizeOnDisk {
-            return "25 European languages, including English. \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file)) on this Mac."
+            return "25 European languages, including English. \(size.fileSizeText) on this Mac."
         }
         return "25 European languages, including English. 630 MB, downloaded once."
     }

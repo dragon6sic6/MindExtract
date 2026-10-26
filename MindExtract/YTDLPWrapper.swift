@@ -627,10 +627,7 @@ class YTDLPWrapper: ObservableObject {
     }
 
     private func formatFileSize(_ bytes: Int64) -> String {
-        if bytes == 0 { return "" }
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
+        bytes.fileSizeText
     }
 
     // MARK: - Download

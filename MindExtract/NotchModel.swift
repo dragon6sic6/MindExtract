@@ -192,7 +192,7 @@ final class NotchModel: ObservableObject {
             return
         }
         let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map {
-            ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file)
+            Int64($0).fileSizeText
         } ?? ""
         stage = .ready(Item(title: url.deletingPathExtension().lastPathComponent,
                             detail: [url.pathExtension.uppercased(), size].filter { !$0.isEmpty }.joined(separator: " · "),
