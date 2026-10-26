@@ -7,7 +7,7 @@ import UserNotifications
 //
 // One item at a time: a pasted link or a dropped file. From there you save it
 // or transcribe it, and a finished transcript lands on the clipboard for Claude,
-// ChatGPT or any other model. The engines (yt-dlp, Pianissimo, Whisper, Apple
+// ChatGPT or any other model. The engines (yt-dlp, NVIDIA Parakeet, Apple
 // Speech) do the work; this keeps track of where we are.
 
 @MainActor
@@ -32,7 +32,7 @@ final class NotchModel: ObservableObject {
 
     enum Problem: Equatable {
         case general
-        case needsSpeechModel(WhisperModel)
+        case needsSpeechModel
         case needsSignIn
     }
 
@@ -97,8 +97,8 @@ final class NotchModel: ObservableObject {
     private var lastPasteboardCount = -1
     /// Clipboard state when the job started; auto-copy only if it's unchanged.
     private var jobPasteboardCount = -1
-    /// A speech model we're downloading so a transcription can continue.
-    private var awaitedModel: WhisperModel?
+    /// A transcription is waiting for the speech model to finish downloading.
+    private var awaitingModel = false
     private var quietWork: DispatchWorkItem?
     /// The downloader's lookup that belongs to the link we're waiting on.
     private var awaitedLoad = -1
@@ -114,9 +114,9 @@ final class NotchModel: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] state in self?.transcriptionChanged(state) }
             .store(in: &cancellables)
-        tm.$downloadedModels.combineLatest(tm.$downloadingModel, tm.$modelDownloadProgress)
+        tm.$isModelInstalled.combineLatest(tm.$isDownloadingModel, tm.$modelDownloadProgress)
             .receive(on: RunLoop.main)
-            .sink { [weak self] models, downloading, progress in self?.modelsChanged(models, downloading, progress) }
+            .sink { [weak self] installed, downloading, progress in self?.modelChanged(installed, downloading, progress) }
             .store(in: &cancellables)
     }
 
@@ -202,7 +202,7 @@ final class NotchModel: ObservableObject {
     func clear() {
         if isBusy { cancel() } else { downloader.cancelLoad() }   // a lookup may still run behind a preview
         input = ""
-        awaitedModel = nil
+        awaitingModel = false
         language = AppSettings.shared.defaultTranscriptionLanguage
         stage = .idle
     }
@@ -238,24 +238,15 @@ final class NotchModel: ObservableObject {
         case .failed(let i?, _, _, _, _): item = i
         default: return
         }
-        // Swedish deserves Pianissimo; offer it rather than falling back quietly.
-        if language == "sv", !tm.isModelDownloaded(.pianissimo) {
-            if tm.downloadingModel == .pianissimo {
-                awaitedModel = .pianissimo
-                stage = .working(item, .transcribe, phase: String(localized: "Downloading the Swedish speech model…"),
-                                 progress: tm.modelDownloadProgress)
-            } else {
-                fail(item, work: .transcribe,
-                     String(localized: "Swedish needs the Pianissimo speech model (690 MB). It downloads once, then works offline."),
-                     problem: .needsSpeechModel(.pianissimo))
-            }
+        // The speech model downloads on first launch; wait for it, or offer it.
+        if TranscriptionManager.needsSpeechModel(language), !tm.isModelInstalled {
+            waitForModel(item)
             return
         }
         start(item)
     }
 
     private func start(_ item: Item) {
-        let model = AppSettings.shared.defaultWhisperModel
         let language = language
         jobToken += 1
         let token = jobToken
@@ -263,11 +254,9 @@ final class NotchModel: ObservableObject {
         stage = .working(item, .transcribe, phase: String(localized: "Getting ready…"), progress: nil)
 
         if let path = item.filePath {
-            tm.startNewTranscription(title: item.title, model: model, source: .file)
-            tm.transcribe(videoPath: path, model: model, outputFormat: .txt, language: language)
+            tm.transcribe(mediaPath: path, title: item.title, language: language, source: .file)
         } else if let url = item.url {
             downloader.cancelLoad(keepInfo: true)
-            tm.startNewTranscription(title: item.title, model: model, source: .download)
             tm.transcriptionState = .downloadingAudio(progress: 0)
             downloader.downloadAudioForTranscription(url: url) { [weak self] audioPath, error in
                 guard let self, token == self.jobToken else {
@@ -280,18 +269,30 @@ final class NotchModel: ObservableObject {
                 }
                 let base = TranscriptionManager.safeFileBase(item.title, fallback: "Transcript")
                 let out = TranscriptionManager.uniqueFilePath(dir: AppSettings.shared.downloadPath, base: base, ext: "txt")
-                self.tm.transcribeAudioFile(audioPath: audioPath, model: model, outputPath: out,
-                                            outputFormat: .txt, language: language)
+                self.tm.transcribe(mediaPath: audioPath, title: item.title, language: language, source: .download,
+                                   outputPath: out, removeMediaAfter: true)
             }
         }
     }
 
     /// Downloads the speech model the failed job needs, then carries on by itself.
     func downloadModelAndContinue() {
-        guard case .failed(let item?, _, _, .needsSpeechModel(let model), _) = stage else { return }
-        awaitedModel = model
-        if tm.downloadingModel != model { tm.downloadModel(model) }
-        stage = .working(item, .transcribe, phase: String(localized: "Downloading the speech model…"), progress: nil)
+        guard case .failed(let item?, _, _, .needsSpeechModel, _) = stage else { return }
+        tm.downloadModel()
+        waitForModel(item)
+    }
+
+    /// Shows the model download in the notch while it runs, then starts the job.
+    private func waitForModel(_ item: Item) {
+        if tm.isDownloadingModel {
+            awaitingModel = true
+            stage = .working(item, .transcribe, phase: String(localized: "Downloading the speech model…"),
+                             progress: tm.modelDownloadProgress > 0 ? tm.modelDownloadProgress : nil)
+        } else {
+            fail(item, work: .transcribe,
+                 String(localized: "Transcribing needs the speech model (630 MB). It downloads once, then works offline."),
+                 problem: .needsSpeechModel)
+        }
     }
 
     func retry() {
@@ -308,12 +309,11 @@ final class NotchModel: ObservableObject {
         jobToken += 1
         switch stage {
         case .working(let item, let work, _, _):
-            if awaitedModel != nil {
-                awaitedModel = nil
-                tm.cancelModelDownload()
+            if awaitingModel {
+                awaitingModel = false   // the model keeps downloading; only this job stops
             } else {
                 downloader.cancelDownload()
-                if work == .transcribe { tm.cancelTranscription() }
+                if work == .transcribe { tm.cancel() }
             }
             stage = .ready(item)
         case .loadingInfo:
@@ -422,7 +422,7 @@ final class NotchModel: ObservableObject {
     }
 
     private func transcriptionChanged(_ state: TranscriptionState) {
-        guard case .working(let item, .transcribe, _, _) = stage, awaitedModel == nil else { return }
+        guard case .working(let item, .transcribe, _, _) = stage, !awaitingModel else { return }
         switch state {
         case .downloadingAudio:
             break   // progress comes from the downloader
@@ -445,34 +445,24 @@ final class NotchModel: ObservableObject {
             let needsSignIn = item.filePath == nil && downloader.lastErrorNeedsAuth
             fail(item, work: .transcribe, message, problem: needsSignIn ? .needsSignIn : .general)
         case .modelNotDownloaded:
-            let model = tm.neededModel ?? (language == "sv" ? WhisperModel.pianissimo : tm.multilingualBaseModel())
-            if tm.downloadingModel == model {
-                // Already on its way (the Swedish model downloads on first run): wait for it.
-                awaitedModel = model
-                stage = .working(item, .transcribe, phase: String(localized: "Downloading the speech model…"),
-                                 progress: tm.modelDownloadProgress)
-                return
-            }
-            fail(item, work: .transcribe,
-                 String(localized: "This language needs a speech model (\(model.sizeDescription)). It downloads once, then works offline."),
-                 problem: .needsSpeechModel(model))
+            waitForModel(item)
         case .idle:
             break
         }
     }
 
-    private func modelsChanged(_ models: Set<WhisperModel>, _ downloading: WhisperModel?, _ progress: Double) {
-        guard let awaited = awaitedModel, case .working(let item, .transcribe, _, _) = stage else { return }
-        if models.contains(awaited) {
-            awaitedModel = nil
+    private func modelChanged(_ installed: Bool, _ downloading: Bool, _ progress: Double) {
+        guard awaitingModel, case .working(let item, .transcribe, _, _) = stage else { return }
+        if installed {
+            awaitingModel = false
             start(item)
-        } else if downloading == awaited {
+        } else if downloading {
             stage = .working(item, .transcribe, phase: String(localized: "Downloading the speech model…"),
                              progress: progress > 0 ? progress : nil)
-        } else if downloading == nil {
-            awaitedModel = nil
-            let message = tm.modelDownloadError?.message ?? String(localized: "The speech model didn't download.")
-            fail(item, work: .transcribe, message, problem: .needsSpeechModel(awaited))
+        } else {
+            awaitingModel = false
+            fail(item, work: .transcribe, tm.modelDownloadError ?? String(localized: "The speech model didn't download."),
+                 problem: .needsSpeechModel)
         }
     }
 
@@ -707,12 +697,6 @@ enum TranscriptCopy {
             let who = row.speaker ?? turns.last?.0 ?? ""
             if turns.last?.0 == who { turns[turns.count - 1].1.append(row.text) } else { turns.append((who, [row.text])) }
         }
-        return turns.map { "\(localizedSpeaker($0.0)): \($0.1.joined(separator: " "))" }.joined(separator: "\n\n")
-    }
-
-    /// "Speaker 2" → "Talare 2" in Swedish; real names stay.
-    static func localizedSpeaker(_ name: String) -> String {
-        guard name.hasPrefix("Speaker "), let n = Int(name.dropFirst(8)) else { return name }
-        return String(localized: "Speaker \(n)")
+        return turns.map { "\($0.0): \($0.1.joined(separator: " "))" }.joined(separator: "\n\n")
     }
 }

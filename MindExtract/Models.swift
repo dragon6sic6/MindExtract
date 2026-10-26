@@ -53,109 +53,13 @@ struct VideoInfo: Identifiable, Hashable {
     }
 }
 
-struct PageScanResult {
-    let title: String
-    let videos: [VideoInfo]
-}
-
 enum DownloadState: Equatable {
     case idle
     case fetchingFormats
-    case scanningPage
     case downloading(progress: Double, speed: String)
     case completed
     case error(String)
     case timeout(String)  // Shows when operation takes too long
-}
-
-enum AppMode {
-    case singleVideo
-    case pageScan
-    case localFile
-}
-
-// MARK: - Local File
-
-struct LocalFileInfo: Identifiable, Equatable {
-    let id: UUID
-    let url: URL
-    let name: String
-    let size: Int64
-    let duration: String?
-
-    init(url: URL) {
-        self.id = UUID()
-        self.url = url
-        self.name = url.lastPathComponent
-
-        // Get file size
-        if let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
-           let fileSize = attributes[.size] as? Int64 {
-            self.size = fileSize
-        } else {
-            self.size = 0
-        }
-
-        // Try to get duration using AVFoundation
-        self.duration = LocalFileInfo.getVideoDuration(url: url)
-    }
-
-    var sizeFormatted: String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: size)
-    }
-
-    private static func getVideoDuration(url: URL) -> String? {
-        let asset = AVAsset(url: url)
-        let duration = asset.duration
-        let seconds = CMTimeGetSeconds(duration)
-
-        if seconds.isNaN || seconds.isInfinite {
-            return nil
-        }
-
-        let hours = Int(seconds) / 3600
-        let minutes = (Int(seconds) % 3600) / 60
-        let secs = Int(seconds) % 60
-
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        } else {
-            return String(format: "%d:%02d", minutes, secs)
-        }
-    }
-}
-
-// MARK: - Download Queue
-
-struct QueueItem: Identifiable, Equatable {
-    let id: UUID
-    let url: String
-    let title: String
-    let thumbnail: String?
-    var status: QueueItemStatus
-    var progress: Double
-    var speed: String
-    var isAudioOnly: Bool
-
-    init(url: String, title: String, thumbnail: String? = nil, isAudioOnly: Bool = false) {
-        self.id = UUID()
-        self.url = url
-        self.title = title
-        self.thumbnail = thumbnail
-        self.status = .pending
-        self.progress = 0
-        self.speed = ""
-        self.isAudioOnly = isAudioOnly
-    }
-}
-
-enum QueueItemStatus: Equatable {
-    case pending
-    case downloading
-    case completed
-    case failed(String)
 }
 
 enum Platform: String, CaseIterable {
@@ -240,196 +144,6 @@ struct HistoryItem: Identifiable, Codable, Equatable {
 
 // MARK: - App Settings
 
-// MARK: - Transcription Engine Choice
-
-/// Which on-device transcription engine to use.
-/// - automatic: Apple SpeechAnalyzer on macOS 26+, else WhisperKit.
-/// - appleSpeech: force Apple SpeechAnalyzer (macOS 26+ only).
-/// - whisperKit: force WhisperKit (works on all supported macOS versions).
-enum TranscriptionEngineChoice: String, CaseIterable, Codable, Identifiable {
-    case automatic = "Automatic"
-    case appleSpeech = "Apple Speech"
-    case whisperKit = "WhisperKit"
-
-    var id: String { rawValue }
-
-    /// Plain-language name for the picker.
-    var displayName: String {
-        switch self {
-        case .automatic: return String(localized: "Automatic")
-        case .appleSpeech: return String(localized: "Apple")
-        case .whisperKit: return String(localized: "Whisper")
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .automatic: return String(localized: "Picks the best engine for each language. Swedish uses Pianissimo when it's downloaded.")
-        case .appleSpeech: return String(localized: "Apple's built-in speech recognition. No download needed.")
-        case .whisperKit: return String(localized: "Downloadable Whisper models. Supports the most languages.")
-        }
-    }
-}
-
-// MARK: - Whisper Transcription Models (WhisperKit Core ML)
-
-enum WhisperModel: String, CaseIterable, Codable, Identifiable {
-    case tiny = "openai_whisper-tiny"
-    case base = "openai_whisper-base"
-    case small = "openai_whisper-small"
-    case medium = "openai_whisper-medium"
-    case largev3 = "openai_whisper-large-v3"
-    case largev3turbo = "openai_whisper-large-v3_turbo"
-    // Klang Pianissimo (Klang AI AB, CC BY 4.0) — Swedish Parakeet-TDT model run
-    // through FluidAudio, not WhisperKit. See PianissimoEngine.
-    case pianissimo = "pianissimo-sv"
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .tiny: return "Tiny"
-        case .base: return "Base"
-        case .small: return "Small"
-        case .medium: return "Medium"
-        case .largev3: return "Large v3"
-        case .largev3turbo: return "Large v3 Turbo"
-        case .pianissimo: return String(localized: "Pianissimo (Swedish)")
-        }
-    }
-
-    var sizeDescription: String {
-        switch self {
-        case .tiny: return "~70 MB"
-        case .base: return "~150 MB"
-        case .small: return "~500 MB"
-        case .medium: return "~1.5 GB"
-        case .largev3: return "~3 GB"
-        case .largev3turbo: return "~1.6 GB"
-        case .pianissimo: return "~690 MB"
-        }
-    }
-
-    var sizeInBytes: Int64 {
-        switch self {
-        case .tiny: return 70_000_000
-        case .base: return 150_000_000
-        case .small: return 500_000_000
-        case .medium: return 1_500_000_000
-        case .largev3: return 3_000_000_000
-        case .largev3turbo: return 1_600_000_000
-        case .pianissimo: return 690_000_000
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .tiny: return String(localized: "Fastest, basic accuracy")
-        case .base: return String(localized: "Good balance of speed and accuracy")
-        case .small: return String(localized: "Better accuracy, moderate speed")
-        case .medium: return String(localized: "High accuracy, slower")
-        case .largev3: return String(localized: "Best accuracy, requires more RAM")
-        case .largev3turbo: return String(localized: "Near-best accuracy, optimized speed")
-        case .pianissimo: return String(localized: "Best Swedish. Trained by Klang AI, fast and punctuated")
-        }
-    }
-
-    var isRecommended: Bool {
-        self == .small
-    }
-
-    /// Swedish-only models — should only be offered when transcribing Swedish.
-    var isSwedishOnly: Bool {
-        self == .pianissimo
-    }
-
-    /// Runs on WhisperKit (vs. Pianissimo on FluidAudio). Only WhisperKit models can
-    /// detect language, translate, or drive the live preview.
-    var usesWhisperKit: Bool {
-        self != .pianissimo
-    }
-
-    /// HuggingFace repo the WhisperKit Core ML files come from.
-    var repo: String {
-        usesWhisperKit ? "argmaxinc/whisperkit-coreml" : PianissimoEngine.repo
-    }
-
-    /// Variant folder name inside `repo`.
-    var variant: String {
-        rawValue
-    }
-
-    /// The best default model for a given spoken language — Pianissimo for Swedish.
-    static func recommended(for language: String) -> WhisperModel {
-        language == "sv" ? .pianissimo : .small
-    }
-
-    /// The WhisperKit model identifier used for download/init
-    var whisperKitModelId: String {
-        variant
-    }
-}
-
-enum TranscriptionOutputFormat: String, CaseIterable, Codable {
-    case txt = "txt"
-    case srt = "srt"
-    case vtt = "vtt"
-    case json = "json"
-
-    var displayName: String {
-        switch self {
-        case .txt: return String(localized: "Plain Text (.txt)")
-        case .srt: return String(localized: "Subtitles (.srt)")
-        case .vtt: return "WebVTT (.vtt)"
-        case .json: return "JSON (.json)"
-        }
-    }
-}
-
-// MARK: - Transcription Segment Data
-
-struct TranscriptionSegmentData: Identifiable {
-    let id = UUID()
-    let start: Float
-    let end: Float
-    var text: String          // editable in the transcript editor
-    var speaker: String?
-    let words: [WordTimingData]
-    let avgLogprob: Float
-
-    var formattedStart: String { formatTimestamp(start) }
-    var formattedEnd: String { formatTimestamp(end) }
-    var formattedRange: String { "\(formattedStart) → \(formattedEnd)" }
-    var duration: Float { end - start }
-
-    /// Confidence 0–1 derived from avgLogprob (higher = more confident)
-    var confidence: Double {
-        // avgLogprob ranges roughly from -2 (bad) to 0 (perfect)
-        let clamped = max(min(Double(avgLogprob), 0), -2)
-        return (clamped + 2) / 2  // maps [-2,0] → [0,1]
-    }
-
-    private func formatTimestamp(_ seconds: Float) -> String {
-        let totalSeconds = Int(seconds)
-        let h = totalSeconds / 3600
-        let m = (totalSeconds % 3600) / 60
-        let s = totalSeconds % 60
-        let ms = Int((seconds - Float(totalSeconds)) * 10)
-        if h > 0 {
-            return String(format: "%d:%02d:%02d.%d", h, m, s, ms)
-        }
-        return String(format: "%d:%02d.%d", m, s, ms)
-    }
-}
-
-struct WordTimingData: Identifiable {
-    let id = UUID()
-    let word: String
-    let start: Float
-    let end: Float
-    let probability: Float // 0–1 confidence
-}
-
 enum CookieBrowser: String, CaseIterable, Codable {
     case none = "none"
     case safari = "safari"
@@ -481,69 +195,48 @@ class AppSettings: ObservableObject {
 
     @AppStorage("downloadSubtitles") var downloadSubtitles: Bool = false
     @AppStorage("subtitleLanguage") var subtitleLanguage: String = "en"
-    @AppStorage("parallelDownloads") var parallelDownloads: Int = 2
-    @AppStorage("playSoundOnComplete") var playSoundOnComplete: Bool = true
-    @AppStorage("showNotifications") var showNotifications: Bool = true
     @AppStorage("downloadPath") var downloadPath: String = NSHomeDirectory() + "/Downloads"
+    /// Quality for saved videos. Audio only is chosen in the notch.
+    @AppStorage("downloadQuality") var downloadQuality: DownloadQuality = .best
 
     // Signing in: a browser's cookies, or an exported cookies file
     @AppStorage("cookieBrowser") var cookieBrowser: CookieBrowser = .none
     @AppStorage("cookiesFilePath") var cookiesFilePath: String = ""
 
-    // Transcription settings
-    @AppStorage("defaultWhisperModel") var defaultWhisperModel: WhisperModel = .small
-    @AppStorage("transcriptionOutputFormat") var transcriptionOutputFormat: TranscriptionOutputFormat = .txt
+    // Transcription
+    @AppStorage("defaultTranscriptionLanguage") var defaultTranscriptionLanguage: String = "auto"
     @AppStorage("enableSpeakerDiarization") var enableSpeakerDiarization: Bool = true
-    @AppStorage("transcriptionEngine") var transcriptionEngine: TranscriptionEngineChoice = .automatic
-    /// WhisperKit-only: translate speech directly to English while transcribing
-    /// (Whisper's built-in translate task — runs on-device, English target only).
-    @AppStorage("translateToEnglish") var translateToEnglish: Bool = false
-    /// Custom vocabulary — names and domain terms (one per line or comma-separated)
-    /// fed to WhisperKit as a conditioning prompt so it spells them correctly.
-    @AppStorage("customVocabulary") var customVocabulary: String = ""
-    /// "system" (default), "light" or "dark".
-    @AppStorage("appAppearance") var appAppearance: String = "system"
 
-    // MARK: Downloads (quality + automation)
-    /// Preferred quality for the "best" download path. Explicit format picks in
-    /// the UI are respected as-is and ignore this.
-    @AppStorage("downloadQuality") var downloadQuality: DownloadQuality = .best
-
-    // MARK: Notifications
-    /// Post a notification when a transcription finishes.
-    @AppStorage("notifyOnTranscriptionComplete") var notifyOnTranscriptionComplete: Bool = true
-
-    // MARK: Notch
+    // When it's done
     /// Copy a finished transcript automatically (only if the clipboard wasn't used meanwhile).
     @AppStorage("autoCopyWhenDone") var autoCopyWhenDone: Bool = true
     /// Copy with "[00:12]" before each passage.
     @AppStorage("copyWithTimestamps") var copyWithTimestamps: Bool = false
+    /// A notification when a job finishes while the notch is closed.
+    @AppStorage("notifyOnTranscriptionComplete") var notifyOnTranscriptionComplete: Bool = true
+
+    // Notch
     /// "notch" = the screen with the notch (or the main one), "main" = the screen with the menu bar.
     @AppStorage("notchScreen") var notchScreen: String = "notch"
 
-    // Default language a new transcription starts with (the picker pre-selects it).
-    @AppStorage("defaultTranscriptionLanguage") var defaultTranscriptionLanguage: String = "auto"
-
-    /// The languages offered for transcription (shared by every language picker).
-    /// Names come from the system, so they read naturally in the UI language.
+    /// Every language a transcript can be made in: NVIDIA Parakeet's 25, then
+    /// the ones only Apple's speech recognition covers. Sorted by English name.
     static var transcriptionLanguages: [(name: String, code: String)] {
-        let codes = ["en", "sv", "no", "da", "fi", "de", "fr", "es", "it", "nl", "pt",
-                     "pl", "ru", "ar", "hi", "ja", "ko", "zh"]
+        let english = Locale(identifier: "en_US")
+        let codes = TranscriptionManager.parakeetLanguages.union(TranscriptionManager.appleOnlyLanguages)
         let named = codes.map { code in
-            (name: Locale.current.localizedString(forLanguageCode: code)?.localizedCapitalized ?? code, code: code)
+            (name: english.localizedString(forLanguageCode: code) ?? code, code: code)
         }
         let sorted = named.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
         return [(name: String(localized: "Automatic"), code: "auto")] + sorted
     }
 
-    /// Every preference "Reset all settings" restores. Transcripts, API keys
-    /// and sign-ins are not preferences and are never touched.
+    /// Every preference "Reset all settings" restores. Transcripts and the
+    /// speech model are not preferences and are never touched.
     static let resettableKeys = [
-        "downloadSubtitles", "subtitleLanguage", "parallelDownloads", "playSoundOnComplete", "showNotifications",
-        "downloadPath", "cookieBrowser", "cookiesFilePath", "defaultWhisperModel", "transcriptionOutputFormat",
-        "enableSpeakerDiarization", "transcriptionEngine", "translateToEnglish",
-        "customVocabulary", "appAppearance", "downloadQuality", "notifyOnTranscriptionComplete",
-        "defaultTranscriptionLanguage", "autoCopyWhenDone", "copyWithTimestamps", "notchScreen",
+        "downloadSubtitles", "subtitleLanguage", "downloadPath", "downloadQuality",
+        "cookieBrowser", "cookiesFilePath", "defaultTranscriptionLanguage", "enableSpeakerDiarization",
+        "autoCopyWhenDone", "copyWithTimestamps", "notifyOnTranscriptionComplete", "notchScreen",
         "settingsCategory",
     ]
 
@@ -553,14 +246,20 @@ class AppSettings: ObservableObject {
         for key in Self.resettableKeys { UserDefaults.standard.removeObject(forKey: key) }
     }
 
+    /// Settings left by 2.x that 3.0 no longer has.
+    private static let retiredKeys = [
+        "youtubeSignedIn", "translateToEnglish", "transcriptionEngine", "defaultWhisperModel",
+        "transcriptionOutputFormat", "customVocabulary", "appAppearance", "parallelDownloads",
+        "playSoundOnComplete", "showNotifications", "pianissimoAutoDownloadStarted",
+    ]
+
     /// Tidies settings left by older versions. Runs once per launch, cheap.
     func migrate() {
-        let d = UserDefaults.standard
-        d.removeObject(forKey: "youtubeSignedIn")           // YouTube ended yt-dlp's own login
-        if translateToEnglish { translateToEnglish = false } // no switch for it in 3.0
+        for key in Self.retiredKeys { UserDefaults.standard.removeObject(forKey: key) }
         if downloadQuality == .audioOnly { downloadQuality = .best }   // the notch chooses audio now
-        if transcriptionEngine == .automatic { transcriptionEngine = .appleSpeech }
         if subtitleLanguage == "auto" { subtitleLanguage = "en" }      // yt-dlp has no "auto" subtitles
+        let language = defaultTranscriptionLanguage
+        if TranscriptionManager.engine(for: language) == .unsupported { defaultTranscriptionLanguage = "auto" }
     }
 
     private init() {}
@@ -686,11 +385,6 @@ class HistoryManager: ObservableObject {
         saveHistory()
     }
 
-    func clearHistory() {
-        history.removeAll()
-        saveHistory()
-    }
-
     private func saveHistory() {
         // Write off the main thread; atomic write avoids partial/corrupt files.
         let snapshot = history
@@ -776,50 +470,6 @@ class TranscriptionHistoryManager: ObservableObject {
 
     func removeFromHistory(_ item: TranscriptionHistoryItem) {
         history.removeAll { $0.id == item.id }
-        saveHistory()
-    }
-
-    /// Moves notes to the Trash (recoverable there): the transcript and its
-    /// sidecars — and for a recording, its whole session folder with the audio.
-    /// A downloaded video next to a transcript is a download, not the note, so
-    /// it stays.
-    func moveToTrash(_ items: [TranscriptionHistoryItem]) {
-        let fm = FileManager.default
-        let recordings = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.mindact.mindextract/Recordings", isDirectory: true)
-            .standardizedFileURL.path
-        for item in items {
-            let file = URL(fileURLWithPath: item.filePath)
-            let dir = file.deletingLastPathComponent()
-            if dir.deletingLastPathComponent().standardizedFileURL.path == recordings {
-                try? fm.trashItem(at: dir, resultingItemURL: nil)
-            } else {
-                for suffix in ["", ".segments.json", ".mindex-ai.json"] {
-                    let url = URL(fileURLWithPath: item.filePath + suffix)
-                    if fm.fileExists(atPath: url.path) { try? fm.trashItem(at: url, resultingItemURL: nil) }
-                }
-            }
-        }
-        let ids = Set(items.map(\.id))
-        history.removeAll { ids.contains($0.id) }
-        saveHistory()
-    }
-
-    func rename(_ item: TranscriptionHistoryItem, to newTitle: String) {
-        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let idx = history.firstIndex(where: { $0.id == item.id }) else { return }
-        history[idx].title = trimmed
-        saveHistory()
-    }
-
-    func toggleFavorite(_ item: TranscriptionHistoryItem) {
-        guard let idx = history.firstIndex(where: { $0.id == item.id }) else { return }
-        history[idx].isFavorite = !(history[idx].isFavorite ?? false)
-        saveHistory()
-    }
-
-    func clearHistory() {
-        history.removeAll()
         saveHistory()
     }
 

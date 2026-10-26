@@ -119,7 +119,7 @@ final class NotchController {
         panel.becomesKeyOnlyIfNeeded = false
         panel.acceptsMouseMovedEvents = true
         panel.ignoresMouseEvents = true
-        panel.contentView = NSHostingView(rootView: NotchRootView().environmentObject(model))
+        panel.contentView = NSHostingView(rootView: NotchRootView().environmentObject(model).environment(\.locale, .appEnglish))
         self.panel = panel
         place()
         panel.orderFrontRegardless()

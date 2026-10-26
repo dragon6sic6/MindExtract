@@ -29,9 +29,7 @@ struct SettingsView: View {
     /// Persisted so the notch can open a tab directly (e.g. YouTube sign-in).
     @AppStorage("settingsCategory") private var category: SettingsCategory = .general
     @State private var showResetConfirmation = false
-    @State private var confirmRemoveLegacyKB = false
     @State private var loginItemOn = LoginItem.isEnabled
-    @State private var showMoreModels = false
     @State private var showCookiesFile = false
     @State private var showAcknowledgements = false
 
@@ -60,7 +58,6 @@ struct SettingsView: View {
         .preferredColorScheme(.dark)
         .tint(.white)
         .onAppear {
-            transcriptionManager.loadDownloadedModels()
             if !SettingsCategory.allCases.map(\.rawValue).contains(UserDefaults.standard.string(forKey: "settingsCategory") ?? "") {
                 category = .general
             }
@@ -141,12 +138,8 @@ struct SettingsView: View {
     // MARK: Transcription
 
     @ViewBuilder private var transcriptionTab: some View {
-        if !transcriptionManager.isFfmpegAvailable {
-            WarningCard(text: "Audio tools are missing, so transcription is unavailable. Reinstall MindExtract to fix it.")
-        }
-
         SettingsSection("Language and speakers",
-                        footer: "Automatic detects the language of each video. You can pick another one in the notch before transcribing.") {
+                        footer: "Automatic recognizes the language by itself. You can pick another one in the notch before transcribing.") {
             SettingsRow("Spoken language") {
                 MonoMenu(selection: $settings.defaultTranscriptionLanguage,
                          options: AppSettings.transcriptionLanguages.map { ($0.code, $0.name) })
@@ -156,74 +149,25 @@ struct SettingsView: View {
             }
         }
 
-        SettingsSection("Engine", footer: "Everything here runs on your Mac. Nothing is uploaded.") {
-            SettingsRow("Swedish", detail: "Pianissimo is the best at Swedish and is always used when it's downloaded.") {
-                if transcriptionManager.isModelDownloaded(.pianissimo) {
-                    ValueLabel(text: "Pianissimo")
-                } else {
-                    ModelAction(model: .pianissimo)
-                }
+        SettingsSection("Speech recognition", footer: "Everything runs on your Mac. Nothing is uploaded.") {
+            SettingsRow("NVIDIA Parakeet", detail: parakeetDetail) {
+                ModelAction()
             }
             SettingsRow("Other languages",
-                        detail: settings.transcriptionEngine == .whisperKit
-                            ? "Whisper: downloadable models that handle the most languages."
-                            : "Apple: built into macOS, no download. Whisper takes over for languages Apple can't do.") {
-                MonoMenu(selection: Binding(
-                    get: { settings.transcriptionEngine == .whisperKit ? TranscriptionEngineChoice.whisperKit : .appleSpeech },
-                    set: { settings.transcriptionEngine = $0 }),
-                         options: [(.appleSpeech, String(localized: "Apple speech recognition")), (.whisperKit, "Whisper")])
-            }
-            let whisperModels = WhisperModel.allCases.filter { !$0.isSwedishOnly && transcriptionManager.isModelDownloaded($0) }
-            if whisperModels.isEmpty {
-                SettingsRow("Whisper model", detail: "None downloaded yet. Pick one under Speech models.") {
-                    ValueLabel(text: String(localized: "None"))
-                }
-            } else {
-                SettingsRow("Whisper model", detail: "Bigger is more accurate but slower.") {
-                    MonoMenu(selection: Binding(
-                        get: { whisperModels.contains(settings.defaultWhisperModel) ? settings.defaultWhisperModel : whisperModels[0] },
-                        set: { settings.defaultWhisperModel = $0 }),
-                             options: whisperModels.map { ($0, $0.displayName) })
-                }
+                        detail: "Japanese, Chinese, Korean, Hindi and more use Apple's speech recognition, built into macOS.") {
+                ValueLabel(text: "Apple")
             }
         }
+    }
 
-        SettingsSection("Speech models",
-                        footer: "Downloaded once, then they work offline. Pianissimo by Klang AI AB, CC BY 4.0.") {
-            ForEach(WhisperModel.allCases.filter { $0.isSwedishOnly }) { SpeechModelRow(model: $0) }
-            SpeechModelRow(model: .small)
-            DisclosureRow(title: "More Whisper models", isOpen: $showMoreModels)
-            if showMoreModels {
-                ForEach(WhisperModel.allCases.filter { !$0.isSwedishOnly && $0 != .small }) { SpeechModelRow(model: $0) }
-            }
-            if let legacy = transcriptionManager.legacyKBModelsSize() {
-                SettingsRow("Old KB-Whisper models", detail: "No longer used. \(transcriptionManager.formatBytes(legacy)) on disk.") {
-                    SmallButton("Remove") { confirmRemoveLegacyKB = true }
-                }
-                .confirmationDialog("Remove the old KB-Whisper models?", isPresented: $confirmRemoveLegacyKB) {
-                    Button("Remove \(transcriptionManager.formatBytes(legacy))", role: .destructive) {
-                        transcriptionManager.removeLegacyKBModels()
-                    }
-                } message: {
-                    Text("They aren't used anymore. Your transcripts aren't affected.")
-                }
-            }
-            SettingsRow("Space used") {
-                ValueLabel(text: transcriptionManager.formatBytes(transcriptionManager.totalStorageUsed()))
-            }
+    private var parakeetDetail: LocalizedStringKey {
+        if let error = transcriptionManager.modelDownloadError, !transcriptionManager.isDownloadingModel {
+            return LocalizedStringKey(error)
         }
-
-        SettingsSection("Names and terms",
-                        footer: "People, places, companies and jargon to spell correctly. One per line. Only Whisper reads this list.") {
-            TextEditor(text: $settings.customVocabulary)
-                .font(.system(size: 13, design: .monospaced))
-                .scrollContentBackground(.hidden)
-                .padding(10)
-                .frame(minHeight: 90)
-                .background(RoundedRectangle(cornerRadius: NotchStyle.radius, style: .continuous).fill(NotchStyle.field))
-                .padding(12)
-                .accessibilityLabel("Names and terms")
+        if let size = transcriptionManager.modelSizeOnDisk {
+            return "25 European languages, including English. \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file)) on this Mac."
         }
+        return "25 European languages, including English. 630 MB, downloaded once."
     }
 
     // MARK: Downloads
@@ -316,9 +260,9 @@ struct SettingsView: View {
         SettingsSection("Acknowledgements") {
             DisclosureRow(title: "Open-source software MindExtract builds on", isOpen: $showAcknowledgements)
             if showAcknowledgements {
-                acknowledgement("Klang Pianissimo (Klang AI AB)", "CC BY 4.0", "https://huggingface.co/KlangAI/pianissimo-sv")
+                acknowledgement("NVIDIA Parakeet TDT 0.6B v3", "CC BY 4.0", "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3")
+                acknowledgement("pyannote speaker-diarization-community-1", "CC BY 4.0", "https://huggingface.co/pyannote/speaker-diarization-community-1")
                 acknowledgement("FluidAudio", "Apache 2.0", "https://github.com/FluidInference/FluidAudio")
-                acknowledgement("WhisperKit & SpeakerKit (Argmax)", "MIT", "https://github.com/argmaxinc/argmax-oss-swift")
                 acknowledgement("yt-dlp", "Unlicense", "https://github.com/yt-dlp/yt-dlp")
                 acknowledgement("FFmpeg", "LGPL 2.1+", "https://ffmpeg.org/legal.html")
                 acknowledgement("Sparkle", "MIT", "https://github.com/sparkle-project/Sparkle")
@@ -495,20 +439,6 @@ struct DisclosureRow: View {
     }
 }
 
-struct WarningCard: View {
-    let text: LocalizedStringKey
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 13, weight: .semibold))
-            Text(text).font(NotchStyle.small).fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: NotchStyle.radius, style: .continuous).fill(Color.white.opacity(0.08)))
-    }
-}
-
 struct ValueLabel: View {
     let text: String
 
@@ -610,14 +540,14 @@ private struct MonoSwitch: View {
     }
 }
 
-/// Download / progress / ready for one speech model.
+/// Download, progress with Cancel, or ready with Delete: the one control for
+/// the speech model, in Settings and in the introduction.
 struct ModelAction: View {
-    let model: WhisperModel
     @ObservedObject private var tm = TranscriptionManager.shared
     @State private var confirmDelete = false
 
     var body: some View {
-        if tm.downloadingModel == model {
+        if tm.isDownloadingModel {
             HStack(spacing: 8) {
                 ProgressRing(progress: tm.modelDownloadProgress > 0 ? tm.modelDownloadProgress : nil).frame(width: 14, height: 14)
                 if tm.modelDownloadProgress > 0 {
@@ -626,56 +556,24 @@ struct ModelAction: View {
                 }
                 SmallButton("Cancel") { tm.cancelModelDownload() }
             }
-        } else if tm.isModelDownloaded(model) {
+        } else if tm.isModelInstalled {
             HStack(spacing: 8) {
-                if tm.prewarmingModel == model {
-                    ProgressRing(progress: nil).frame(width: 14, height: 14)
-                } else {
-                    Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).accessibilityLabel("Downloaded")
-                }
+                Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).accessibilityLabel("Downloaded")
                 Button { confirmDelete = true } label: {
                     Image(systemName: "trash").font(.system(size: 12, weight: .semibold)).foregroundStyle(NotchStyle.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Delete model")
-                .accessibilityLabel("Delete model")
-                .confirmationDialog("Delete \(model.displayName)?", isPresented: $confirmDelete) {
-                    Button("Delete \(model.sizeDescription)", role: .destructive) { tm.deleteModel(model) }
+                .help("Delete the speech model")
+                .accessibilityLabel("Delete the speech model")
+                .confirmationDialog("Delete the speech model?", isPresented: $confirmDelete) {
+                    Button("Delete", role: .destructive) { tm.deleteModel() }
                 } message: {
-                    Text("You can download it again whenever you need it. Your transcripts aren't affected.")
+                    Text("Transcribing needs it, so it will download again next time. Your transcripts aren't affected.")
                 }
             }
         } else {
-            SmallButton("Download") { tm.downloadModel(model) }
-                .disabled(tm.downloadingModel != nil)
+            SmallButton(tm.modelDownloadError == nil ? "Download" : "Try Again") { tm.downloadModel() }
         }
-    }
-}
-
-struct SpeechModelRow: View {
-    let model: WhisperModel
-    @ObservedObject private var tm = TranscriptionManager.shared
-
-    var body: some View {
-        SettingsRow(LocalizedStringKey(model.displayName), detail: detail) {
-            HStack(spacing: 10) {
-                Text(verbatim: model.sizeDescription)
-                    .font(NotchStyle.small)
-                    .monospacedDigit()
-                    .foregroundStyle(NotchStyle.tertiary)
-                ModelAction(model: model)
-            }
-        }
-    }
-
-    private var detail: LocalizedStringKey {
-        if let failure = tm.modelDownloadError, failure.model == model, tm.downloadingModel != model, !tm.isModelDownloaded(model) {
-            return LocalizedStringKey(failure.message)
-        }
-        if tm.isModelDownloaded(model), tm.prewarmingModel == model {
-            return "Preparing the model for your Mac. It takes a few minutes the first time."
-        }
-        return LocalizedStringKey(model.description)
     }
 }
 

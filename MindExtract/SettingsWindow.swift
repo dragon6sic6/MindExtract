@@ -26,7 +26,7 @@ enum SettingsWindow {
             w.appearance = NSAppearance(named: .darkAqua)
             w.minSize = NSSize(width: 560, height: 480)
             w.isMovableByWindowBackground = true
-            w.contentView = NSHostingView(rootView: SettingsView(downloader: .shared))
+            w.contentView = NSHostingView(rootView: SettingsView(downloader: .shared).environment(\.locale, .appEnglish))
             w.isReleasedWhenClosed = false
             w.center()
             window = w

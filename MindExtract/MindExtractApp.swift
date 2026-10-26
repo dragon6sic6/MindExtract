@@ -17,15 +17,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         super.init()
     }
 
-    /// Applies the Settings → General appearance to the settings window.
-    static func applyAppearance(_ value: String) {
-        switch value {
-        case "light": NSApp.appearance = NSAppearance(named: .aqua)
-        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
-        default: NSApp.appearance = nil
-        }
-    }
-
     func applicationWillFinishLaunching(_ notification: Notification) {
         // 2.8 could run as an MCP server for Claude Desktop, which may still
         // launch us with --mcp. That's gone; leave at once instead of
@@ -50,8 +41,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         NotificationCenter.default.addObserver(forName: .checkForUpdates, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.updaterController.checkForUpdates(nil) }
         }
-        // Swedish users get Pianissimo on first launch.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { PianissimoOffer.autoStartIfNeeded() }
+        // The speech model downloads once, on first launch.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { TranscriptionManager.shared.downloadModelOnFirstLaunch() }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,

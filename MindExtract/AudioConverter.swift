@@ -23,7 +23,7 @@ enum AudioConverter {
 
     static let sampleRate: Double = 16_000
 
-    static func toWhisperWav(input: URL, output: URL) async throws {
+    static func toSpeechWav(input: URL, output: URL) async throws {
         let asset = AVURLAsset(url: input)
         let tracks = try await asset.loadTracks(withMediaType: .audio)
         guard !tracks.isEmpty else { throw ConversionError.noAudio }

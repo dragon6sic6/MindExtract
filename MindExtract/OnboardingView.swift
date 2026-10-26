@@ -144,14 +144,12 @@ private struct SetupRows: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if PianissimoOffer.isForThisUser {
-                row(icon: "waveform", title: "Swedish speech model",
-                    detail: tm.isModelDownloaded(.pianissimo) ? "Ready." : "690 MB, downloaded once. Keep working meanwhile.") {
-                    if tm.isModelDownloaded(.pianissimo) {
-                        Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold))
-                    } else {
-                        ModelAction(model: .pianissimo)
-                    }
+            row(icon: "waveform", title: "Speech model",
+                detail: tm.isModelInstalled ? "Ready. 25 languages, on this Mac." : "630 MB, downloaded once. Keep working meanwhile.") {
+                if tm.isModelInstalled {
+                    Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold))
+                } else {
+                    ModelAction()
                 }
             }
             row(icon: "power", title: "Open at login", detail: "So the notch is there after a restart.") {

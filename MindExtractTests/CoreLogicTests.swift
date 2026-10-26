@@ -24,8 +24,7 @@ final class CoreLogicTests: XCTestCase {
 
         [1:02:03] Anna: Skönt.
         """
-        let other = TranscriptCopy.localizedSpeaker("Speaker 2")
-        XCTAssertEqual(TranscriptCopy.plain(raw), "Anna: Hej. Hur mår du?\n\n\(other): Bra!\n\nAnna: Skönt.")
+        XCTAssertEqual(TranscriptCopy.plain(raw), "Anna: Hej. Hur mår du?\n\nSpeaker 2: Bra!\n\nAnna: Skönt.")
     }
 
     func testPlainCopySkipsTheFilesOwnTitleHeader() {
@@ -57,30 +56,6 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertFalse(NotchModel.isLink("hello world"))
         XCTAssertFalse(NotchModel.isLink("not a link"))
         XCTAssertFalse(NotchModel.isLink(""))
-    }
-
-    // MARK: Custom vocabulary normalization
-
-    func testVocabularyPromptDedupesAndSplits() {
-        let raw = "Mathias, Mindact\nMathias\nKB-Whisper"
-        let prompt = TranscriptionManager.vocabularyPrompt(raw)
-        // Dedup is case-insensitive and order-preserving.
-        XCTAssertEqual(prompt, "Mathias, Mindact, KB-Whisper")
-    }
-
-    func testVocabularyPromptEmpty() {
-        XCTAssertEqual(TranscriptionManager.vocabularyPrompt("  \n , "), "")
-    }
-
-    func testVocabularyPromptDoesNotSliceMidTerm() {
-        // 200 ten-char terms → far over the 800-char budget; result must not end
-        // mid-term (no trailing partial word).
-        let terms = (0..<200).map { "term\(String(format: "%05d", $0))" }
-        let prompt = TranscriptionManager.vocabularyPrompt(terms.joined(separator: "\n"))
-        XCTAssertLessThanOrEqual(prompt.count, 800)
-        for piece in prompt.components(separatedBy: ", ") {
-            XCTAssertTrue(piece.hasPrefix("term") && piece.count == 9, "no partial term: \(piece)")
-        }
     }
 
     // MARK: Codable backward-compatibility (silent data-loss guard)
@@ -123,23 +98,53 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertEqual(names.count, DownloadQuality.allCases.count)
     }
 
-    // MARK: Pianissimo (Swedish engine)
+    // MARK: Speech engines
 
-    private func w(_ word: String, _ start: Double, _ end: Double) -> PianissimoWord {
-        PianissimoWord(word: word, start: start, end: end, confidence: 0.9)
+    private func w(_ word: String, _ start: Double, _ end: Double) -> SpeechWord {
+        SpeechWord(word: word, start: start, end: end, confidence: 0.9)
     }
 
-    func testSwedishRecommendsPianissimoAndItStaysOutOfWhisperKit() {
-        XCTAssertEqual(WhisperModel.recommended(for: "sv"), .pianissimo)
-        XCTAssertEqual(WhisperModel.recommended(for: "en"), .small)
-        XCTAssertTrue(WhisperModel.pianissimo.isSwedishOnly)
-        XCTAssertFalse(WhisperModel.pianissimo.usesWhisperKit)
-        XCTAssertTrue(WhisperModel.allCases.filter { $0 != .pianissimo }.allSatisfy { $0.usesWhisperKit && !$0.isSwedishOnly })
+    func testLanguagesRouteToTheRightEngine() {
+        XCTAssertEqual(TranscriptionManager.engine(for: "auto"), .parakeet)
+        XCTAssertEqual(TranscriptionManager.engine(for: "sv"), .parakeet)
+        XCTAssertEqual(TranscriptionManager.engine(for: "en"), .parakeet)
+        XCTAssertEqual(TranscriptionManager.engine(for: "ja"), .apple)
+        XCTAssertEqual(TranscriptionManager.engine(for: "zh"), .apple)
+        XCTAssertEqual(TranscriptionManager.engine(for: "no"), .unsupported)
+        XCTAssertEqual(TranscriptionManager.parakeetLanguages.count, 25)
+        XCTAssertTrue(TranscriptionManager.parakeetLanguages.isDisjoint(with: TranscriptionManager.appleOnlyLanguages))
     }
 
-    func testRemovedKBWhisperRawValueDoesNotDecode() {
-        // Old installs stored "kb_whisper-small" as the default — must fall back, not crash.
-        XCTAssertNil(WhisperModel(rawValue: "kb_whisper-small"))
+    func testEveryOfferedLanguageHasAnEngine() {
+        for language in AppSettings.transcriptionLanguages {
+            XCTAssertNotEqual(TranscriptionManager.engine(for: language.code), .unsupported, language.code)
+            XCTAssertNotEqual(language.name, language.code, "\(language.code) has an English name")
+        }
+    }
+
+    func testTranscriptTextNamesSpeakersOnlyWhenThereAreSeveral() {
+        let one = [TranscriptPassage(start: 1, end: 3, text: "Hello.", speaker: 1),
+                   TranscriptPassage(start: 65, end: 70, text: "Again.", speaker: 1)]
+        XCTAssertEqual(TranscriptionManager.transcriptText(title: "Talk", passages: one),
+                       "# Talk\n\n[00:01] Hello.\n\n[01:05] Again.\n")
+        let two = [TranscriptPassage(start: 0, end: 2, text: "Hi.", speaker: 1),
+                   TranscriptPassage(start: 3700, end: 3702, text: "Hey.", speaker: 2)]
+        XCTAssertEqual(TranscriptionManager.transcriptText(title: "", passages: two),
+                       "[00:00] Speaker 1: Hi.\n\n[1:01:40] Speaker 2: Hey.\n")
+    }
+
+    func testTranscriptTextRoundTripsThroughCopy() {
+        let passages = [TranscriptPassage(start: 0, end: 2, text: "Hi there.", speaker: 1),
+                        TranscriptPassage(start: 3, end: 5, text: "Hello.", speaker: 2)]
+        let file = TranscriptionManager.transcriptText(title: "Chat", passages: passages)
+        XCTAssertEqual(TranscriptCopy.plain(file), "Speaker 1: Hi there.\n\nSpeaker 2: Hello.")
+    }
+
+    func testSpeakerIsTheOneWhoTalksMost() {
+        let turns = [SpeakerTurn(start: 0, end: 4, speaker: 1), SpeakerTurn(start: 4, end: 10, speaker: 2)]
+        XCTAssertEqual(SpeakerSeparator.speaker(from: turns, start: 3, end: 8), 2)
+        XCTAssertEqual(SpeakerSeparator.speaker(from: turns, start: 0, end: 3), 1)
+        XCTAssertNil(SpeakerSeparator.speaker(from: turns, start: 20, end: 25))
     }
 
     func testSegmenterSplitsAtSentenceEndsAndPauses() {
@@ -148,51 +153,53 @@ final class CoreLogicTests: XCTestCase {
             w("Vi", 3.0, 3.2), w("börjar", 3.3, 3.8),
             w("nu.", 6.0, 6.4),                      // 2.2 s pause before this word
         ]
-        let segs = PianissimoSegmenter.segments(from: words)
+        let segs = TranscriptSegmenter.segments(from: words)
         XCTAssertEqual(segs.map(\.text), ["Hej och välkommen hit.", "Vi börjar", "nu."])
         XCTAssertEqual(segs.first?.start, 0.0)
         XCTAssertEqual(segs.first?.end, 2.8)
     }
 
     func testSegmenterKeepsShortSentencesTogetherAndCapsRunOns() {
-        // "Ja." is too short to stand alone as a caption.
-        let short = PianissimoSegmenter.segments(from: [w("Ja.", 0, 0.3), w("Precis", 0.4, 0.9), w("så.", 1.0, 3.0)])
+        // "Ja." is too short to stand alone as a passage.
+        let short = TranscriptSegmenter.segments(from: [w("Ja.", 0, 0.3), w("Precis", 0.4, 0.9), w("så.", 1.0, 3.0)])
         XCTAssertEqual(short.map(\.text), ["Ja. Precis så."])
 
         let runOn = (0..<130).map { i in w("ord", Double(i) * 0.3, Double(i) * 0.3 + 0.25) }
-        let segs = PianissimoSegmenter.segments(from: runOn)
+        let segs = TranscriptSegmenter.segments(from: runOn)
         XCTAssertTrue(segs.allSatisfy { $0.words.count <= 60 && $0.end - $0.start <= 20.5 })
         XCTAssertEqual(segs.reduce(0) { $0 + $1.words.count }, 130, "no words lost")
     }
 
-    func testPianissimoFileListIsPinnedAndComplete() {
-        XCTAssertEqual(PianissimoEngine.revision.count, 40)
-        for pkg in PianissimoEngine.packages {
-            XCTAssertTrue(PianissimoEngine.files.contains { $0.path.hasPrefix("\(pkg).mlpackage/") }, pkg)
+    func testSpeechModelFilesArePinnedAndComplete() {
+        XCTAssertEqual(ParakeetEngine.revision.count, 40)
+        for folder in ["Preprocessor", "Encoder_v2", "Decoder", "JointDecisionv3"] {
+            XCTAssertTrue(ParakeetEngine.files.contains { $0.path == "\(folder).mlmodelc/weights/weight.bin" }, folder)
+            XCTAssertTrue(ParakeetEngine.files.contains { $0.path == "\(folder).mlmodelc/coremldata.bin" }, folder)
         }
-        XCTAssertTrue(PianissimoEngine.files.contains { $0.path == "parakeet_vocab.json" })
-        XCTAssertTrue(PianissimoEngine.files.allSatisfy { $0.sha256.count == 64 })
+        XCTAssertTrue(ParakeetEngine.files.contains { $0.path == "parakeet_vocab.json" })
+        XCTAssertTrue(ParakeetEngine.files.allSatisfy { $0.sha256.count == 64 && $0.size > 0 })
+        XCTAssertEqual(Double(ParakeetEngine.totalDownloadBytes) / 1e6, 632, accuracy: 5)
     }
 
-    /// Opt-in end-to-end check (downloads ~690 MB): set PIANISSIMO_E2E_AUDIO to a
-    /// colon-separated list of audio files.
-    func testPianissimoEndToEnd() async throws {
-        guard let list = ProcessInfo.processInfo.environment["PIANISSIMO_E2E_AUDIO"] else {
-            throw XCTSkip("Set PIANISSIMO_E2E_AUDIO to run")
+    /// Opt-in end-to-end check (downloads about 630 MB): set SPEECH_E2E_AUDIO to
+    /// a colon separated list of audio files.
+    func testSpeechModelEndToEnd() async throws {
+        guard let list = ProcessInfo.processInfo.environment["SPEECH_E2E_AUDIO"] else {
+            throw XCTSkip("Set SPEECH_E2E_AUDIO to run")
         }
-        if !PianissimoEngine.isInstalled {
-            let t = CFAbsoluteTimeGetCurrent()
-            try await PianissimoEngine.install { _ in }
-            print("PIANISSIMO install: \(Int(CFAbsoluteTimeGetCurrent() - t))s, \(PianissimoEngine.installedSize() ?? 0) bytes")
+        if !ParakeetEngine.isInstalled {
+            try await ParakeetEngine.install { _ in }
         }
-        XCTAssertTrue(PianissimoEngine.isInstalled)
+        XCTAssertTrue(ParakeetEngine.isInstalled)
         for path in list.split(separator: ":").map(String.init) {
+            let wav = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+            try await TranscriptionManager.extractAudio(from: URL(fileURLWithPath: path), to: wav)
             let t = CFAbsoluteTimeGetCurrent()
-            let out = try await PianissimoEngine.shared.transcribe(audioURL: URL(fileURLWithPath: path)) { _ in }
-            let segs = PianissimoSegmenter.segments(from: out.words)
-            print("PIANISSIMO \(String(format: "%.1f", out.duration))s audio in \(String(format: "%.2f", CFAbsoluteTimeGetCurrent() - t))s: \(out.text)")
-            for s in segs { print("PIANISSIMO   [\(String(format: "%.1f", s.start))-\(String(format: "%.1f", s.end))] \(s.text)") }
+            let out = try await ParakeetEngine.shared.transcribe(audioURL: wav) { _ in }
+            print("SPEECH \(String(format: "%.1f", out.duration))s audio in \(String(format: "%.2f", CFAbsoluteTimeGetCurrent() - t))s: \(out.text.prefix(300))")
             XCTAssertFalse(out.text.isEmpty)
+            let turns = try await SpeakerSeparator.turns(audioURL: wav)
+            print("SPEECH speakers: \(Set(turns.map(\.speaker)).count), turns: \(turns.count)")
         }
     }
 
@@ -200,35 +207,10 @@ final class CoreLogicTests: XCTestCase {
     func testNativeAudioConversion() async throws {
         guard let path = ProcessInfo.processInfo.environment["CONVERT_E2E_AUDIO"] else { throw XCTSkip("Set CONVERT_E2E_AUDIO") }
         let out = FileManager.default.temporaryDirectory.appendingPathComponent("conv-test.wav")
-        try await AudioConverter.toWhisperWav(input: URL(fileURLWithPath: path), output: out)
+        try await AudioConverter.toSpeechWav(input: URL(fileURLWithPath: path), output: out)
         let file = try AVAudioFile(forReading: out)
-        print("CONVERT \(file.fileFormat.sampleRate) Hz, \(file.fileFormat.channelCount) ch, \(Double(file.length) / file.fileFormat.sampleRate) s")
         XCTAssertEqual(file.fileFormat.sampleRate, 16_000)
         XCTAssertEqual(file.fileFormat.channelCount, 1)
         XCTAssertGreaterThan(file.length, 16_000)
-    }
-
-    /// Opt-in: Pianissimo confidence per file (LANG_E2E = colon-separated paths).
-    func testPianissimoConfidenceAsLanguageSignal() async throws {
-        guard let list = ProcessInfo.processInfo.environment["LANG_E2E"] else { throw XCTSkip("Set LANG_E2E") }
-        for path in list.split(separator: ":").map(String.init) {
-            let wav = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
-            try await AudioConverter.toWhisperWav(input: URL(fileURLWithPath: path), output: wav)
-            let samples = try TranscriptionManager.loadSamples(wavPath: wav.path, maxSeconds: 30)
-            let out = try await PianissimoEngine.shared.transcribe(samples: samples)
-            let conf = out.words.isEmpty ? 0 : out.words.map(\.confidence).reduce(0, +) / Float(out.words.count)
-            print("LANGSIG \((path as NSString).lastPathComponent): conf=\(conf) words=\(out.words.count) text=\(out.text.prefix(120))")
-        }
-    }
-
-    /// Opt-in: full language detection per file (LANG_E2E).
-    func testDetectSpokenLanguage() async throws {
-        guard let list = ProcessInfo.processInfo.environment["LANG_E2E"] else { throw XCTSkip("Set LANG_E2E") }
-        for path in list.split(separator: ":").map(String.init) {
-            let wav = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
-            try await AudioConverter.toWhisperWav(input: URL(fileURLWithPath: path), output: wav)
-            let lang = await TranscriptionManager.shared.detectSpokenLanguage(audioPath: wav.path)
-            print("DETECT \((path as NSString).lastPathComponent) → \(lang)")
-        }
     }
 }

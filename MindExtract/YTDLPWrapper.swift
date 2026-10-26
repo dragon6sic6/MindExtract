@@ -81,7 +81,7 @@ class YTDLPWrapper: ObservableObject {
     @Published var scannedVideos: [VideoInfo] = []
     @Published var outputLog: String = "" {
         didSet {
-            // Cap the in-memory log so long downloads / large queues don't grow it
+            // Cap the in-memory log so long downloads don't grow it
             // unbounded (several MB of yt-dlp output otherwise accumulates here).
             // Re-assigning inside didSet does not retrigger the observer.
             if outputLog.count > Self.maxOutputLogChars {
@@ -105,15 +105,10 @@ class YTDLPWrapper: ObservableObject {
         outputLog += "\nError: \(raw)\n"
     }
 
-    // Download Queue
-    @Published var downloadQueue: [QueueItem] = []
-    @Published var isProcessingQueue: Bool = false
-    @Published var isQueuePaused: Bool = false
-    private var currentQueueIndex: Int = 0
-    private var activeDownloads: Int = 0
-    private var downloadTasks: [UUID: Process] = [:]
 
     private var downloadTask: Process?
+    /// Bumped by cancelDownload, so a killed yt-dlp's late callback is dropped.
+    private var downloadGeneration = 0
     private var fetchTask: Process?
     /// Bumped by every loadURL / cancelLoad, so a slow lookup that finishes after
     /// a newer one started (or was cancelled) can't write its results.
@@ -219,7 +214,7 @@ class YTDLPWrapper: ObservableObject {
         ytdlpPath != nil
     }
 
-    // MARK: - Scan Page for Videos
+    // MARK: - Looking up a link
 
     /// Instant preview via oEmbed (~300 ms) so the media card appears immediately
     /// while yt-dlp fetches the full format list in the background. YouTube and
@@ -350,94 +345,6 @@ class YTDLPWrapper: ObservableObject {
                     self.cancelTimeoutTimer()
                     self.fetchTask = nil
                     self.state = .error("Error: \(error.localizedDescription)")
-                }
-            }
-        }
-    }
-
-    func scanPage(url: String) {
-        guard let ytdlp = ytdlpPath else {
-            state = .error("yt-dlp not found. Please install it with: brew install yt-dlp")
-            return
-        }
-
-        state = .scanningPage
-        scannedVideos = []
-        outputLog = "Scanning page for videos: \(url)\n"
-
-        // Start timeout timer
-        startFetchTimeout()
-
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-
-            let task = Process()
-            self.fetchTask = task
-            task.executableURL = URL(fileURLWithPath: ytdlp)
-            // Use --flat-playlist to quickly list videos without fetching all metadata
-            task.arguments = ["-J", "--flat-playlist", "--no-warnings", url]
-
-            var env = ProcessInfo.processInfo.environment
-            env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-            task.environment = env
-
-            let pipe = Pipe()
-            let errorPipe = Pipe()
-            task.standardOutput = pipe
-            task.standardError = errorPipe
-
-            do {
-                try task.run()
-
-                var outputData = Data()
-                let outputHandle = pipe.fileHandleForReading
-
-                while true {
-                    let chunk = outputHandle.availableData
-                    if chunk.isEmpty { break }
-                    outputData.append(chunk)
-                }
-
-                task.waitUntilExit()
-
-                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-
-                DispatchQueue.main.async {
-                    self.cancelTimeoutTimer()
-                    self.fetchTask = nil
-
-                    if task.terminationStatus != 0 {
-                        let errorString = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-                        self.setDownloadError(errorString)
-                        return
-                    }
-
-                    do {
-                        if let json = try JSONSerialization.jsonObject(with: outputData) as? [String: Any] {
-                            let videos = self.parsePageScan(json: json, originalUrl: url)
-                            self.scannedVideos = videos
-                            self.state = .idle
-
-                            if videos.isEmpty {
-                                self.outputLog += "No videos found on this page.\n"
-                            } else {
-                                self.outputLog += "Found \(videos.count) video(s)\n"
-                            }
-                        } else {
-                            self.state = .error("Failed to parse page data")
-                            self.outputLog += "Error: Could not parse JSON response\n"
-                        }
-                    } catch {
-                        self.state = .error("JSON parsing error: \(error.localizedDescription)")
-                        self.outputLog += "Error parsing JSON: \(error.localizedDescription)\n"
-                    }
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.cancelTimeoutTimer()
-                    self.fetchTask = nil
-                    self.state = .error("Error: \(error.localizedDescription)")
-                    self.outputLog += "Error: \(error.localizedDescription)\n"
                 }
             }
         }
@@ -726,17 +633,12 @@ class YTDLPWrapper: ObservableObject {
 
     // MARK: - Download
 
-    /// Shared yt-dlp process runner used by every download path.
-    ///
-    /// Spawns yt-dlp with the assembled `arguments`, streams stdout to
-    /// `progressHandler` and stderr to `outputLog`, waits for exit, then calls
-    /// `completion` on the main thread with the success flag and captured stderr.
-    /// If `queueItemId` is provided the process is tracked in `downloadTasks`
-    /// (so parallel-queue cancellation can reach it); otherwise it is tracked as
-    /// the single `downloadTask`. `progressHandler` is invoked on the main thread.
+    /// Runs yt-dlp for a download: streams stdout to `progressHandler`, keeps
+    /// stderr for the log and for classifying errors, and calls `completion` on
+    /// the main actor. A run that was cancelled never calls back, so it can't
+    /// touch the state of the job that came after it.
     private func runYTDLP(
         arguments: [String],
-        queueItemId: UUID? = nil,
         progressHandler: @escaping @MainActor @Sendable (String) -> Void,
         completion: @escaping @MainActor @Sendable (_ success: Bool, _ errorOutput: String?) -> Void
     ) {
@@ -758,12 +660,8 @@ class YTDLPWrapper: ObservableObject {
         task.standardOutput = pipe
         task.standardError = errorPipe
 
-        // Track the process on the main actor so cancelDownload() can reach it.
-        if let id = queueItemId {
-            downloadTasks[id] = task
-        } else {
-            downloadTask = task
-        }
+        downloadTask = task
+        let generation = downloadGeneration
 
         // Stream output. Handlers run on a Foundation I/O queue; hop to the main actor.
         pipe.fileHandleForReading.readabilityHandler = { handle in
@@ -810,13 +708,15 @@ class YTDLPWrapper: ObservableObject {
                 }
 
                 Task { @MainActor in
-                    if let id = queueItemId { self?.downloadTasks[id] = nil }
+                    guard let self, generation == self.downloadGeneration else { return }
+                    self.downloadTask = nil
                     completion(success, errorOutput)
                 }
             } catch {
                 let message = error.localizedDescription
                 Task { @MainActor in
-                    if let id = queueItemId { self?.downloadTasks[id] = nil }
+                    guard let self, generation == self.downloadGeneration else { return }
+                    self.downloadTask = nil
                     completion(false, message)
                 }
             }
@@ -837,81 +737,6 @@ class YTDLPWrapper: ObservableObject {
         }
     }
     private var qualityMergeFormat: String { settings.downloadQuality == .audioOnly ? "m4a" : "mp4" }
-
-    func download(url: String, formatId: String, outputPath: String) {
-        state = .downloading(progress: 0, speed: "Starting…")
-        startDownloadStallDetection()
-        outputLog = "Starting download...\n"
-
-        // Use truncated title (max 80 chars) + video ID to avoid "filename too long"
-        // errors. The resolution is part of the name so downloading several
-        // qualities of the same video produces distinct files instead of yt-dlp
-        // skipping the later ones as "already downloaded".
-        let outputTemplate = "\(outputPath)/%(title).80s [%(id)s] %(height)sp.%(ext)s"
-
-        var args: [String]
-        if let info = videoInfo,
-           let format = info.formats.first(where: { $0.id == formatId }),
-           format.isVideoOnly {
-            // Pick a QuickTime-playable codec at the chosen resolution: H.264 first,
-            // then AV1 (both play on modern macOS), avoiding VP9 (which QuickTime can't
-            // open). Always merge AAC audio into an mp4 container.
-            let height = Int(format.resolution.filter(\.isNumber)) ?? 0
-            let cap = height > 0 ? "[height<=\(height)]" : ""
-            let selector = [
-                "bestvideo\(cap)[vcodec^=avc1]+bestaudio[ext=m4a]",
-                "bestvideo\(cap)[vcodec^=av01]+bestaudio[ext=m4a]",
-                "bestvideo\(cap)[vcodec^=av01]+bestaudio",
-                "bestvideo\(cap)[vcodec^=avc]+bestaudio",
-                "bestvideo\(cap)+bestaudio",
-                "best\(cap)"
-            ].joined(separator: "/")
-            args = [
-                "-f", selector,
-                "-o", outputTemplate,
-                "--newline", "--progress", "--no-playlist", "--restrict-filenames",
-                "--merge-output-format", "mp4"
-            ]
-        } else {
-            args = [
-                "-f", formatId,
-                "-o", outputTemplate,
-                "--newline", "--progress", "--no-playlist", "--restrict-filenames"
-            ]
-        }
-        args.append(contentsOf: youtubeWorkaroundArgs)
-        if settings.downloadSubtitles {
-            args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage + ".*"])
-        }
-        let savedPathFile = Self.makeSavedPathFile()
-        args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
-        args.append(url)
-
-        runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
-            guard let self = self else { return }
-            self.cancelTimeoutTimer()
-            if success {
-                self.state = .completed
-                self.outputLog += "\nDownload completed!\n"
-                self.lastDownloadedFilePath = Self.savedPath(from: savedPathFile) ?? self.findLatestDownloadedFile(in: outputPath)
-                if let info = self.videoInfo {
-                    let historyItem = HistoryItem(
-                        url: url,
-                        title: info.title,
-                        thumbnail: info.thumbnail,
-                        platform: Platform.detect(from: url),
-                        isAudioOnly: false,
-                        filePath: self.lastDownloadedFilePath,
-                        formatId: formatId,
-                        resolution: info.formats.first(where: { $0.id == formatId })?.resolution
-                    )
-                    self.historyManager.addToHistory(historyItem)
-                }
-            } else {
-                self.setDownloadError(errorOutput ?? "Unknown error")
-            }
-        }
-    }
 
     func downloadBest(url: String, outputPath: String) {
         state = .downloading(progress: 0, speed: "Starting…")
@@ -995,16 +820,11 @@ class YTDLPWrapper: ObservableObject {
     }
 
     func cancelDownload() {
+        downloadGeneration += 1
         downloadTask?.terminate()
         downloadTask = nil
-        // Terminate every in-flight parallel queue download, not just the last one.
-        for task in downloadTasks.values {
-            task.terminate()
-        }
-        downloadTasks.removeAll()
-        activeDownloads = 0
+        cancelTimeoutTimer()
         state = .idle
-        isProcessingQueue = false
         outputLog += "\nDownload cancelled.\n"
     }
 
@@ -1013,12 +833,10 @@ class YTDLPWrapper: ObservableObject {
         // later mutate state for a URL the user has already moved on from.
         fetchTask?.terminate()
         fetchTask = nil
+        downloadGeneration += 1
         downloadTask?.terminate()
         downloadTask = nil
-        for task in downloadTasks.values { task.terminate() }
-        downloadTasks.removeAll()
         cancelTimeoutTimer()
-        activeDownloads = 0
 
         state = .idle
         videoInfo = nil
@@ -1027,20 +845,7 @@ class YTDLPWrapper: ObservableObject {
         lastDownloadedFilePath = nil
     }
 
-    /// Clears just the loaded-video preview so the user can paste the next URL —
-    /// WITHOUT touching a running download queue (the full `reset()` would kill
-    /// its in-flight downloads).
-    func clearCurrentSelection() {
-        fetchTask?.terminate()
-        fetchTask = nil
-        cancelTimeoutTimer()
-        state = .idle
-        videoInfo = nil
-        scannedVideos = []
-        lastDownloadedFilePath = nil
-    }
-
-    // MARK: - Audio-Only Download (MP3)
+    // MARK: - Audio only
 
     func downloadAudio(url: String, outputPath: String) {
         state = .downloading(progress: 0, speed: "Starting audio extraction…")
@@ -1104,7 +909,7 @@ class YTDLPWrapper: ObservableObject {
         var args = [
             "-f", "bestaudio",
             "-x",  // Extract audio
-            "--audio-format", "wav",  // WAV for whisper compatibility
+            "--audio-format", "wav",
             "--audio-quality", "0",
             "-o", outputTemplate,
             "--newline", "--progress", "--no-playlist"
@@ -1144,213 +949,6 @@ class YTDLPWrapper: ObservableObject {
     }
 
     // MARK: - Download Queue
-
-    func addToQueue(url: String, title: String, thumbnail: String? = nil, isAudioOnly: Bool = false) {
-        let item = QueueItem(url: url, title: title, thumbnail: thumbnail, isAudioOnly: isAudioOnly)
-        downloadQueue.append(item)
-        outputLog += "Added to queue: \(title)\n"
-    }
-
-    func addCurrentVideoToQueue(isAudioOnly: Bool = false) {
-        guard let info = videoInfo else { return }
-        addToQueue(url: info.url, title: info.title, thumbnail: info.thumbnail, isAudioOnly: isAudioOnly)
-    }
-
-    func addSelectedVideosToQueue(videos: [VideoInfo], isAudioOnly: Bool = false) {
-        for video in videos {
-            addToQueue(url: video.url, title: video.title, thumbnail: video.thumbnail, isAudioOnly: isAudioOnly)
-        }
-    }
-
-    func removeFromQueue(id: UUID) {
-        downloadQueue.removeAll { $0.id == id }
-    }
-
-    func clearQueue() {
-        downloadQueue.removeAll()
-        currentQueueIndex = 0
-        isProcessingQueue = false
-        isQueuePaused = false
-    }
-
-    /// Pause = stop starting NEW items; downloads already in flight finish.
-    func pauseQueue() { isQueuePaused = true }
-
-    func resumeQueue(outputPath: String) {
-        guard isQueuePaused else { return }
-        isQueuePaused = false
-        if !isProcessingQueue { isProcessingQueue = true }
-        processParallelQueue(outputPath: outputPath)
-    }
-
-    /// Re-queue a failed item and keep the queue going.
-    func retryQueueItem(id: UUID, outputPath: String) {
-        guard let idx = downloadQueue.firstIndex(where: { $0.id == id }) else { return }
-        downloadQueue[idx].status = .pending
-        downloadQueue[idx].progress = 0
-        if !isProcessingQueue { isProcessingQueue = true }
-        isQueuePaused = false
-        processParallelQueue(outputPath: outputPath)
-    }
-
-    func startQueue(outputPath: String) {
-        guard !downloadQueue.isEmpty else { return }
-        guard !isProcessingQueue else { return }
-
-        isProcessingQueue = true
-        isQueuePaused = false
-        activeDownloads = 0
-        processParallelQueue(outputPath: outputPath)
-    }
-
-    private func processParallelQueue(outputPath: String) {
-        let maxParallel = settings.parallelDownloads
-
-        // Start downloads up to the parallel limit (unless paused).
-        while !isQueuePaused && activeDownloads < maxParallel {
-            guard let nextIndex = downloadQueue.firstIndex(where: { $0.status == .pending }) else {
-                // No more pending items
-                break
-            }
-
-            downloadQueue[nextIndex].status = .downloading
-            activeDownloads += 1
-
-            let item = downloadQueue[nextIndex]
-            outputLog += "\n--- Starting [\(nextIndex + 1)/\(downloadQueue.count)]: \(item.title) ---\n"
-
-            downloadQueueItem(item: item, outputPath: outputPath) { [weak self] success, error, filePath in
-                guard let self = self else { return }
-
-                DispatchQueue.main.async {
-                    self.activeDownloads -= 1
-
-                    // Resolve the item's *current* index by id — the array may have
-                    // shifted (e.g. a removed item) since this download started.
-                    let idx = self.downloadQueue.firstIndex(where: { $0.id == item.id })
-
-                    if success {
-                        if let idx {
-                            self.downloadQueue[idx].status = .completed
-                            self.downloadQueue[idx].progress = 1.0
-                        }
-
-                        // Add to history — with the exact file path this item
-                        // produced, so queued downloads also support Show in
-                        // Finder / Transcribe-from-History / Missing detection.
-                        let historyItem = HistoryItem(
-                            url: item.url,
-                            title: item.title,
-                            thumbnail: item.thumbnail,
-                            platform: Platform.detect(from: item.url),
-                            isAudioOnly: item.isAudioOnly,
-                            filePath: filePath
-                        )
-                        self.historyManager.addToHistory(historyItem)
-                    } else if let idx {
-                        self.downloadQueue[idx].status = .failed(error ?? "Unknown error")
-                    }
-
-                    // Check if queue is complete
-                    if self.downloadQueue.allSatisfy({ $0.status != .pending && $0.status != .downloading }) {
-                        // Queue complete
-                        self.isProcessingQueue = false
-                        self.state = .completed
-
-                        let completedCount = self.downloadQueue.filter { $0.status == .completed }.count
-                        self.outputLog += "\n✅ Download queue completed!\n"
-                    } else {
-                        // Start more downloads
-                        self.processParallelQueue(outputPath: outputPath)
-                    }
-                }
-            }
-        }
-    }
-
-    private func downloadQueueItem(item: QueueItem, outputPath: String, completion: @escaping (Bool, String?, String?) -> Void) {
-        // Queue items drive their own row progress — don't touch the global
-        // `state` (it's for single downloads and would flicker across items).
-
-        var args: [String]
-        if item.isAudioOnly {
-            let outputTemplate = "\(outputPath)/%(title).80s [%(id)s].%(ext)s"
-            args = [
-                "-f", "bestaudio",
-                "-x",
-                "--audio-format", "m4a",
-                "--audio-quality", "0",
-                "-o", outputTemplate,
-                "--newline", "--progress", "--no-playlist", "--restrict-filenames"
-            ]
-        } else {
-            // Resolution in the name keeps multiple qualities from colliding.
-            let outputTemplate = "\(outputPath)/%(title).80s [%(id)s] %(height)sp.%(ext)s"
-            // Prefer H.264 for QuickTime/macOS compatibility
-            let h264Format = "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[vcodec^=av01]+bestaudio/bestvideo[vcodec^=avc]+bestaudio/bestvideo+bestaudio/best"
-            args = [
-                "-f", h264Format,
-                "-o", outputTemplate,
-                "--newline", "--progress", "--no-playlist", "--restrict-filenames",
-                "--merge-output-format", "mp4"
-            ]
-        }
-        args.append(contentsOf: youtubeWorkaroundArgs)
-        // Match the single-download paths: honor the subtitle preference here too.
-        if settings.downloadSubtitles && !item.isAudioOnly {
-            args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage + ".*"])
-        }
-        // Print the final file path (after merge/move). Parallel downloads can't
-        // rely on the shared lastDownloadedFilePath, so each item captures its own.
-        args.append(contentsOf: ["--print", "after_move:filepath"])
-        args.append(item.url)
-
-        // Captured by both closures (they run serially on the main actor) so the
-        // completion can record the exact file this item produced.
-        var resolvedPath: String? = nil
-        runYTDLP(
-            arguments: args,
-            queueItemId: item.id,
-            progressHandler: { [weak self] output in
-                guard let self = self else { return }
-                for line in output.split(separator: "\n") {
-                    let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed.hasPrefix(outputPath + "/") { resolvedPath = trimmed }
-                }
-                // Look up the item's *current* index by id so parallel downloads
-                // each update their own row (currentQueueIndex was never assigned).
-                if let idx = self.downloadQueue.firstIndex(where: { $0.id == item.id }) {
-                    self.parseQueueProgress(output, itemIndex: idx)
-                }
-            }
-        ) { success, errorOutput in
-            completion(success, errorOutput, resolvedPath)
-        }
-    }
-
-    private func parseQueueProgress(_ output: String, itemIndex: Int) {
-        outputLog += output
-
-        if output.contains("%") {
-            let pattern = #"(\d+\.?\d*)%.*?at\s+(\S+)"#
-            if let regex = try? NSRegularExpression(pattern: pattern),
-               let match = regex.firstMatch(in: output, range: NSRange(output.startIndex..., in: output)) {
-
-                if let percentRange = Range(match.range(at: 1), in: output),
-                   let speedRange = Range(match.range(at: 2), in: output) {
-                    let percent = Double(output[percentRange]) ?? 0
-                    let speed = String(output[speedRange])
-                    // Drive ONLY this item's row — the global `state` must not be
-                    // updated from parallel items (it caused the progress bar to
-                    // flicker between downloads).
-                    if itemIndex < downloadQueue.count {
-                        downloadQueue[itemIndex].progress = percent / 100
-                        downloadQueue[itemIndex].speed = speed
-                    }
-                }
-            }
-        }
-    }
 
     // MARK: - File Path Helper
 

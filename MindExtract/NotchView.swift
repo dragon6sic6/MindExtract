@@ -330,8 +330,8 @@ struct OpenNotch: View {
                     }
                 }
                 .transition(NotchStyle.swap)
-                if let downloading = tm.downloadingModel, !model.isBusy, model.onboardingStep == nil {
-                    ModelDownloadLine(name: downloading.displayName, progress: tm.modelDownloadProgress)
+                if tm.isDownloadingModel, !model.isBusy, model.onboardingStep == nil {
+                    ModelDownloadLine(name: String(localized: "the speech model"), progress: tm.modelDownloadProgress)
                 }
             }
             .padding(.horizontal, NotchStyle.side)
@@ -752,7 +752,7 @@ struct TranscribedActions: View {
                         Text(model.autoCopiedPath == path ? "Copied automatically. Paste with ⌘V anywhere."
                                                           : "Paste with ⌘V anywhere.")
                     } else if words > 0 {
-                        Text("≈ \(words) words")
+                        Text(verbatim: words == 1 ? "≈ 1 word" : "≈ \(words) words")
                     }
                 }
                 .font(NotchStyle.small)
@@ -833,7 +833,7 @@ struct FailedCard: View {
                         Label("Download and Transcribe", systemImage: "arrow.down.circle")
                     }
                     .buttonStyle(NotchButtonStyle(kind: .primary))
-                    .disabled(tm.downloadingModel != nil)
+                    .disabled(tm.isDownloadingModel)
                 case .needsSignIn:
                     Button { model.signInToYouTube() } label: {
                         Label("Sign In…", systemImage: "person.crop.circle")
@@ -1066,19 +1066,6 @@ struct ChipLabel: View {
             .fill(hovering ? Color.white.opacity(0.08) : .clear))
         .contentShape(Rectangle())
         .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hovering = h } }
-    }
-}
-
-/// A 40 × 40 icon square next to the main button.
-struct SquareIcon: View {
-    let name: String
-
-    var body: some View {
-        HoverSquare(size: NotchStyle.mainHeight, filled: true) {
-            Image(systemName: name)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(NotchStyle.text)
-        }
     }
 }
 

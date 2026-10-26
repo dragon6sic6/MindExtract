@@ -2,6 +2,14 @@ import AppKit
 import Carbon.HIToolbox
 import ServiceManagement
 
+// MARK: - Language
+
+extension Locale {
+    /// The app is in English everywhere, so dates and numbers follow English
+    /// too, even on a Mac set to another language.
+    static let appEnglish = Locale(identifier: "en_US")
+}
+
 // MARK: - Global shortcut
 //
 // One system-wide shortcut opens the notch with the link field focused
