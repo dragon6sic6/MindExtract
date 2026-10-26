@@ -6,30 +6,18 @@ build/
 DerivedData/
 xcuserdata/
 *.xcuserstate
-*.xcscmblueprint
-*.xccheckout
-MindExtract.xcodeproj/project.xcworkspace/xcuserdata/
-MindExtract.xcodeproj/xcuserdata/
 
-# Build output
+# Release output
 dist/
 dmg_temp/
-build_test/
-
-# DMG artifacts
 *.dmg
 
-# Bundled binaries (too large for git — run ./setup_binaries.sh to download)
-MindExtract/Resources/yt-dlp
+# Bundled tools: fetched by scripts/setup-tools.sh, not kept in git
+MindExtract/Resources/ytdlp/
 MindExtract/Resources/ffmpeg
-MindExtract/Resources/whisper
-MindExtract/Resources/libwhisper.1.dylib
-MindExtract/Resources/libggml.0.dylib
-MindExtract/Resources/libggml-cpu.0.dylib
-MindExtract/Resources/libggml-blas.0.dylib
-MindExtract/Resources/libggml-metal.0.dylib
-MindExtract/Resources/libggml-base.0.dylib
+MindExtract/Resources/ffprobe
 
 # Archives
 *.zip
 *.tar.gz
+*.tar.xz

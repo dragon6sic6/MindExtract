@@ -1,15 +1,17 @@
-# CI notes
+# CI
 
-Hosted GitHub Actions CI is **not currently possible**: the app references
-macOS 26 SDK symbols (SpeechAnalyzer / SpeechTranscriber, runtime-gated with
-`@available`). GitHub's `macos-15` runners ship Xcode 16.4 / MacOSX15.5 SDK,
-which lacks those symbols, so the build fails to compile on hosted runners.
+`.github/workflows/tests.yml` builds the app and runs the unit tests on
+GitHub's `macos-26` runner for every push to `master` and every pull request.
 
-Guardrail today: the unit-test suite runs locally —
-`xcodebuild test -project MindExtract.xcodeproj -scheme MindExtract -destination 'platform=macOS'`
-(run before every release).
+- The bundled yt-dlp is fetched with `scripts/setup-tools.sh ytdlp`. ffmpeg
+  takes long to build and the tests never run it, so CI uses empty stand-ins.
+- Code signing is off in CI. Releases are signed and notarized locally with
+  `scripts/release.sh`.
+- Tests that need the 630 MB speech model or real recordings are opt-in
+  (`SPEECH_E2E_AUDIO`, `CONVERT_E2E_AUDIO`) and skip in CI.
 
-Re-enable hosted CI when either:
-- GitHub offers a runner image with an Xcode that has the macOS 26 SDK, or
-- a **self-hosted runner** is registered on a Mac that has that Xcode
-  (then add a workflow with `runs-on: [self-hosted, macOS]`).
+Run the same locally:
+
+```bash
+xcodebuild test -project MindExtract.xcodeproj -scheme MindExtract -destination 'platform=macOS'
+```

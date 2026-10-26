@@ -76,8 +76,9 @@ struct OnboardingView: View {
                         NSWorkspace.shared.open(URL(fileURLWithPath: AppSettings.shared.downloadPath))
                     }
                 }
+                .transition(NotchStyle.swap)
             }
-            if step == Onboarding.pages - 1 { SetupRows() }
+            if step == Onboarding.pages - 1 { SetupRows().transition(NotchStyle.swap) }
 
             HStack(spacing: 10) {
                 HStack(spacing: 6) {

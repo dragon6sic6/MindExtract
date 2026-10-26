@@ -1,51 +1,40 @@
 # Bundled tools
 
-MindExtract ships two external tools in `Resources/`. Transcription itself needs
-neither: audio is converted with AVFoundation (`AudioConverter.swift`).
-
-## ffmpeg + ffprobe (downloads: merging video and audio, audio extraction)
-
-Universal (Apple Silicon + Intel), static, LGPL build made from the official
-FFmpeg source. It only links frameworks and libraries that ship with macOS, so it
-runs on every Mac without Rosetta or Homebrew.
-
-Rebuild:
+MindExtract ships two command line tools in `Resources/`. They aren't kept in
+git; `scripts/setup-tools.sh` puts them here. Transcription itself needs
+neither: audio is converted with AVFoundation (`AudioConverter.swift`), and
+ffmpeg is only the fallback for formats Apple can't open.
 
 ```bash
-mkdir -p /tmp/ffbuild && cd /tmp/ffbuild
-curl -LO https://ffmpeg.org/releases/ffmpeg-7.1.2.tar.xz
-curl -LO https://ffmpeg.org/releases/ffmpeg-7.1.2.tar.xz.asc
-gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys B4322F04D67658D8   # FFmpeg release key
-gpg --verify ffmpeg-7.1.2.tar.xz.asc ffmpeg-7.1.2.tar.xz
-cp /path/to/repo/scripts/build-ffmpeg.sh . && ./build-ffmpeg.sh
-cp universal/ffmpeg universal/ffprobe /path/to/repo/MindExtract/Resources/
+scripts/setup-tools.sh            # both
+scripts/setup-tools.sh ytdlp      # only yt-dlp
+scripts/setup-tools.sh ffmpeg     # only ffmpeg and ffprobe
 ```
-
-Check: `file Resources/ffmpeg` must list both `x86_64` and `arm64`.
-
-Don't bundle an Intel-only or Homebrew (dynamically linked) ffmpeg — it fails with
-"Bad CPU type" or missing libraries on other Macs.
 
 ## yt-dlp (downloads)
 
-The official `yt-dlp_macos.zip` (universal onedir build) from
-https://github.com/yt-dlp/yt-dlp/releases, unpacked into `Resources/ytdlp/`.
-Verify it against `SHA2-256SUMS` from the same release.
+The official universal onedir build (`yt-dlp_macos.zip`) from
+[yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases), checked against
+the release's `SHA2-256SUMS`, unpacked into `Resources/ytdlp/`. The zip stores
+`_internal/Python.framework` with its symlinks flattened into copies, which
+codesign refuses ("bundle format is ambiguous"), so the script restores them.
 
-The zip stores `_internal/Python.framework` with its symlinks flattened into
-copies, and codesign then refuses it ("bundle format is ambiguous"). After
-unpacking, turn them back into symlinks:
+Update it often. Sites like YouTube change, and old versions start failing
+with HTTP 403. Bump `YTDLP_VERSION` in the script.
 
-```bash
-cd MindExtract/Resources/ytdlp/_internal/Python.framework
-rm -rf Versions/Current Python Resources
-ln -s 3.14 Versions/Current            # the version folder that's there
-ln -s Versions/Current/Python Python
-ln -s Versions/Current/Resources Resources
-``` Update it regularly —
-sites like YouTube change often and old versions start failing (HTTP 403).
-
-The app passes `--ffmpeg-location` so yt-dlp always uses a working ffmpeg
+The app passes `--ffmpeg-location` so yt-dlp uses the bundled ffmpeg
 (`BundledTools` in `AudioConverter.swift`), and `--no-update`.
 
-Both are signed by `sign_and_notarize.sh` during release.
+## ffmpeg and ffprobe (merging video and audio)
+
+Universal (Apple Silicon and Intel), static, LGPL, built from the official
+FFmpeg source by `scripts/build-ffmpeg.sh` (the source signature is checked
+when gpg is installed). It only links frameworks and libraries that ship with
+macOS, so it runs on every Mac without Rosetta or Homebrew.
+
+Check: `file Resources/ffmpeg` must list both `x86_64` and `arm64`.
+
+Don't bundle an Intel-only or Homebrew (dynamically linked) ffmpeg. It fails
+with "Bad CPU type" or missing libraries on other Macs.
+
+All of it is signed by `scripts/release.sh` during release.
