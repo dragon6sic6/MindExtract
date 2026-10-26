@@ -609,6 +609,9 @@ struct TranscriptionHistoryItem: Identifiable, Codable, Equatable {
     var source: String?
     /// The link a transcript was made from, so copying it later keeps the source.
     var sourceURL: String?
+    /// Thumbnail and channel of that link, so reopening it looks the same.
+    var thumbnailURL: String?
+    var channel: String?
     var sourceType: TranscriptSource? { source.flatMap(TranscriptSource.init(rawValue:)) }
 
     init(title: String, filePath: String, duration: String? = nil, modelUsed: String) {
@@ -748,9 +751,11 @@ class TranscriptionHistoryManager: ObservableObject {
         saveHistory()
     }
 
-    func setSourceURL(_ url: String, forPath path: String) {
+    func setSource(url: String?, thumbnail: String?, channel: String?, forPath path: String) {
         guard let i = history.firstIndex(where: { $0.filePath == path }) else { return }
         history[i].sourceURL = url
+        history[i].thumbnailURL = thumbnail
+        history[i].channel = channel
         saveHistory()
     }
 

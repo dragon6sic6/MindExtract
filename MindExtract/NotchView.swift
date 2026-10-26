@@ -736,17 +736,19 @@ struct TranscribedActions: View {
                 .fixedSize()
                 .accessibilityLabel("More Options")
                 .modifier(SquareBackground(size: NotchStyle.mainHeight, filled: true))
-                Button { model.clear() } label: { SquareIcon(name: "plus") }
-                    .buttonStyle(.plain)
-                    .help("New link")
-                    .accessibilityLabel("New Link")
             }
-            if copied {
-                Text(model.autoCopiedPath == path ? "Copied automatically — paste with ⌘V in Claude, ChatGPT or anywhere."
-                                                  : "Paste with ⌘V in Claude, ChatGPT or anywhere.")
-                    .font(NotchStyle.small)
-                    .foregroundStyle(NotchStyle.tertiary)
-                    .transition(.opacity)
+            HStack(alignment: .center, spacing: 8) {
+                if copied {
+                    Text(model.autoCopiedPath == path ? "Copied automatically — paste with ⌘V in Claude, ChatGPT or anywhere."
+                                                      : "Paste with ⌘V in Claude, ChatGPT or anywhere.")
+                        .font(NotchStyle.small)
+                        .foregroundStyle(NotchStyle.tertiary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity)
+                }
+                Spacer(minLength: 8)
+                ChipButton(icon: "plus", title: String(localized: "New Link")) { model.clear() }
             }
         }
         .animation(NotchStyle.snappy, value: copied)
@@ -767,6 +769,10 @@ struct DownloadedActions: View {
     let path: String
 
     var body: some View {
+        VStack(spacing: 8) { buttons }
+    }
+
+    @ViewBuilder private var buttons: some View {
         HStack(spacing: 8) {
             Button {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
@@ -780,10 +786,10 @@ struct DownloadedActions: View {
             }
             .buttonStyle(NotchButtonStyle(kind: .primary, expand: true, height: NotchStyle.mainHeight))
             .keyboardShortcut(.defaultAction)
-            Button { model.clear() } label: { SquareIcon(name: "plus") }
-                .buttonStyle(.plain)
-                .help("New link")
-                .accessibilityLabel("New Link")
+        }
+        HStack {
+            Spacer()
+            ChipButton(icon: "plus", title: String(localized: "New Link")) { model.clear() }
         }
     }
 }
@@ -921,69 +927,77 @@ struct RecentRow: View {
 
     var body: some View {
         let copied = { _ = refresh; return entry.path.map(model.isOnClipboard) ?? false }()
-        Button(action: primary) {
-            HStack(spacing: 10) {
-                HStack(spacing: 3) {
-                    Image(systemName: entry.kind == .transcript ? "doc.text" : "film")
-                    if entry.alsoDownloaded { Image(systemName: "film").opacity(0.7) }
-                }
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(NotchStyle.secondary)
-                .frame(width: entry.alsoDownloaded ? 30 : 16, alignment: .leading)
-                Text(verbatim: entry.title)
-                    .font(NotchStyle.body)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                Group {
-                    if copied {
-                        Label("Copied", systemImage: "checkmark")
-                    } else if hovering {
-                        Text(entry.kind == .transcript ? "Copy" : "Open")
-                    } else {
-                        Text(entry.date, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
-                            .foregroundStyle(NotchStyle.tertiary)
+        let showsCopy = hovering && entry.kind == .transcript && !copied
+        ZStack(alignment: .trailing) {
+            // The whole row opens it…
+            Button { model.openRecent(entry) } label: {
+                HStack(spacing: 10) {
+                    HStack(spacing: 3) {
+                        Image(systemName: entry.kind == .transcript ? "doc.text" : "film")
+                        if entry.alsoDownloaded { Image(systemName: "film").opacity(0.7) }
                     }
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(NotchStyle.secondary)
+                    .frame(width: entry.alsoDownloaded ? 30 : 16, alignment: .leading)
+                    Text(verbatim: entry.title)
+                        .font(NotchStyle.body)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Group {
+                        if copied {
+                            Label("Copied", systemImage: "checkmark").font(.system(size: 12, weight: .semibold))
+                        } else {
+                            Text(entry.date, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
+                                .font(NotchStyle.small)
+                                .foregroundStyle(NotchStyle.tertiary)
+                        }
+                    }
+                    .opacity(showsCopy ? 0 : 1)
                 }
-                .font(.system(size: 12, weight: hovering || copied ? .semibold : .regular))
+                .padding(.horizontal, 8)
+                .frame(height: NotchStyle.rowHeight)
+                .background(RoundedRectangle(cornerRadius: NotchStyle.radiusSmall, style: .continuous)
+                    .fill(hovering ? Color.white.opacity(0.06) : .clear))
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 8)
-            .frame(height: NotchStyle.rowHeight)
-            .background(RoundedRectangle(cornerRadius: NotchStyle.radiusSmall, style: .continuous)
-                .fill(hovering ? Color.white.opacity(0.06) : .clear))
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel(entry.kind == .transcript ? String(localized: "Transcript, \(entry.title)")
+                                                          : String(localized: "Saved video, \(entry.title)"))
+            .accessibilityHint(String(localized: "Opens it"))
+
+            // …and a transcript can be copied straight from the list.
+            if showsCopy {
+                Button {
+                    if let path = entry.path { model.copyTranscript(path: path, item: entry.item); refresh += 1 }
+                } label: {
+                    Label("Copy", systemImage: "doc.on.doc")
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .frame(height: 24)
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(NotchStyle.fieldHover))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 4)
+                .help("Copy the transcript")
+                .transition(.opacity)
+            }
         }
-        .buttonStyle(.plain)
         .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: showsCopy)
         .contextMenu {
-            if entry.kind == .transcript, let path = entry.path {
-                Button("Copy with Timestamps") {
-                    model.copyTranscript(path: path, item: item, timestamps: true)
-                    refresh += 1
-                }
-            }
             Button("Open") { model.openRecent(entry) }
+            if entry.kind == .transcript, let path = entry.path {
+                Button("Copy Transcript") { model.copyTranscript(path: path, item: entry.item); refresh += 1 }
+                Button("Copy with Timestamps") { model.copyTranscript(path: path, item: entry.item, timestamps: true); refresh += 1 }
+            }
             if let path = entry.path {
+                Divider()
                 Button("Show in Finder") {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
                     NotchController.shared.closeAfterHandOff()
                 }
             }
-        }
-        .accessibilityLabel(entry.kind == .transcript ? String(localized: "Transcript, \(entry.title)")
-                                                      : String(localized: "Saved video, \(entry.title)"))
-        .accessibilityHint(entry.kind == .transcript ? String(localized: "Copies the transcript") : String(localized: "Opens it"))
-    }
-
-    private var item: NotchModel.Item { NotchModel.Item(title: entry.title, url: entry.url, filePath: entry.path) }
-
-    private func primary() {
-        guard let path = entry.path else { return }
-        switch entry.kind {
-        case .transcript:
-            model.copyTranscript(path: path, item: item)
-            refresh += 1
-        case .download:
-            model.openRecent(entry)
         }
     }
 }

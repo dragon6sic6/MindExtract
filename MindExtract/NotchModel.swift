@@ -327,7 +327,7 @@ final class NotchModel: ObservableObject {
 
     func openRecent(_ entry: RecentEntry) {
         guard let path = entry.path, !isBusy else { return }
-        let item = Item(title: entry.title, url: entry.url, filePath: path)
+        let item = entry.item
         switch entry.kind {
         case .transcript: stage = .transcribed(item, path: path)
         case .download: stage = .downloaded(item, path: path)
@@ -394,7 +394,8 @@ final class NotchModel: ObservableObject {
         case .transcribing(let p):
             stage = .working(item, .transcribe, phase: String(localized: "Transcribing…"), progress: p > 0 ? p : nil)
         case .completed(let path):
-            if let url = item.url { TranscriptionHistoryManager.shared.setSourceURL(url, forPath: path) }
+            TranscriptionHistoryManager.shared.setSource(url: item.url, thumbnail: item.thumbnail?.absoluteString,
+                                                         channel: item.channel.isEmpty ? nil : item.channel, forPath: path)
             finish(.transcribed(item, path: path))
             if AppSettings.shared.autoCopyWhenDone, NSPasteboard.general.changeCount == jobPasteboardCount {
                 copyTranscript(path: path, item: item)
@@ -482,8 +483,32 @@ struct RecentEntry: Identifiable {
     let date: Date
     let path: String?
     let url: String?
+    var thumbnail: String? = nil
+    var channel: String? = nil
+    var duration: String? = nil
     /// The same video was also saved (for a transcript) — shown as a second icon.
     var alsoDownloaded = false
+
+    var item: NotchModel.Item {
+        NotchModel.Item(title: title, channel: channel ?? "", duration: duration ?? "",
+                        thumbnail: (thumbnail ?? Self.youTubeThumbnail(url)).flatMap(URL.init(string:)),
+                        url: url, filePath: path)
+    }
+
+    /// YouTube's own still for a video link, for transcripts saved without one.
+    static func youTubeThumbnail(_ link: String?) -> String? {
+        guard let link, let comps = URLComponents(string: link), let host = comps.host else { return nil }
+        let id: String?
+        if host.hasSuffix("youtu.be") {
+            id = comps.path.split(separator: "/").first.map(String.init)
+        } else if host.contains("youtube.com") {
+            id = comps.queryItems?.first { $0.name == "v" }?.value
+                ?? (comps.path.hasPrefix("/shorts/") ? comps.path.split(separator: "/").last.map(String.init) : nil)
+        } else {
+            id = nil
+        }
+        return id.map { "https://i.ytimg.com/vi/\($0)/hqdefault.jpg" }
+    }
 
     /// The latest distinct videos: a video that was both saved and transcribed
     /// shows once, as its transcript.
@@ -492,12 +517,13 @@ struct RecentEntry: Identifiable {
         let transcripts = TranscriptionHistoryManager.shared.history.compactMap { item -> RecentEntry? in
             guard item.fileExists else { return nil }
             return RecentEntry(id: item.id, kind: .transcript, title: item.title, date: item.transcriptionDate,
-                               path: item.filePath, url: item.sourceURL)
+                               path: item.filePath, url: item.sourceURL, thumbnail: item.thumbnailURL,
+                               channel: item.channel, duration: item.duration)
         }
         let downloads = HistoryManager.shared.history.compactMap { item -> RecentEntry? in
             guard let path = item.filePath, FileManager.default.fileExists(atPath: path) else { return nil }
             return RecentEntry(id: item.id, kind: .download, title: item.title, date: item.downloadDate,
-                               path: path, url: item.url)
+                               path: path, url: item.url, thumbnail: item.thumbnail)
         }
         func key(_ e: RecentEntry) -> String {
             e.title.lowercased().filter { $0.isLetter || $0.isNumber }
@@ -513,12 +539,16 @@ struct RecentEntry: Identifiable {
                 // A later transcript of a video already listed as a download replaces it.
                 if e.kind == .transcript, let i = out.firstIndex(where: { key($0) == k && $0.kind == .download }) {
                     e.alsoDownloaded = true
+                    if e.thumbnail == nil { e.thumbnail = out[i].thumbnail }
                     out[i] = e
                 }
                 continue
             }
             seen.insert(k)
-            if e.kind == .transcript, downloadedKeys.contains(k) { e.alsoDownloaded = true }
+            if e.kind == .transcript, downloadedKeys.contains(k) {
+                e.alsoDownloaded = true
+                if e.thumbnail == nil { e.thumbnail = downloads.first { key($0) == k }?.thumbnail }
+            }
             out.append(e)
             if out.count == count { break }
         }
