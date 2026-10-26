@@ -1572,9 +1572,40 @@ extension TranscriptionManager {
         let desiredLang = Locale(identifier: desired).language.languageCode?.identifier
 
         if let exact = supported.first(where: { norm($0.identifier) == desiredNorm }) { return exact }
-        if let langMatch = supported.first(where: { $0.language.languageCode?.identifier == desiredLang }) { return langMatch }
-        if let english = supported.first(where: { norm($0.identifier).hasPrefix("en") }) { return english }
-        return supported.first ?? Locale(identifier: "en-US")
+        // Several regional variants per language: always pick the same one. The
+        // supported list's order changes between runs, and every new variant used
+        // takes one of the app's few reserved-language slots.
+        func pick(_ lang: String?) -> Locale? {
+            let candidates = supported.filter { $0.language.languageCode?.identifier == lang }
+            if let region = Locale.current.region?.identifier,
+               let local = candidates.first(where: { $0.region?.identifier == region }) { return local }
+            let usual = ["en-US", "es-ES", "fr-FR", "de-DE", "it-IT", "pt-BR", "zh-CN", "ja-JP", "ko-KR"]
+            if let common = candidates.first(where: { usual.contains($0.identifier(.bcp47)) }) { return common }
+            return candidates.min { $0.identifier < $1.identifier }
+        }
+        return pick(desiredLang) ?? pick("en") ?? supported.first ?? Locale(identifier: "en-US")
+    }
+
+    /// Releases other variants of the same language, then the oldest reserved
+    /// languages until `locale` fits within Apple's per-app limit (5). Released
+    /// models may be removed by the system and are downloaded again if needed.
+    @available(macOS 26.0, *)
+    static func makeRoomForLocale(_ locale: Locale) async {
+        let id = locale.identifier(.bcp47)
+        // Other regional variants of the same language are never used again.
+        for other in await AssetInventory.reservedLocales
+        where other.language.languageCode == locale.language.languageCode && other.identifier(.bcp47) != id {
+            await AssetInventory.release(reservedLocale: other)
+            appLog("[MindExtract] Released Apple Speech locale \(other.identifier(.bcp47)) (same language as \(id))")
+        }
+        let reserved = await AssetInventory.reservedLocales
+        guard !reserved.contains(where: { $0.identifier(.bcp47) == id }) else { return }
+        let excess = reserved.count - (AssetInventory.maximumReservedLocales - 1)
+        guard excess > 0 else { return }
+        for old in reserved.prefix(excess) {
+            await AssetInventory.release(reservedLocale: old)
+            appLog("[MindExtract] Released Apple Speech locale \(old.identifier(.bcp47)) to make room for \(id)")
+        }
     }
 
     /// Whether Apple's SpeechTranscriber supports a given language code. Apple
@@ -1813,6 +1844,10 @@ extension TranscriptionManager {
                     reportingOptions: [],
                     attributeOptions: [.audioTimeRange]
                 )
+
+                // Apple lets an app reserve only a few languages at once; free a
+                // slot first, or the request fails with "Too many allocated locales".
+                await Self.makeRoomForLocale(locale)
 
                 // Download the locale model on first use.
                 if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
