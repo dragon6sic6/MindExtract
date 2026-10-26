@@ -501,6 +501,9 @@ private struct ListenStage: View {
 private struct PasteWell: View {
     let text: String?
     @State private var caret = true
+    /// macOS only hands MindExtract the keyboard after you click it, so when
+    /// this step appears by itself, ⌘V would still go to the app you used last.
+    @State private var hasKeyboard = NSApp.isActive
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -518,7 +521,7 @@ private struct PasteWell: View {
                     .clipped()
                     .mask(LinearGradient(stops: [.init(color: .black, location: 0.75), .init(color: .clear, location: 1)],
                                          startPoint: .top, endPoint: .bottom))
-            } else {
+            } else if hasKeyboard {
                 HStack(spacing: 2) {
                     Text("Pretend this is Claude.")
                         .foregroundStyle(NotchStyle.tertiary)
@@ -533,11 +536,33 @@ private struct PasteWell: View {
                     guard !NotchStyle.reduceMotion else { return }
                     withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) { caret = false }
                 }
+            } else {
+                VStack(spacing: 6) {
+                    Image(systemName: "cursorarrow.click")
+                        .font(.system(size: 18, weight: .medium))
+                    Text("Click here, then press ⌘V.")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(NotchStyle.text)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(height: 124)
+        .contentShape(Rectangle())
+        .onTapGesture { NotchController.shared.takeKeyboardForIntroduction() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            withAnimation(NotchStyle.snappy) { hasKeyboard = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            withAnimation(NotchStyle.snappy) { hasKeyboard = false }
+        }
+        .onAppear {
+            // The request to take the keyboard may be declined a moment after this appears.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { hasKeyboard = NSApp.isActive }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(text == nil ? String(localized: "Paste area. Press Command V.") : String(localized: "Pasted transcript"))
+        .accessibilityAddTraits(.isButton)
     }
 }
 
