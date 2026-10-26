@@ -561,7 +561,9 @@ class TranscriptionManager: ObservableObject {
         let ffmpegPath = ffmpegBinaryPath
 
         // Apple Speech needs no downloaded model; only require one for WhisperKit.
-        if !usingApple {
+        // Swedish (or a language still to be detected) can run on Pianissimo alone.
+        let pianissimoCovers = isModelDownloaded(.pianissimo) && (language == "sv" || language == "auto")
+        if !usingApple && !pianissimoCovers {
             guard isModelDownloaded(model) else {
                 neededModel = model
                 DispatchQueue.main.async {
@@ -622,7 +624,9 @@ class TranscriptionManager: ObservableObject {
         let usingApple = useAppleSpeech()
 
         // Apple Speech needs no downloaded model; only require one for WhisperKit.
-        if !usingApple {
+        // Swedish (or a language still to be detected) can run on Pianissimo alone.
+        let pianissimoCovers = isModelDownloaded(.pianissimo) && (language == "sv" || language == "auto")
+        if !usingApple && !pianissimoCovers {
             guard isModelDownloaded(model) else {
                 neededModel = model
                 DispatchQueue.main.async {
@@ -951,7 +955,6 @@ class TranscriptionManager: ObservableObject {
                     self.lastSavedPath = outputPath
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
-                    self.notifyTranscriptionComplete()
                     self.advanceBatchIfNeeded()
                     appLog("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
                 }
@@ -1701,20 +1704,6 @@ extension TranscriptionManager {
         return result
     }
 
-    /// Post a "transcription complete" notification (if enabled). Useful for long
-    /// files or auto-transcribed downloads finishing while the user is elsewhere.
-    private func notifyTranscriptionComplete() {
-        guard AppSettings.shared.notifyOnTranscriptionComplete else { return }
-        let content = UNMutableNotificationContent()
-        content.title = "Transcription complete"
-        content.body = currentTranscriptionTitle.isEmpty ? "Your transcript is ready." : currentTranscriptionTitle
-        content.sound = .default
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error { appLog("[MindExtract] transcription notification failed: \(error)") }
-        }
-    }
-
     /// Whether to use Apple's SpeechAnalyzer for the next transcription.
     /// Falls back to WhisperKit when SpeechAnalyzer isn't available (macOS < 26).
     func useAppleSpeech() -> Bool {
@@ -1936,7 +1925,6 @@ extension TranscriptionManager {
                 lastSavedPath = outputPath
                 transcriptionState = .completed(outputPath: outputPath)
                 saveToHistory(title: currentTranscriptionTitle, filePath: outputPath)
-                notifyTranscriptionComplete()
                 advanceBatchIfNeeded()
                 cleanup()
             } catch {

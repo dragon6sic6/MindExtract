@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 import UniformTypeIdentifiers
 
 // MARK: - Settings
@@ -103,16 +104,24 @@ struct SettingsView: View {
             SettingsRow("Open the notch", detail: "Works in any app. Hovering or clicking the notch always works too.") {
                 HotKeyRecorder()
             }
-            SettingsRow("Show on", detail: "Which screen the notch lives on when you use more than one.") {
-                MonoMenu(selection: Binding(
-                    get: { settings.notchScreen },
-                    set: { settings.notchScreen = $0; NotchController.shared.place() }),
-                         options: [("notch", String(localized: "The screen with the notch")),
-                                   ("main", String(localized: "The main screen"))])
+            if NSScreen.screens.count > 1 {
+                SettingsRow("Show on", detail: "Which screen the notch lives on.") {
+                    MonoMenu(selection: Binding(
+                        get: { settings.notchScreen },
+                        set: { settings.notchScreen = $0; NotchController.shared.place() }),
+                             options: [("notch", String(localized: "The screen with the notch")),
+                                       ("main", String(localized: "The main screen"))])
+                }
             }
-            SettingsRow("Open at login", detail: "Without a Dock icon, this keeps the notch there after a restart.") {
-                Toggle("", isOn: Binding(get: { loginItemOn }, set: { loginItemOn = $0; LoginItem.set($0) }))
-                    .toggleStyle(MonoToggleStyle())
+            if LoginItem.needsApproval {
+                SettingsRow("Open at login", detail: "Waiting for your approval in System Settings, under Login Items.") {
+                    SmallButton("Open System Settings") { SMAppService.openSystemSettingsLoginItems() }
+                }
+            } else {
+                SettingsRow("Open at login", detail: "Without a Dock icon, this keeps the notch there after a restart.") {
+                    Toggle("", isOn: Binding(get: { loginItemOn }, set: { loginItemOn = $0; LoginItem.set($0) }))
+                        .toggleStyle(MonoToggleStyle())
+                }
             }
         }
 
@@ -123,11 +132,8 @@ struct SettingsView: View {
             SettingsRow("Include timestamps", detail: "Puts [12:04] before each passage. Without them it reads like an article.") {
                 Toggle("", isOn: $settings.copyWithTimestamps).toggleStyle(MonoToggleStyle())
             }
-            SettingsRow("Notify me", detail: "A notification when a transcript or a download is ready.") {
-                Toggle("", isOn: Binding(
-                    get: { settings.notifyOnTranscriptionComplete },
-                    set: { settings.notifyOnTranscriptionComplete = $0; settings.showNotifications = $0 }))
-                    .toggleStyle(MonoToggleStyle())
+            SettingsRow("Notify me", detail: "When the notch is closed and a transcript or download is ready.") {
+                Toggle("", isOn: $settings.notifyOnTranscriptionComplete).toggleStyle(MonoToggleStyle())
             }
         }
     }
@@ -167,9 +173,18 @@ struct SettingsView: View {
                     set: { settings.transcriptionEngine = $0 }),
                          options: [(.appleSpeech, String(localized: "Apple speech recognition")), (.whisperKit, "Whisper")])
             }
-            SettingsRow("Whisper model", detail: "Bigger is more accurate but slower.") {
-                MonoMenu(selection: $settings.defaultWhisperModel,
-                         options: WhisperModel.allCases.filter { !$0.isSwedishOnly }.map { ($0, $0.displayName) })
+            let whisperModels = WhisperModel.allCases.filter { !$0.isSwedishOnly && transcriptionManager.isModelDownloaded($0) }
+            if whisperModels.isEmpty {
+                SettingsRow("Whisper model", detail: "None downloaded yet. Pick one under Speech models.") {
+                    ValueLabel(text: String(localized: "None"))
+                }
+            } else {
+                SettingsRow("Whisper model", detail: "Bigger is more accurate but slower.") {
+                    MonoMenu(selection: Binding(
+                        get: { whisperModels.contains(settings.defaultWhisperModel) ? settings.defaultWhisperModel : whisperModels[0] },
+                        set: { settings.defaultWhisperModel = $0 }),
+                             options: whisperModels.map { ($0, $0.displayName) })
+                }
             }
         }
 
@@ -415,6 +430,11 @@ struct SettingsSection<Content: View>: View {
     }
 }
 
+extension EnvironmentValues {
+    /// The row a control sits in, so VoiceOver can name an unlabelled switch or menu.
+    @Entry var settingsRowTitle: LocalizedStringKey? = nil
+}
+
 struct SettingsRow<Control: View>: View {
     let title: LocalizedStringKey
     let detail: LocalizedStringKey?
@@ -439,6 +459,7 @@ struct SettingsRow<Control: View>: View {
             }
             Spacer(minLength: 12)
             control()
+                .environment(\.settingsRowTitle, title)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -522,6 +543,7 @@ struct MonoMenu<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String)]
     @State private var hovering = false
+    @Environment(\.settingsRowTitle) private var rowTitle
 
     var body: some View {
         Menu {
@@ -551,15 +573,28 @@ struct MonoMenu<Value: Hashable>: View {
         .background(RoundedRectangle(cornerRadius: NotchStyle.radiusSmall, style: .continuous)
             .fill(hovering ? NotchStyle.fieldHover : NotchStyle.field))
         .onHover { hovering = $0 }
+        .accessibilityLabel(rowTitle.map { Text($0) } ?? Text(verbatim: ""))
+        .accessibilityValue(options.first { $0.0 == selection }?.1 ?? "")
     }
 }
 
 /// A black-and-white switch: a white track with a black knob when on.
 struct MonoToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
+        MonoSwitch(configuration: configuration)
+    }
+}
+
+private struct MonoSwitch: View {
+    let configuration: ToggleStyleConfiguration
+    @Environment(\.settingsRowTitle) private var rowTitle
+
+    var body: some View {
         Button { configuration.isOn.toggle() } label: {
             ZStack(alignment: configuration.isOn ? .trailing : .leading) {
-                Capsule().fill(configuration.isOn ? Color.white : Color.white.opacity(0.16))
+                Capsule()
+                    .fill(configuration.isOn ? Color.white : Color.white.opacity(0.22))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(configuration.isOn ? 0 : 0.14)))
                 Circle()
                     .fill(configuration.isOn ? Color.black : Color.white.opacity(0.9))
                     .padding(2)
@@ -570,6 +605,7 @@ struct MonoToggleStyle: ToggleStyle {
         .buttonStyle(.plain)
         .accessibilityElement()
         .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(rowTitle.map { Text($0) } ?? Text(verbatim: ""))
         .accessibilityValue(configuration.isOn ? String(localized: "On") : String(localized: "Off"))
     }
 }
@@ -578,6 +614,7 @@ struct MonoToggleStyle: ToggleStyle {
 struct ModelAction: View {
     let model: WhisperModel
     @ObservedObject private var tm = TranscriptionManager.shared
+    @State private var confirmDelete = false
 
     var body: some View {
         if tm.downloadingModel == model {
@@ -596,12 +633,17 @@ struct ModelAction: View {
                 } else {
                     Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).accessibilityLabel("Downloaded")
                 }
-                Button { tm.deleteModel(model) } label: {
+                Button { confirmDelete = true } label: {
                     Image(systemName: "trash").font(.system(size: 12, weight: .semibold)).foregroundStyle(NotchStyle.secondary)
                 }
                 .buttonStyle(.plain)
                 .help("Delete model")
                 .accessibilityLabel("Delete model")
+                .confirmationDialog("Delete \(model.displayName)?", isPresented: $confirmDelete) {
+                    Button("Delete \(model.sizeDescription)", role: .destructive) { tm.deleteModel(model) }
+                } message: {
+                    Text("You can download it again whenever you need it. Your transcripts aren't affected.")
+                }
             }
         } else {
             SmallButton("Download") { tm.downloadModel(model) }
@@ -643,18 +685,22 @@ struct HotKeyRecorder: View {
     @ObservedObject private var hotKey = GlobalHotKey.shared
     @State private var recording = false
     @State private var monitor: Any?
+    @State private var hint: String?
 
     var body: some View {
         HStack(spacing: 6) {
             Button {
                 recording ? stop() : start()
             } label: {
-                Text(recording ? String(localized: "Press the shortcut…") : (hotKey.combo?.display ?? String(localized: "Off")))
+                Text(hint ?? (recording ? String(localized: "Press the shortcut…") : (hotKey.combo?.display ?? String(localized: "Off"))))
                     .monospacedDigit()
                     .frame(minWidth: 96)
             }
             .buttonStyle(NotchButtonStyle(kind: recording ? .done : .secondary, height: 28))
             .font(.system(size: 12, weight: .semibold))
+            .accessibilityLabel(String(localized: "Shortcut"))
+            .accessibilityValue(hotKey.combo?.display ?? String(localized: "Off"))
+            .accessibilityHint(String(localized: "Press to record a new shortcut."))
             if !recording, hotKey.combo != .standard {
                 SmallButton("Reset") { hotKey.set(.standard) }
             }
@@ -670,16 +716,26 @@ struct HotKeyRecorder: View {
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if event.keyCode == 53 { stop(); return nil }               // Esc cancels
             if let combo = GlobalHotKey.combo(from: event) {
-                hotKey.set(combo)
-                stop()
+                if hotKey.set(combo) {
+                    stop()
+                } else {
+                    show(String(localized: "Taken by another app"))
+                }
             } else {
-                NSSound.beep()                                          // needs ⌃, ⌥ or ⌘
+                show(String(localized: "Use ⌃, or ⌘ with ⌥"))
             }
             return nil
         }
     }
 
+    private func show(_ text: String) {
+        NSSound.beep()
+        hint = text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { if hint == text { hint = nil } }
+    }
+
     private func stop() {
+        hint = nil
         recording = false
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil

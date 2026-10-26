@@ -10547,6 +10547,136 @@
           }
         }
       }
+    },
+    "Delete %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radera %@"
+          }
+        }
+      }
+    },
+    "Delete %@?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radera %@?"
+          }
+        }
+      }
+    },
+    "None downloaded yet. Pick one under Speech models.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingen nedladdad än. Välj en under Talmodeller."
+          }
+        }
+      }
+    },
+    "Open System Settings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna Systeminställningar"
+          }
+        }
+      }
+    },
+    "Press to record a new shortcut.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tryck för att spela in ett nytt kortkommando."
+          }
+        }
+      }
+    },
+    "Shortcut": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kortkommando"
+          }
+        }
+      }
+    },
+    "Taken by another app": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Används av en annan app"
+          }
+        }
+      }
+    },
+    "Transcript ready and copied": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriptet är klart och kopierat"
+          }
+        }
+      }
+    },
+    "Use ⌃, or ⌘ with ⌥": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använd ⌃, eller ⌘ med ⌥"
+          }
+        }
+      }
+    },
+    "Waiting for your approval in System Settings, under Login Items.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Väntar på ditt godkännande i Systeminställningar, under Inloggningsobjekt."
+          }
+        }
+      }
+    },
+    "When the notch is closed and a transcript or download is ready.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "När notchen är stängd och ett transkript eller en nedladdning är klar."
+          }
+        }
+      }
+    },
+    "Which screen the notch lives on.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vilken skärm notchen finns på."
+          }
+        }
+      }
+    },
+    "You can download it again whenever you need it. Your transcripts aren't affected.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du kan ladda ner den igen när du behöver. Dina transkript påverkas inte."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

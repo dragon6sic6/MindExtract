@@ -70,8 +70,17 @@ final class GlobalHotKey: ObservableObject {
         register()
     }
 
-    func set(_ new: Combo?) {
+    /// Saves and registers a shortcut. False if another app already owns it;
+    /// the previous shortcut stays then.
+    @discardableResult
+    func set(_ new: Combo?) -> Bool {
+        let previous = combo
         combo = new
+        guard register() else {
+            combo = previous
+            register()
+            return false
+        }
         if let new {
             defaults.set(false, forKey: "hotKeyOff")
             defaults.set(Int(new.keyCode), forKey: "hotKeyCode")
@@ -80,20 +89,25 @@ final class GlobalHotKey: ObservableObject {
         } else {
             defaults.set(true, forKey: "hotKeyOff")
         }
-        register()
+        return true
     }
 
-    private func register() {
+    @discardableResult
+    private func register() -> Bool {
         if let ref { UnregisterEventHotKey(ref); self.ref = nil }
-        guard let combo else { return }
+        guard let combo else { return true }
         let id = EventHotKeyID(signature: OSType(0x4D455854), id: 1)   // 'MEXT'
-        RegisterEventHotKey(combo.keyCode, combo.carbonModifiers, id, GetApplicationEventTarget(), 0, &ref)
+        let status = RegisterEventHotKey(combo.keyCode, combo.carbonModifiers, id, GetApplicationEventTarget(), 0, &ref)
+        if status != noErr { appLog("[MindExtract] Shortcut \(combo.display) not registered: \(status)") }
+        return status == noErr
     }
 
-    /// Turns a key press into a combo. Needs ⌃, ⌥ or ⌘ so ordinary typing can't be taken.
+    /// Turns a key press into a combo. It needs ⌃, or ⌘ together with ⌥:
+    /// ⌘ alone would take Copy, Paste and Quit from every app, and ⌥ alone
+    /// types characters such as @ on many keyboards.
     static func combo(from event: NSEvent) -> Combo? {
         let mods = event.modifierFlags.intersection([.control, .option, .shift, .command])
-        guard !mods.intersection([.control, .option, .command]).isEmpty else { return nil }
+        guard mods.contains(.control) || mods.isSuperset(of: [.command, .option]) else { return nil }
         let name: String
         switch Int(event.keyCode) {
         case kVK_Space: name = "Space"
@@ -109,6 +123,8 @@ final class GlobalHotKey: ObservableObject {
 
 enum LoginItem {
     static var isEnabled: Bool { SMAppService.mainApp.status == .enabled }
+    /// Turned on, but macOS wants the user to allow it in System Settings.
+    static var needsApproval: Bool { SMAppService.mainApp.status == .requiresApproval }
 
     static func set(_ on: Bool) {
         do {

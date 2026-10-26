@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import Combine
+import UserNotifications
 
 // MARK: - What the notch is doing
 //
@@ -434,11 +435,12 @@ final class NotchModel: ObservableObject {
         case .completed(let path):
             TranscriptionHistoryManager.shared.setSource(url: item.url, thumbnail: item.thumbnail?.absoluteString,
                                                          channel: item.channel.isEmpty ? nil : item.channel, forPath: path)
-            finish(.transcribed(item, path: path))
+            autoCopiedPath = nil
             if AppSettings.shared.autoCopyWhenDone, NSPasteboard.general.changeCount == jobPasteboardCount {
                 copyTranscript(path: path, item: item)
                 autoCopiedPath = path
             }
+            finish(.transcribed(item, path: path))
         case .error(let message):
             let needsSignIn = item.filePath == nil && downloader.lastErrorNeedsAuth
             fail(item, work: .transcribe, message, problem: needsSignIn ? .needsSignIn : .general)
@@ -482,6 +484,7 @@ final class NotchModel: ObservableObject {
         stage = result
         input = ""
         guard !isOpen else { return }
+        notify(result)
         hasUnseenResult = true
         unseenIsQuiet = false
         popCount += 1
@@ -491,6 +494,33 @@ final class NotchModel: ObservableObject {
         let work = DispatchWorkItem { [weak self] in self?.unseenIsQuiet = true }
         quietWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: work)
+    }
+
+    /// The one notification a job sends, and only while the notch is closed.
+    /// Permission is asked the first time there's something to say.
+    private func notify(_ result: Stage) {
+        guard AppSettings.shared.notifyOnTranscriptionComplete else { return }
+        let content = UNMutableNotificationContent()
+        switch result {
+        case .transcribed(let item, _):
+            content.title = autoCopiedPath != nil
+                ? String(localized: "Transcript ready and copied") : String(localized: "Transcript ready")
+            content.body = item.title
+        case .downloaded(let item, _):
+            content.title = String(localized: "Download finished")
+            content.body = item.title
+        case .failed(let item?, _, let message, _, _):
+            content.title = String(localized: "That didn't work")
+            content.body = item.title + "\n" + message
+        default:
+            return
+        }
+        content.sound = .default
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        }
     }
 
     func markSeen() {
@@ -610,8 +640,13 @@ enum TranscriptCopy {
         var lines = raw.components(separatedBy: "\n")
         if let first = lines.first, first.hasPrefix("# ") {
             lines.removeFirst()
-            while let next = lines.first, next.trimmingCharacters(in: .whitespaces).isEmpty
-                || next.range(of: #"^\[?\d{4}-\d{2}-\d{2}"#, options: .regularExpression) != nil {
+            // The date line is written in the Mac's language ("26 oktober 2026 08:10",
+            // "October 26, 2026 at 8:10 AM"): a short line with a year, not a passage.
+            if let next = lines.first, !next.hasPrefix("["), next.count < 60,
+               next.range(of: #"\b(19|20)\d{2}\b"#, options: .regularExpression) != nil {
+                lines.removeFirst()
+            }
+            while let next = lines.first, next.trimmingCharacters(in: .whitespaces).isEmpty {
                 lines.removeFirst()
             }
         }
@@ -623,20 +658,36 @@ enum TranscriptCopy {
     /// language); timestamps are dropped.
     static func plain(_ raw: String) -> String {
         let pattern = #"^\[(?:\d+:)?\d{1,2}:\d{2}\]\s*"#
-        var rows: [(speaker: String?, text: String)] = []
+        var candidates: [(name: String?, rest: String, line: String)] = []
         for block in withoutHeader(raw).components(separatedBy: "\n") {
             var line = block.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty else { continue }
             if let r = line.range(of: pattern, options: .regularExpression) { line.removeSubrange(r) }
-            var speaker: String?
+            var name: String?
+            var rest = line
             if let colon = line.firstIndex(of: ":"), line.distance(from: line.startIndex, to: colon) <= 30 {
-                let name = String(line[..<colon])
-                if name.range(of: #"^[\p{L}][\p{L}\p{N} .'-]*$"#, options: .regularExpression) != nil, name.split(separator: " ").count <= 3 {
-                    speaker = name
-                    line = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+                let before = String(line[..<colon])
+                if before.range(of: #"^[\p{L}][\p{L}\p{N} .'/-]*$"#, options: .regularExpression) != nil, before.split(separator: " ").count <= 3 {
+                    name = before
+                    rest = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
                 }
             }
-            if !line.isEmpty { rows.append((speaker, line)) }
+            candidates.append((name, rest, line))
+        }
+        // A word before a colon is a speaker only if it's "Speaker N" or comes back:
+        // "Note: …" once in a talk is just a sentence.
+        var counts: [String: Int] = [:]
+        for c in candidates { if let n = c.name { counts[n, default: 0] += 1 } }
+        func isSpeaker(_ n: String) -> Bool {
+            n.range(of: #"^Speaker \d"#, options: .regularExpression) != nil || counts[n, default: 0] >= 2
+        }
+        var rows: [(speaker: String?, text: String)] = []
+        for c in candidates {
+            if let n = c.name, isSpeaker(n) {
+                if !c.rest.isEmpty { rows.append((n, c.rest)) }
+            } else {
+                rows.append((nil, c.line))
+            }
         }
         let speakers = Set(rows.compactMap(\.speaker))
         guard speakers.count > 1 else {

@@ -160,7 +160,6 @@ class YTDLPWrapper: ObservableObject {
 
     init() {
         findYTDLP()
-        requestNotificationPermission()
         warmUpYTDLP()
     }
 
@@ -177,14 +176,6 @@ class YTDLPWrapper: ObservableObject {
             task.standardError = Pipe()
             try? task.run()
             task.waitUntilExit()
-        }
-    }
-
-    private func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
-            if granted {
-                appLog("Notification permission granted")
-            }
         }
     }
 
@@ -916,12 +907,6 @@ class YTDLPWrapper: ObservableObject {
                     )
                     self.historyManager.addToHistory(historyItem)
                 }
-                if self.settings.showNotifications {
-                    self.sendNotification(title: String(localized: "Download finished"), body: self.videoInfo?.title ?? "")
-                }
-                if self.settings.playSoundOnComplete {
-                    self.playCompletionSound()
-                }
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
             }
@@ -968,13 +953,6 @@ class YTDLPWrapper: ObservableObject {
                         filePath: self.lastDownloadedFilePath
                     )
                     self.historyManager.addToHistory(historyItem)
-                }
-                if self.settings.showNotifications {
-                    let what = self.settings.downloadQuality == .audioOnly ? "Audio" : "Video"
-                    self.sendNotification(title: String(localized: "Download finished"), body: self.videoInfo?.title ?? what)
-                }
-                if self.settings.playSoundOnComplete {
-                    self.playCompletionSound()
                 }
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
@@ -1104,12 +1082,6 @@ class YTDLPWrapper: ObservableObject {
                         filePath: self.lastDownloadedFilePath
                     )
                     self.historyManager.addToHistory(historyItem)
-                }
-                if self.settings.showNotifications {
-                    self.sendNotification(title: String(localized: "Download finished"), body: self.videoInfo?.title ?? "")
-                }
-                if self.settings.playSoundOnComplete {
-                    self.playCompletionSound()
                 }
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
@@ -1286,12 +1258,6 @@ class YTDLPWrapper: ObservableObject {
                         self.state = .completed
 
                         let completedCount = self.downloadQueue.filter { $0.status == .completed }.count
-                        if self.settings.showNotifications {
-                            self.sendNotification(title: "Queue Complete", body: "\(completedCount) of \(self.downloadQueue.count) downloads finished")
-                        }
-                        if self.settings.playSoundOnComplete {
-                            self.playCompletionSound()
-                        }
                         self.outputLog += "\n✅ Download queue completed!\n"
                     } else {
                         // Start more downloads
@@ -1384,23 +1350,6 @@ class YTDLPWrapper: ObservableObject {
                 }
             }
         }
-    }
-
-    // MARK: - Notifications & Sound
-
-    func sendNotification(title: String, body: String) {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request)
-    }
-
-    func playCompletionSound() {
-        // Play system sound for completion
-        NSSound(named: "Glass")?.play()
     }
 
     // MARK: - File Path Helper

@@ -38,6 +38,18 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertEqual(TranscriptCopy.plain(raw), "The plan for this year is simple: ship it.")
     }
 
+    func testPlainCopySkipsALocalizedDateLine() {
+        let sv = "# Möte\n26 oktober 2026 08:12\n\n[00:00] Hej allihop."
+        XCTAssertEqual(TranscriptCopy.plain(sv), "Hej allihop.")
+        let en = "# Meeting\nOctober 26, 2026 at 8:12 AM\n\n[00:00] Hello all."
+        XCTAssertEqual(TranscriptCopy.withoutHeader(en), "[00:00] Hello all.")
+    }
+
+    func testPlainCopyIgnoresAOneOffWordBeforeAColon() {
+        let raw = "[00:00] Note: this is important.\n\n[00:04] Anna: Hej.\n\n[00:06] Anna: Igen."
+        XCTAssertEqual(TranscriptCopy.plain(raw), "Note: this is important. Hej. Igen.")
+    }
+
     @MainActor
     func testLinkDetection() {
         XCTAssertTrue(NotchModel.isLink("https://youtu.be/W-HVaV3OoPw"))
