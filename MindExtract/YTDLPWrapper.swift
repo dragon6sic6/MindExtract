@@ -109,6 +109,8 @@ class YTDLPWrapper: ObservableObject {
     private var downloadTask: Process?
     /// Bumped by cancelDownload, so a killed yt-dlp's late callback is dropped.
     private var downloadGeneration = 0
+    /// Temporary files of the running download (by path prefix): removed on cancel.
+    private var tempPrefixes: [String] = []
     private var fetchTask: Process?
     /// Bumped by every loadURL / cancelLoad, so a slow lookup that finishes after
     /// a newer one started (or was cancelled) can't write its results.
@@ -689,36 +691,37 @@ class YTDLPWrapper: ObservableObject {
         nonisolated(unsafe) let runPipe = pipe
         nonisolated(unsafe) let runErrorPipe = errorPipe
 
+        // Launch here on the main actor, so a Cancel can never meet a process
+        // that hasn't started yet; only the waiting happens in the background.
+        do {
+            try task.run()
+        } catch {
+            downloadTask = nil
+            completion(false, error.localizedDescription)
+            return
+        }
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            do {
-                try runTask.run()
-                runTask.waitUntilExit()
+            runTask.waitUntilExit()
 
-                runPipe.fileHandleForReading.readabilityHandler = nil
-                runErrorPipe.fileHandleForReading.readabilityHandler = nil
+            runPipe.fileHandleForReading.readabilityHandler = nil
+            runErrorPipe.fileHandleForReading.readabilityHandler = nil
 
-                let success = runTask.terminationStatus == 0
-                let errorOutput: String?
-                if success {
-                    errorOutput = nil
-                } else {
-                    errorBuffer.append(runErrorPipe.fileHandleForReading.readDataToEndOfFile())
-                    let text = errorBuffer.text
-                    errorOutput = text.isEmpty ? "Unknown error" : text
-                }
+            let success = runTask.terminationStatus == 0
+            let errorOutput: String?
+            if success {
+                errorOutput = nil
+            } else {
+                errorBuffer.append(runErrorPipe.fileHandleForReading.readDataToEndOfFile())
+                let text = errorBuffer.text
+                errorOutput = text.isEmpty ? "Unknown error" : text
+            }
 
-                Task { @MainActor in
-                    guard let self, generation == self.downloadGeneration else { return }
-                    self.downloadTask = nil
-                    completion(success, errorOutput)
-                }
-            } catch {
-                let message = error.localizedDescription
-                Task { @MainActor in
-                    guard let self, generation == self.downloadGeneration else { return }
-                    self.downloadTask = nil
-                    completion(false, message)
-                }
+            Task { @MainActor in
+                guard let self, generation == self.downloadGeneration else { return }
+                self.downloadTask = nil
+                self.tempPrefixes = []
+                completion(success, errorOutput)
             }
         }
     }
@@ -758,6 +761,7 @@ class YTDLPWrapper: ObservableObject {
             args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage + ".*"])
         }
         let savedPathFile = Self.makeSavedPathFile()
+        tempPrefixes = [savedPathFile]
         args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
         args.append(url)
 
@@ -821,8 +825,17 @@ class YTDLPWrapper: ObservableObject {
 
     func cancelDownload() {
         downloadGeneration += 1
-        downloadTask?.terminate()
+        if let task = downloadTask, task.isRunning { task.terminate() }
         downloadTask = nil
+        let fm = FileManager.default
+        for prefix in tempPrefixes {
+            let dir = (prefix as NSString).deletingLastPathComponent
+            let name = (prefix as NSString).lastPathComponent
+            for item in (try? fm.contentsOfDirectory(atPath: dir)) ?? [] where item.hasPrefix(name) {
+                try? fm.removeItem(atPath: (dir as NSString).appendingPathComponent(item))
+            }
+        }
+        tempPrefixes = []
         cancelTimeoutTimer()
         state = .idle
         outputLog += "\nDownload cancelled.\n"
@@ -865,6 +878,7 @@ class YTDLPWrapper: ObservableObject {
         ]
         args.append(contentsOf: youtubeWorkaroundArgs)
         let savedPathFile = Self.makeSavedPathFile()
+        tempPrefixes = [savedPathFile]
         args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
         args.append(url)
 
@@ -905,6 +919,7 @@ class YTDLPWrapper: ObservableObject {
         let tempDir = NSTemporaryDirectory()
         let tempFileName = UUID().uuidString
         let outputTemplate = "\(tempDir)\(tempFileName).%(ext)s"
+        tempPrefixes = [tempDir + tempFileName]
 
         var args = [
             "-f", "bestaudio",

@@ -140,6 +140,17 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertEqual(TranscriptCopy.plain(file), "Speaker 1: Hi there.\n\nSpeaker 2: Hello.")
     }
 
+    func testStraySpeakerInOneShortPassageIsMerged() {
+        let p = { (start: Double, end: Double, speaker: Int) in TranscriptPassage(start: start, end: end, text: "x", speaker: speaker) }
+        let merged = TranscriptionManager.mergeStraySpeakers([p(0, 4, 1), p(4, 12, 1), p(16, 19, 2)])
+        XCTAssertEqual(merged.map(\.speaker), [1, 1, 1])
+        // A real second voice (several passages, or a long one) stays.
+        let talk = [p(0, 4, 1), p(4, 6, 2), p(6, 9, 1), p(9, 12, 2)]
+        XCTAssertEqual(TranscriptionManager.mergeStraySpeakers(talk).map(\.speaker), [1, 2, 1, 2])
+        let long = [p(0, 4, 1), p(4, 14, 2)]
+        XCTAssertEqual(TranscriptionManager.mergeStraySpeakers(long).map(\.speaker), [1, 2])
+    }
+
     func testSpeakerIsTheOneWhoTalksMost() {
         let turns = [SpeakerTurn(start: 0, end: 4, speaker: 1), SpeakerTurn(start: 4, end: 10, speaker: 2)]
         XCTAssertEqual(SpeakerSeparator.speaker(from: turns, start: 3, end: 8), 2)

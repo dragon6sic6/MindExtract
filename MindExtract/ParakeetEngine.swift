@@ -129,6 +129,7 @@ actor ParakeetEngine {
     static func install(progress: @escaping @Sendable (Double) -> Void) async throws {
         let fm = FileManager.default
         try fm.createDirectory(at: rootDirectory, withIntermediateDirectories: true)
+        removeLeftoverStaging()
         let staging = rootDirectory.appendingPathComponent(".staging-\(UUID().uuidString)")
         try fm.createDirectory(at: staging, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: staging) }
@@ -155,6 +156,15 @@ actor ParakeetEngine {
         progress(1)
     }
 
+    /// A download that was cut off by quitting leaves its staging folder behind.
+    static func removeLeftoverStaging() {
+        let fm = FileManager.default
+        guard let items = try? fm.contentsOfDirectory(atPath: rootDirectory.path) else { return }
+        for name in items where name.hasPrefix(".staging-") {
+            try? fm.removeItem(at: rootDirectory.appendingPathComponent(name))
+        }
+    }
+
     static func uninstall() async throws {
         await shared.unload()
         if FileManager.default.fileExists(atPath: rootDirectory.path) {
@@ -170,6 +180,8 @@ actor ParakeetEngine {
         defer { session.finishTasksAndInvalidate() }
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                // Cancelled before we got here: the session may already be invalidated.
+                if Task.isCancelled { cont.resume(throwing: CancellationError()); return }
                 delegate.continuation = cont
                 session.downloadTask(with: url).resume()
             }

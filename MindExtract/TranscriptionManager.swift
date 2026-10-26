@@ -38,6 +38,9 @@ final class TranscriptionManager: ObservableObject {
     @Published private(set) var modelDownloadProgress: Double = 0
     @Published private(set) var modelDownloadError: String?
     private var modelDownloadTask: Task<Void, Never>?
+    /// Bumped per download and by cancel, so a cancelled download that unwinds
+    /// late can't reset the state of the one that replaced it.
+    private var modelDownloadID = 0
 
     // MARK: Job state
 
@@ -46,6 +49,18 @@ final class TranscriptionManager: ObservableObject {
 
     private init() {
         removeOldModels()
+        ParakeetEngine.removeLeftoverStaging()
+        preloadModel()
+    }
+
+    /// Loading the model takes about 15 seconds after a restart. Do it in the
+    /// background shortly after launch, so the first transcription is quick.
+    private func preloadModel() {
+        guard isModelInstalled else { return }
+        Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .seconds(5))
+            _ = try? await ParakeetEngine.shared.load()
+        }
     }
 
     // MARK: - Languages
@@ -81,22 +96,27 @@ final class TranscriptionManager: ObservableObject {
     /// Downloads and verifies the speech model. Safe to call while it's running.
     func downloadModel() {
         guard !isModelInstalled, !isDownloadingModel else { return }
+        modelDownloadID += 1
+        let download = modelDownloadID
         isDownloadingModel = true
         modelDownloadProgress = 0
         modelDownloadError = nil
         modelDownloadTask = Task { [weak self] in
             do {
                 try await ParakeetEngine.install { fraction in
-                    Task { @MainActor in self?.modelDownloadProgress = fraction }
+                    Task { @MainActor in
+                        guard let self, self.modelDownloadID == download else { return }
+                        self.modelDownloadProgress = fraction
+                    }
                 }
-                guard let self else { return }
+                guard let self, self.modelDownloadID == download else { return }
                 self.isModelInstalled = ParakeetEngine.isInstalled
                 self.isDownloadingModel = false
                 appLog("[MindExtract] Speech model installed")
                 // Build Core ML's cache now, so the first transcription doesn't wait for it.
                 Task.detached(priority: .utility) { _ = try? await ParakeetEngine.shared.load() }
             } catch {
-                guard let self else { return }
+                guard let self, self.modelDownloadID == download else { return }
                 self.isDownloadingModel = false
                 if !(error is CancellationError) && !Task.isCancelled {
                     self.modelDownloadError = Self.friendly(error)
@@ -116,14 +136,18 @@ final class TranscriptionManager: ObservableObject {
     }
 
     func cancelModelDownload() {
+        modelDownloadID += 1
         modelDownloadTask?.cancel()
         modelDownloadTask = nil
         isDownloadingModel = false
         modelDownloadProgress = 0
     }
 
+    /// Removes the speech model. A transcription that's using it is stopped first.
     func deleteModel() {
         cancelModelDownload()
+        if currentTask != nil { cancel() }
+        isModelInstalled = false
         Task {
             try? await ParakeetEngine.uninstall()
             self.isModelInstalled = false
@@ -157,6 +181,7 @@ final class TranscriptionManager: ObservableObject {
         let cleanupMedia = { if removeMediaAfter { try? FileManager.default.removeItem(at: media) } }
 
         let engine = Self.engine(for: language)
+        isModelInstalled = ParakeetEngine.isInstalled   // the folder may have been removed
         if engine == .parakeet, !isModelInstalled {
             cleanupMedia()
             transcriptionState = .modelNotDownloaded
@@ -185,7 +210,7 @@ final class TranscriptionManager: ObservableObject {
                 var duration: Double
                 switch engine {
                 case .parakeet:
-                    if !(await ParakeetEngine.shared.isLoaded) {
+                    if !(await ParakeetEngine.shared.isLoaded), self.isCurrent(job) {
                         self.transcriptionState = .loadingModel(modelName: ParakeetEngine.displayName)
                     }
                     let out = try await ParakeetEngine.shared.transcribe(audioURL: wav) { p in
@@ -208,6 +233,7 @@ final class TranscriptionManager: ObservableObject {
                 }
                 try Task.checkCancellation()
                 guard self.isCurrent(job) else { return }
+                guard !passages.isEmpty else { throw TranscriptionError.noSpeech }
 
                 if AppSettings.shared.enableSpeakerDiarization, passages.count > 1 {
                     self.transcriptionState = .transcribing(progress: 0.95)
@@ -216,6 +242,7 @@ final class TranscriptionManager: ObservableObject {
                         for i in passages.indices {
                             passages[i].speaker = SpeakerSeparator.speaker(from: turns, start: passages[i].start, end: passages[i].end)
                         }
+                        passages = Self.mergeStraySpeakers(passages)
                     } catch {
                         appLog("[MindExtract] Telling speakers apart failed: \(error)")
                     }
@@ -227,9 +254,11 @@ final class TranscriptionManager: ObservableObject {
                 try text.write(toFile: output, atomically: true, encoding: .utf8)
                 self.saveToHistory(title: title, path: output, duration: duration, source: source,
                                    engine: engine == .parakeet ? ParakeetEngine.displayName : "Apple")
+                self.currentTask = nil
                 self.transcriptionState = .completed(outputPath: output)
             } catch {
                 guard let self, self.isCurrent(job), !Task.isCancelled else { return }
+                self.currentTask = nil
                 appLog("[MindExtract] Transcription failed: \(error)")
                 self.transcriptionState = .error(Self.friendly(error))
             }
@@ -261,6 +290,29 @@ final class TranscriptionManager: ObservableObject {
     }
 
     // MARK: - Output
+
+    /// Speaker separation sometimes hears a second voice in one short passage
+    /// of a single speaker. A "speaker" with only one passage under 4 seconds
+    /// is taken to be whoever spoke just before (or after).
+    nonisolated static func mergeStraySpeakers(_ passages: [TranscriptPassage]) -> [TranscriptPassage] {
+        var byspeaker: [Int: (count: Int, seconds: Double)] = [:]
+        for p in passages {
+            guard let s = p.speaker else { continue }
+            let entry = byspeaker[s] ?? (0, 0)
+            byspeaker[s] = (entry.count + 1, entry.seconds + (p.end - p.start))
+        }
+        guard byspeaker.count > 1 else { return passages }
+        let stray = Set(byspeaker.filter { $0.value.count == 1 && $0.value.seconds < 4 }.keys)
+        guard !stray.isEmpty, stray.count < byspeaker.count else { return passages }
+        var out = passages
+        for i in out.indices where out[i].speaker.map(stray.contains) == true {
+            let before = out[..<i].last { $0.speaker.map { !stray.contains($0) } == true }?.speaker
+            let after = out[(i + 1)...].first { $0.speaker.map { !stray.contains($0) } == true }?.speaker
+            out[i].speaker = before ?? after
+        }
+        return out
+    }
+
 
     /// "# Title", then one passage per paragraph. Speakers are named only when
     /// there's more than one.
@@ -309,7 +361,15 @@ final class TranscriptionManager: ObservableObject {
     }
 
     nonisolated static func friendly(_ error: Error) -> String {
-        if let e = error as? LocalizedError, let text = e.errorDescription { return text }
+        if error is TranscriptionError || error is ParakeetError || error is AudioConverter.ConversionError,
+           let text = (error as? LocalizedError)?.errorDescription { return text }
+        let raw = String(describing: error).lowercased()
+        if raw.contains("at least") && raw.contains("audio") {
+            return String(localized: "The recording is too short to transcribe.")
+        }
+        if raw.contains("not initialized") || raw.contains("model") && raw.contains("load") {
+            return String(localized: "The speech model couldn't start. Delete it in Settings and download it again.")
+        }
         let ns = error as NSError
         if ns.domain == NSURLErrorDomain {
             return String(localized: "Network problem. Check your internet connection and try again.")
@@ -326,7 +386,10 @@ final class TranscriptionManager: ObservableObject {
             try await AudioConverter.toSpeechWav(input: input, output: output)
         } catch AudioConverter.ConversionError.noAudio {
             throw AudioConverter.ConversionError.noAudio
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
+            try Task.checkCancellation()
             appLog("[MindExtract] Native audio conversion failed (\(error.localizedDescription)); trying ffmpeg")
             guard let ffmpeg = BundledTools.ffmpegPath else {
                 throw TranscriptionError.unreadable
@@ -343,10 +406,17 @@ final class TranscriptionManager: ObservableObject {
         let errors = Pipe()
         process.standardError = errors
         process.standardOutput = FileHandle.nullDevice
-        try process.run()
-        // Read before waiting: a full pipe would stall ffmpeg.
-        let detail = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        process.waitUntilExit()
+        nonisolated(unsafe) let running = process
+        let detail: String = try await withTaskCancellationHandler {
+            try running.run()
+            // Read before waiting: a full pipe would stall ffmpeg.
+            let detail = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            running.waitUntilExit()
+            return detail
+        } onCancel: {
+            if running.isRunning { running.terminate() }
+        }
+        try Task.checkCancellation()
         guard process.terminationStatus == 0 else {
             appLog("[MindExtract] ffmpeg: \(detail)")
             if detail.lowercased().contains("does not contain any stream") {
@@ -362,7 +432,9 @@ final class TranscriptionManager: ObservableObject {
     /// doesn't cover. Returns passages and the audio length.
     private nonisolated static func appleTranscribe(wav: URL, language: String,
                                                     progress: @escaping @Sendable (Double) -> Void) async throws -> ([TranscriptPassage], Double) {
-        let locale = await resolveTranscriberLocale(language: language)
+        guard let locale = await resolveTranscriberLocale(language: language) else {
+            throw TranscriptionError.languageUnavailable
+        }
         let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [],
                                             reportingOptions: [], attributeOptions: [.audioTimeRange])
         // Apple lets an app reserve only a few languages; free a slot first.
@@ -389,7 +461,7 @@ final class TranscriptionManager: ObservableObject {
 
     /// The supported locale for a language, always the same regional variant
     /// (each new variant takes one of the app's few reserved-language slots).
-    nonisolated static func resolveTranscriberLocale(language: String) async -> Locale {
+    nonisolated static func resolveTranscriberLocale(language: String) async -> Locale? {
         let supported = await SpeechTranscriber.supportedLocales
         func pick(_ lang: String?) -> Locale? {
             let candidates = supported.filter { $0.language.languageCode?.identifier == lang }
@@ -399,7 +471,7 @@ final class TranscriptionManager: ObservableObject {
             if let common = candidates.first(where: { usual.contains($0.identifier(.bcp47)) }) { return common }
             return candidates.min { $0.identifier < $1.identifier }
         }
-        return pick(language) ?? pick("en") ?? supported.first ?? Locale(identifier: "en-US")
+        return pick(language)
     }
 
     /// Releases other variants of the same language, then the oldest reserved
@@ -422,8 +494,17 @@ final class TranscriptionManager: ObservableObject {
 
 enum TranscriptionError: LocalizedError {
     case unreadable
+    case noSpeech
+    case languageUnavailable
 
     var errorDescription: String? {
-        String(localized: "This file couldn't be read. It may be damaged, or in a format MindExtract doesn't support.")
+        switch self {
+        case .unreadable:
+            return String(localized: "This file couldn't be read. It may be damaged, or in a format MindExtract doesn't support.")
+        case .noSpeech:
+            return String(localized: "No speech was found. Check that the video has someone talking, or pick its language in the notch.")
+        case .languageUnavailable:
+            return String(localized: "Apple's speech recognition doesn't offer this language on this Mac. Choose Automatic or another language.")
+        }
     }
 }
