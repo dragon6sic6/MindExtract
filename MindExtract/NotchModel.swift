@@ -82,6 +82,8 @@ final class NotchModel: ObservableObject {
     @Published var onboardingPaste: String?
     /// You just opened the notch yourself in the introduction.
     @Published var onboardingJustSummoned = false
+    /// The sample's transcript, line by line, for the captions while it plays.
+    @Published var onboardingCaptions: [Onboarding.Caption] = []
     @Published var openSize: CGSize = .zero
     @Published var geometry = NotchGeometry.current()
     /// A menu from the notch is showing.
@@ -487,7 +489,11 @@ final class NotchModel: ObservableObject {
         if onboarding == .tryIt, case .transcribed(let item, let path) = result {
             // The paste step needs it on the clipboard, even if something else was copied meanwhile.
             if autoCopiedPath != path { copyTranscript(path: path, item: item); autoCopiedPath = path }
-            Onboarding.advance(to: .paste)
+            if item.filePath == Self.sampleURL?.path {
+                Onboarding.listen(to: path)      // hear it, with the words appearing, then paste
+            } else {
+                Onboarding.advance(to: .paste)
+            }
             NotchController.shared.open(.reopen)
             return
         }

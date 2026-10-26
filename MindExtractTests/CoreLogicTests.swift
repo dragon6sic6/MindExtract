@@ -151,6 +151,15 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertEqual(TranscriptionManager.mergeStraySpeakers(long).map(\.speaker), [1, 2])
     }
 
+    func testSampleCaptionsComeFromTheTranscriptLines() throws {
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent("captions.txt").path
+        try "# Welcome\n\n[00:00] Hi, I'm Mathias.\n\n[00:08] Speaker 2: It all happens on your Mac.\n\n[1:00:05] Late.\n"
+            .write(toFile: path, atomically: true, encoding: .utf8)
+        let captions = Onboarding.captions(fromTranscriptAt: path)
+        XCTAssertEqual(captions.map(\.start), [0, 8, 3605])
+        XCTAssertEqual(captions.map(\.text), ["Hi, I'm Mathias.", "It all happens on your Mac.", "Late."])
+    }
+
     func testSpeakerIsTheOneWhoTalksMost() {
         let turns = [SpeakerTurn(start: 0, end: 4, speaker: 1), SpeakerTurn(start: 4, end: 10, speaker: 2)]
         XCTAssertEqual(SpeakerSeparator.speaker(from: turns, start: 3, end: 8), 2)

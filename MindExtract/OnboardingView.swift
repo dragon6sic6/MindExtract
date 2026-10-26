@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 // MARK: - First run, inside the notch
 //
@@ -8,6 +9,7 @@ import SwiftUI
 //      (summon)  yourself: a breathing rim and a caption point at it.
 //   2. tryIt    Your first real transcript, from a copied link or the
 //               bundled sample. The speech model's download is its progress.
+//      (listen)  The sample plays with its own words appearing as it's spoken.
 //   3. paste    The words are already on the clipboard: press ⌘V right here.
 //   4. finish   The model, open at login, and for 2.x users their old library.
 //
@@ -18,14 +20,14 @@ enum Onboarding {
     static let seenKey = "hasSeenNotchOnboarding"
 
     enum Beat: Int, CaseIterable {
-        case welcome, summon, tryIt, paste, finish
+        case welcome, summon, tryIt, listen, paste, finish
 
         /// Its segment in the pager. Summoning happens with the notch closed,
         /// as part of the first step.
         var pagerIndex: Int {
             switch self {
             case .welcome, .summon: return 0
-            case .tryIt: return 1
+            case .tryIt, .listen: return 1
             case .paste: return 2
             case .finish: return 3
             }
@@ -40,12 +42,76 @@ enum Onboarding {
 
     @MainActor
     static func start() {
+        stopListening()
         model.clear()
         model.onboardingPaste = nil
         model.onboardingCaption = nil
         model.onboardingJustSummoned = false
         model.onboarding = .welcome
         NotchController.shared.open(.reopen)
+    }
+
+    /// A line of the sample's transcript and when it's spoken.
+    struct Caption: Equatable {
+        let start: Double
+        let text: String
+    }
+
+    @MainActor private static var player: AVAudioPlayer?
+    @MainActor private static var listenToken = 0
+
+    /// Plays the sample (Mathias saying hello) with its transcript as captions,
+    /// then moves on to pasting it.
+    @MainActor
+    static func listen(to transcriptPath: String) {
+        stopListening()
+        guard let url = NotchModel.sampleURL, let player = try? AVAudioPlayer(contentsOf: url) else {
+            advance(to: .paste)
+            return
+        }
+        model.onboardingCaptions = captions(fromTranscriptAt: transcriptPath)
+        self.player = player
+        let token = listenToken
+        advance(to: .listen)
+        player.play()
+        DispatchQueue.main.asyncAfter(deadline: .now() + player.duration + 0.7) {
+            guard token == listenToken, model.onboarding == .listen else { return }
+            player.stop()
+            advance(to: .paste)
+            NotchController.shared.open(.reopen)
+        }
+    }
+
+    @MainActor static var playbackTime: Double { player?.currentTime ?? 0 }
+    @MainActor static var playbackDuration: Double { player?.duration ?? 1 }
+
+    @MainActor
+    static func skipListening() {
+        stopListening()
+        advance(to: .paste)
+    }
+
+    @MainActor
+    private static func stopListening() {
+        listenToken += 1
+        player?.stop()
+        player = nil
+    }
+
+    /// "[00:03] Speaker 1: text" lines into captions.
+    static func captions(fromTranscriptAt path: String) -> [Caption] {
+        guard let raw = try? String(contentsOfFile: path, encoding: .utf8) else { return [] }
+        let pattern = #"^\[(?:(\d+):)?(\d{1,2}):(\d{2})\]\s*(?:Speaker \d+:\s*)?(.+)$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        return raw.components(separatedBy: "\n").compactMap { line in
+            let ns = line as NSString
+            guard let m = regex.firstMatch(in: line, range: NSRange(location: 0, length: ns.length)) else { return nil }
+            func num(_ i: Int) -> Double {
+                let r = m.range(at: i)
+                return r.location == NSNotFound ? 0 : Double(ns.substring(with: r)) ?? 0
+            }
+            return Caption(start: num(1) * 3600 + num(2) * 60 + num(3), text: ns.substring(with: m.range(at: 4)))
+        }
     }
 
     @MainActor
@@ -87,6 +153,7 @@ enum Onboarding {
     /// Done or skipped. The notch closes with a last word about where it lives.
     @MainActor
     static func finish() {
+        stopListening()
         UserDefaults.standard.set(true, forKey: seenKey)
         model.onboarding = nil
         model.onboardingPaste = nil
@@ -129,6 +196,17 @@ struct OnboardingView: View {
     private let clipboardTimer = Timer.publish(every: 0.8, on: .main, in: .common).autoconnect()
 
     var body: some View {
+        if beat == .listen {
+            ListenStage()
+                .padding(.horizontal, 12)
+                .padding(.top, 2)
+                .frame(minHeight: 360)
+        } else {
+            steps
+        }
+    }
+
+    private var steps: some View {
         VStack(spacing: 0) {
             HeroStage(beat: beat)
                 .frame(height: heroHeight)
@@ -177,7 +255,7 @@ struct OnboardingView: View {
     private var heroHeight: CGFloat {
         switch beat {
         case .welcome, .summon: return 168
-        case .tryIt: return 132
+        case .tryIt, .listen: return 132
         case .paste: return 116
         case .finish: return 62
         }
@@ -193,6 +271,8 @@ struct OnboardingView: View {
                    String(localized: "No Dock icon and no window. Let's make sure you can always find it."))
                 : (String(localized: "MindExtract lives at the top of your screen."),
                    String(localized: "No Dock icon and no window. Let's make sure you can always find it."))
+        case .listen:
+            return ("", "")
         case .tryIt:
             switch model.stage {
             case .loadingInfo:
@@ -233,6 +313,8 @@ struct OnboardingView: View {
             EmptyView()
         case .tryIt:
             TryItControls()
+        case .listen:
+            EmptyView()
         case .paste:
             PasteWell(text: model.onboardingPaste)
         case .finish:
@@ -264,7 +346,7 @@ struct OnboardingView: View {
     private var primary: (title: LocalizedStringKey, action: () -> Void)? {
         switch beat {
         case .welcome, .summon: return ("Show Me", { Onboarding.showMe() })
-        case .tryIt: return nil   // the choices are the step itself
+        case .tryIt, .listen: return nil   // the choices are the step itself
         case .paste: return ("Next", { Onboarding.advance(to: .finish) })
         case .finish: return ("Done", { Onboarding.finish() })
         }
@@ -340,6 +422,78 @@ private struct WaitingForLink: View {
     }
 }
 
+// MARK: - Step 2, part two: hear it, read it
+
+/// The sample plays; its transcript appears line by line, each line sharpening
+/// in as it's spoken.
+private struct ListenStage: View {
+    @EnvironmentObject var model: NotchModel
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { _ in
+            let t = Onboarding.playbackTime
+            let duration = max(Onboarding.playbackDuration, 1)
+            let captions = model.onboardingCaptions
+            let index = captions.lastIndex { $0.start <= t + 0.15 } ?? 0
+            VStack(spacing: 0) {
+                // The same capsule as before, now playing: its outline is the playback.
+                ZStack {
+                    Capsule().fill(Color.white.opacity(0.07))
+                    Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1)
+                    Capsule().trim(from: 0, to: max(0.001, min(1, t / duration)))
+                        .stroke(NotchStyle.text, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    HStack(spacing: 10) {
+                        Image(systemName: "waveform")
+                            .symbolEffect(.variableColor.iterative, isActive: !NotchStyle.reduceMotion)
+                        Text("Listen")
+                        Spacer(minLength: 4)
+                        Text(verbatim: String(format: "0:%02d", Int(t))).monospacedDigit().foregroundStyle(NotchStyle.secondary)
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .padding(.horizontal, 18)
+                }
+                .frame(width: 380, height: 48)
+                .frame(height: 132)
+
+                // The line being spoken, appearing as it's said.
+                Group {
+                    if captions.indices.contains(index) {
+                        let caption = captions[index]
+                        let end = captions.indices.contains(index + 1) ? captions[index + 1].start : duration
+                        let progress = min(1, max(0, (t - caption.start) / max(0.6, (end - caption.start) * 0.7)))
+                        Text(verbatim: caption.text)
+                            .font(.system(size: 24, weight: .semibold))
+                            .tracking(-0.4)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textRenderer(RevealRenderer(progress: NotchStyle.reduceMotion ? 1 : progress))
+                            .id(index)
+                    }
+                }
+                .frame(maxWidth: 440, minHeight: 64)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(String(localized: "Playing the sample with its transcript"))
+
+                Text("Transcribed on this Mac a moment ago. It's on your clipboard.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(NotchStyle.secondary)
+                    .padding(.top, 10)
+
+                Spacer(minLength: 18)
+                HStack(spacing: 14) {
+                    Pager(index: Onboarding.Beat.listen.pagerIndex)
+                    Spacer()
+                    Button { Onboarding.skipListening() } label: {
+                        Text("Skip Ahead").frame(minWidth: 96)
+                    }
+                    .buttonStyle(NotchButtonStyle(kind: .secondary))
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+}
+
 // MARK: - Step 3: paste it here
 
 /// Stands in for Claude's message box. ⌘V fills it (NotchPanel hands the paste
@@ -355,13 +509,15 @@ private struct PasteWell: View {
                 .overlay(RoundedRectangle(cornerRadius: NotchStyle.radiusLarge, style: .continuous)
                     .strokeBorder(Color.white.opacity(text == nil ? 0.16 : 0.10)))
             if let text {
-                ScrollView {
-                    RevealText(String(text.prefix(1200)), font: .system(size: 12.5), color: NotchStyle.text,
-                               alignment: .leading, duration: 1.4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                }
-                .scrollIndicators(.never)
+                // From the top, cut off at the bottom: the whole text is on the clipboard anyway.
+                RevealText(String(text.prefix(600)), font: .system(size: 12.5), color: NotchStyle.text,
+                           alignment: .leading, duration: 1.4)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(14)
+                    .frame(height: 124, alignment: .topLeading)
+                    .clipped()
+                    .mask(LinearGradient(stops: [.init(color: .black, location: 0.75), .init(color: .clear, location: 1)],
+                                         startPoint: .top, endPoint: .bottom))
             } else {
                 HStack(spacing: 2) {
                     Text("Pretend this is Claude.")
@@ -598,7 +754,7 @@ private struct HeroStage: View {
         switch beat {
         case .welcome, .summon:
             return Form(size: CGSize(width: 200, height: 44), top: 0, bottom: 18, y: -46)
-        case .tryIt:
+        case .tryIt, .listen:
             return Form(size: CGSize(width: 380, height: 48), top: 24, bottom: 24, y: 0)
         case .paste:
             return Form(size: CGSize(width: 220, height: 46), top: 23, bottom: 23, y: -18)
@@ -672,7 +828,7 @@ private struct HeroStage: View {
 
     private var objectFill: Color {
         switch beat {
-        case .tryIt, .paste: return Color.white.opacity(0.07)
+        case .tryIt, .listen, .paste: return Color.white.opacity(0.07)
         default: return Color.black
         }
     }
@@ -687,7 +843,7 @@ private struct HeroStage: View {
             return nil
         case .finish:
             return tm.isDownloadingModel ? CGFloat(tm.modelDownloadProgress) : nil
-        case .paste:
+        case .paste, .listen:
             return nil
         }
     }
@@ -706,7 +862,7 @@ private struct HeroStage: View {
 
     @ViewBuilder private var inside: some View {
         switch beat {
-        case .welcome, .summon:
+        case .welcome, .summon, .listen:
             EmptyView()
         case .tryIt:
             HStack(spacing: 10) {
