@@ -2,54 +2,71 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>MindExtract</title>
-    <description>MindExtract — download and transcribe video from anywhere</description>
+    <description>MindExtract. Download and transcribe video from anywhere.</description>
     <language>en</language>
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 2.8.0</title>
-      <pubDate>Wed, 24 Jun 2026 12:22:08 +0000</pubDate>
-      <sparkle:version>44</sparkle:version>
-      <sparkle:shortVersionString>2.8.0</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <title>Version 3.0.0</title>
+      <pubDate>Mon, 26 Oct 2026 09:10:24 +0000</pubDate>
+      <sparkle:version>45</sparkle:version>
+      <sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>What's New in 2.8.0</h2>
-<p>The biggest update yet — MindExtract becomes a calm daily command center, captures meetings smarter, and lets your AI act on everything you've heard.</p>
-<h3>☀️ Today is now a command center</h3>
+<h2>MindExtract 3.0</h2>
+<p><strong>MindExtract now lives in your Mac's notch.</strong> Paste a link, get the video or the text. That's the whole app, and it's faster than ever.</p>
+
+<h3>Lives in the notch</h3>
 <ul>
-  <li><strong>Focus</strong> — the few things that matter right now (next meeting + most pressing commitments), each with its action.</li>
-  <li><strong>Join &amp; Record</strong> in one tap for calendar meetings with a link; snooze, reschedule, and <strong>nudge</strong> people who owe you, right from a commitment.</li>
-  <li>Calm by design: gentle amber instead of red alarms, one primary action per row, quick-actions menu, Focus mode.</li>
+  <li>Rest the pointer on the notch, click it, or press <strong>⌃⌥Space</strong> from any app. You can pick your own shortcut.</li>
+  <li>No Dock icon and no windows in your way. It starts with your Mac, so it's always there.</li>
+  <li>On a Mac without a notch, it sits at the top center of the screen.</li>
 </ul>
-<h3>📅 Smarter, cleaner meeting detection</h3>
+
+<h3>Link in, text out</h3>
 <ul>
-  <li>A floating <strong>"Meeting detected — Record?"</strong> prompt you can't miss, plus an orange menu-bar indicator and a notification.</li>
-  <li>Today shows <strong>only your meetings</strong> — a colleague's events on a shared calendar are filtered out, and duplicate copies of the same meeting are merged.</li>
+  <li>Copied a YouTube link? The notch already sees it. One click and it transcribes.</li>
+  <li>Works with YouTube and over a thousand other sites. Save the video too if you want it.</li>
+  <li>Drag a video or a recording from Finder onto the notch to transcribe a file.</li>
 </ul>
-<h3>🗣️ Language that just works</h3>
+
+<h3>Ready to paste into Claude or ChatGPT</h3>
 <ul>
-  <li>Auto-detects the spoken language and switches to <strong>KB-Whisper for Swedish</strong> automatically.</li>
-  <li>Wrong language? <strong>Re-transcribe</strong> on the same audio in one click.</li>
-  <li>The meeting title now travels into the transcript and the saved file name.</li>
+  <li>When the transcript is done it's <strong>already on your clipboard</strong>. Just press ⌘V.</li>
+  <li>The title, link and channel come along at the top, so your AI knows what it's reading.</li>
+  <li>Reads like an article by default. Turn on timestamps in Settings if you want them.</li>
+  <li>When several people speak, each turn is marked with who said it.</li>
 </ul>
-<h3>✨ Recipes — your after-meeting ritual, automated</h3>
+
+<h3>About 40 languages</h3>
 <ul>
-  <li>Run a fixed set of steps — Brief → format (SOAP/Minutes/Legal) → Reminders → recap → export → hand to your AI — on demand or automatically after every meeting. On-device, no logins.</li>
+  <li>NVIDIA's Parakeet speech model handles English, Swedish, German, French, Spanish and 20 more European languages, and recognizes the language by itself.</li>
+  <li>Japanese, Chinese, Korean, Hindi and other languages use Apple's speech recognition, built into macOS.</li>
+  <li>The speech model (630 MB) downloads once when you first open 3.0. Older models are removed, which often frees more than 1 GB.</li>
 </ul>
-<h3>🔌 World-class MCP</h3>
+
+<h3>Recording meetings is gone</h3>
 <ul>
-  <li>Your AI (Claude/ChatGPT) can now read your meetings, briefs, action items and people, and file results into your own tools — fully on-device, nothing uploaded.</li>
+  <li>MindExtract 3.0 does one thing well: videos and recordings in, text out. Meeting recording, dictation, summaries and translation have been removed.</li>
+  <li>Your old recordings and transcripts stay on your Mac, untouched. The short introduction shows you where they are.</li>
 </ul>
-<h3>🧹 A clearer transcript screen</h3>
+
+<h3>Also new</h3>
 <ul>
-  <li>One canonical AI <strong>Brief</strong> you can reshape with "Summarize as…" — no more confusing duplicate summaries.</li>
+  <li>Cancel really stops the job, and nothing half finished is saved.</li>
+  <li>Clearer messages when a download fails, with a way forward.</li>
+  <li>Age restricted or members only videos: sign in by borrowing the sign in from your browser. YouTube has ended the old sign in method.</li>
+  <li>The latest download engine, for sites that changed recently.</li>
+  <li>Settings rebuilt from scratch: fewer choices, each one explained.</li>
+  <li>The app is now in English everywhere.</li>
 </ul>
-<p>Everything stays on your Mac, as always.</p>
+
+<p>Everything still happens on your Mac. Nothing is uploaded. Requires macOS 26.</p>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v2.8.0/MindExtract-2.8.0-Universal.dmg"
-        sparkle:edSignature="EfD1IL5h5VormqNVOXhdicfLBmEFr7dUrCYt3wJ0/TfUrqFdSh4l3iZoL5GF6Cg25wCqvaTeCuWrIuXwpidlCQ=="
-        length="87321206"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v3.0.0/MindExtract-3.0.0-Universal.dmg"
+        sparkle:edSignature="Jkw9GlnahFpTw/3UiMFqedQTaXd+06jfPmI3BFBwf8nAv9DYoWW6cW14y/38WcBfG1bfFkE5nrsJ5wR2yIq2AQ=="
+        length="115814762"
         type="application/octet-stream"
       />
     </item>
