@@ -200,7 +200,7 @@ struct OnboardingView: View {
             default:
                 let lead = model.onboardingJustSummoned ? String(localized: "That's all it takes. ") : ""
                 return (String(localized: "Give it something to read."),
-                        lead + String(localized: "Copy a video link, or try our 18 second sample."))
+                        lead + String(localized: "Copy a video link, or try our short sample."))
             }
         case .paste:
             if model.onboardingPaste != nil {
