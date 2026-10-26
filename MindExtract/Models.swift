@@ -518,35 +518,10 @@ class AppSettings: ObservableObject {
     /// Preferred quality for the "best" download path. Explicit format picks in
     /// the UI are respected as-is and ignore this.
     @AppStorage("downloadQuality") var downloadQuality: DownloadQuality = .best
-    /// Start transcription automatically once a download finishes.
-    @AppStorage("autoTranscribeOnDownload") var autoTranscribeOnDownload: Bool = false
 
     // MARK: Notifications
     /// Post a notification when a transcription finishes.
     @AppStorage("notifyOnTranscriptionComplete") var notifyOnTranscriptionComplete: Bool = true
-
-    // MARK: Branding (professional PDF deliverables)
-    /// Business/practice name printed as the PDF letterhead.
-    @AppStorage("brandName") var brandName: String = ""
-    /// Path to a logo image (PNG/JPG) shown in the PDF letterhead.
-    @AppStorage("brandLogoPath") var brandLogoPath: String = ""
-
-    // MARK: Privacy & security
-    /// Require Touch ID / device password to open the app.
-    @AppStorage("appLockEnabled") var appLockEnabled: Bool = false
-
-    // AI summaries & chat
-    @AppStorage("aiBackend") var aiBackend: AIBackendChoice = .apple
-    @AppStorage("ollamaModel") var ollamaModel: String = ""
-    @AppStorage("openAIModel") var openAIModel: String = "gpt-4o-mini"
-    @AppStorage("anthropicModel") var anthropicModel: String = "claude-haiku-4-5-20251001"
-    @AppStorage("geminiModel") var geminiModel: String = "gemini-2.5-flash"
-    @AppStorage("grokModel") var grokModel: String = "grok-4.3"
-    @AppStorage("mistralModel") var mistralModel: String = "mistral-small-latest"
-    @AppStorage("groqModel") var groqModel: String = "openai/gpt-oss-120b"
-    @AppStorage("openRouterModel") var openRouterModel: String = "google/gemini-2.5-flash"
-    @AppStorage("customBaseURL") var customBaseURL: String = ""
-    @AppStorage("customModel") var customModel: String = ""
 
     // Default language a new transcription starts with (the picker pre-selects it).
     @AppStorage("defaultTranscriptionLanguage") var defaultTranscriptionLanguage: String = "auto"
@@ -569,11 +544,9 @@ class AppSettings: ObservableObject {
         "downloadSubtitles", "subtitleLanguage", "parallelDownloads", "playSoundOnComplete", "showNotifications",
         "downloadPath", "cookieBrowser", "cookiesFilePath", "defaultWhisperModel", "transcriptionOutputFormat",
         "enableSpeakerDiarization", "transcriptionEngine", "translateToEnglish",
-        "customVocabulary", "appAppearance", "downloadQuality", "autoTranscribeOnDownload", "notifyOnTranscriptionComplete",
-        "brandName", "brandLogoPath", "appLockEnabled", "aiBackend",
-        "ollamaModel", "openAIModel", "anthropicModel", "geminiModel", "grokModel", "mistralModel", "groqModel",
-        "openRouterModel", "customBaseURL", "customModel", "defaultTranscriptionLanguage",
-        "notepadShowsTranscript", "settingsCategory",
+        "customVocabulary", "appAppearance", "downloadQuality", "notifyOnTranscriptionComplete",
+        "defaultTranscriptionLanguage",
+        "settingsCategory",
     ]
 
     /// Restores every preference to its default.
@@ -610,7 +583,7 @@ enum TranscriptSource: String, Codable, CaseIterable {
     /// One quiet hue per kind — the same everywhere a transcript is listed.
     var tint: Color {
         switch self {
-        case .meeting: return DS.Colors.accent
+        case .meeting: return Color(nsColor: .systemIndigo)
         case .download: return Color(nsColor: .systemTeal)
         case .file: return Color(nsColor: .systemOrange)
         }
@@ -769,7 +742,6 @@ class TranscriptionHistoryManager: ObservableObject {
 
     func removeFromHistory(_ item: TranscriptionHistoryItem) {
         history.removeAll { $0.id == item.id }
-        TranscriptLibrary.shared.evict(path: item.filePath)
         saveHistory()
     }
 
@@ -793,7 +765,6 @@ class TranscriptionHistoryManager: ObservableObject {
                     if fm.fileExists(atPath: url.path) { try? fm.trashItem(at: url, resultingItemURL: nil) }
                 }
             }
-            TranscriptLibrary.shared.evict(path: item.filePath)
         }
         let ids = Set(items.map(\.id))
         history.removeAll { ids.contains($0.id) }
@@ -815,7 +786,6 @@ class TranscriptionHistoryManager: ObservableObject {
 
     func clearHistory() {
         history.removeAll()
-        TranscriptLibrary.shared.evictAll()
         saveHistory()
     }
 

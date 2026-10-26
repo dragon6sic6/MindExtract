@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         super.init()
     }
 
-    /// Applies the Settings → General appearance to every window and panel.
+    /// Applies the Settings → General appearance to the settings window.
     static func applyAppearance(_ value: String) {
         switch value {
         case "light": NSApp.appearance = NSAppearance(named: .aqua)
@@ -29,6 +29,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
     func applicationDidFinishLaunching(_ notification: Notification) {
         updaterController.startUpdater()
         UNUserNotificationCenter.current().delegate = self
+        NotchController.shared.start()
+        NotificationCenter.default.addObserver(forName: .checkForUpdates, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updaterController.checkForUpdates(nil) }
+        }
+        // Swedish users get Pianissimo on first launch.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { PianissimoOffer.autoStartIfNeeded() }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -37,10 +43,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         completionHandler([.banner, .sound])
     }
 
-    // Clicking the Dock icon with every window closed brings the main window back.
+    // Opening the app again (Spotlight, Finder) opens the notch.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { MainWindow.show() }
-        return true
+        NotchController.shared.open(sticky: true)
+        return false
     }
 }
 
@@ -49,70 +55,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
 @main
 struct MindExtractApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var settings = AppSettings.shared
 
     var body: some Scene {
-        Window("MindExtract", id: MainWindow.id) {
-            // Follows the system appearance (light/dark) and accent color unless
-            // the user picked one in Settings → General.
-            ContentView()
-                .onAppear { AppDelegate.applyAppearance(settings.appAppearance) }
-                .onChange(of: settings.appAppearance) { _, value in AppDelegate.applyAppearance(value) }
-                .onReceive(NotificationCenter.default.publisher(for: .checkForUpdates)) { _ in
-                    appDelegate.updaterController.checkForUpdates(nil)
-                }
-        }
-        .windowResizability(.contentMinSize)
-        .defaultSize(width: 1000, height: 740)
-        .commands {
-            CommandGroup(after: .appInfo) {
-                Button("Check for Updates…") {
-                    appDelegate.updaterController.checkForUpdates(nil)
-                }
-            }
-            CommandGroup(replacing: .help) {
-                Button("MindExtract Help") {
-                    if let url = URL(string: "https://github.com/dragon6sic6/MindExtract#readme") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
-                .keyboardShortcut("?", modifiers: .command)
-            }
-            AppCommands()
-        }
-
-        // Native Settings window (⌘,).
+        // Everything happens in the notch; this is only here for ⌘, when a
+        // MindExtract window is in front.
         Settings {
             SettingsView(downloader: .shared)
-        }
-    }
-}
-
-// MARK: - Menu commands
-
-struct AppCommands: Commands {
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some Commands {
-        // Lets AppKit code reopen the main window once it has been closed.
-        let _ = { MainWindow.opener = openWindow }()
-        CommandGroup(replacing: .newItem) {
-            Button("Download or Transcribe…") { MainWindow.show(.downloads) }
-                .keyboardShortcut("n", modifiers: .command)
-        }
-        CommandMenu("Transcript") {
-            Button("Search & Ask…") {
-                MainWindow.show()
-                NotificationCenter.default.post(name: .openSearch, object: nil)
-            }
-            .keyboardShortcut("k", modifiers: .command)
-        }
-        CommandGroup(before: .windowList) {
-            Button("Download") { MainWindow.show(.downloads) }
-                .keyboardShortcut("1", modifiers: .command)
-            Button("Transcripts") { MainWindow.show(.transcripts) }
-                .keyboardShortcut("2", modifiers: .command)
-            Divider()
         }
     }
 }
@@ -120,8 +68,5 @@ struct AppCommands: Commands {
 // MARK: - Notification Names
 
 extension Notification.Name {
-    static let openSettings = Notification.Name("openSettings")
-    static let showDownloads = Notification.Name("showDownloads")
     static let checkForUpdates = Notification.Name("checkForUpdates")
-    static let openSearch = Notification.Name("openSearch")
 }

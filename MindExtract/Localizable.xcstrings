@@ -8667,6 +8667,296 @@
           }
         }
       }
+    },
+    "A speech model is needed for this language.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det här språket behöver en talmodell."
+          }
+        }
+      }
+    },
+    "Copied — paste it anywhere": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopierat – klistra in var du vill"
+          }
+        }
+      }
+    },
+    "Copy with Timestamps": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera med tidsstämplar"
+          }
+        }
+      }
+    },
+    "Couldn't get the audio: %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunde inte hämta ljudet: %@"
+          }
+        }
+      }
+    },
+    "Download Audio": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned ljud"
+          }
+        }
+      }
+    },
+    "Download Speech Model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned talmodell"
+          }
+        }
+      }
+    },
+    "Download Video": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned video"
+          }
+        }
+      }
+    },
+    "Downloading…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laddar ned…"
+          }
+        }
+      }
+    },
+    "Drop to transcribe": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Släpp för att transkribera"
+          }
+        }
+      }
+    },
+    "Every preference goes back to its default. Your transcripts and downloads are not touched.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla inställningar återställs. Dina transkript och nedladdningar påverkas inte."
+          }
+        }
+      }
+    },
+    "Getting ready…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbereder…"
+          }
+        }
+      }
+    },
+    "Getting the audio…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hämtar ljudet…"
+          }
+        }
+      }
+    },
+    "Loading %@…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laddar %@…"
+          }
+        }
+      }
+    },
+    "Loading the speech model…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laddar talmodellen…"
+          }
+        }
+      }
+    },
+    "MindExtract Settings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inställningar för MindExtract"
+          }
+        }
+      }
+    },
+    "Open Transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna transkriptet"
+          }
+        }
+      }
+    },
+    "Paste a link or drop a video": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in en länk eller släpp en video"
+          }
+        }
+      }
+    },
+    "Quit MindExtract": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avsluta MindExtract"
+          }
+        }
+      }
+    },
+    "Reading the audio…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Läser ljudet…"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inställningar…"
+          }
+        }
+      }
+    },
+    "That doesn't look like a link. Paste a web address or drop a file.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det där ser inte ut som en länk. Klistra in en webbadress eller släpp en fil."
+          }
+        }
+      }
+    },
+    "That's a playlist or a page with several videos. Paste the link to one video.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det är en spellista eller en sida med flera videor. Klistra in länken till en enda video."
+          }
+        }
+      }
+    },
+    "The download finished but the file wasn't found.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningen blev klar men filen hittades inte."
+          }
+        }
+      }
+    },
+    "Transcripts and downloads are kept.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript och nedladdningar behålls."
+          }
+        }
+      }
+    },
+    "Use copied link": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använd kopierad länk"
+          }
+        }
+      }
+    },
+    "Video": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video"
+          }
+        }
+      }
+    },
+    "Video or audio, any format": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video eller ljud, vilket format som helst"
+          }
+        }
+      }
+    },
+    "What Download saves": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vad Ladda ned sparar"
+          }
+        }
+      }
+    },
+    "Turning speech into text always happens on your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Att göra tal till text sker alltid på din Mac."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

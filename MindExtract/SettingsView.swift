@@ -7,7 +7,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     case overview
     case general
     case transcription
-    case ai
     case imports
 
     var id: String { rawValue }
@@ -17,7 +16,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .overview: return "Overview"
         case .general: return "General"
         case .transcription: return "Transcription"
-        case .ai: return "AI"
         case .imports: return "Import"
         }
     }
@@ -27,7 +25,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .overview: return String(localized: "Overview")
         case .general: return String(localized: "General")
         case .transcription: return String(localized: "Transcription")
-        case .ai: return String(localized: "AI")
         case .imports: return String(localized: "Import")
         }
     }
@@ -37,7 +34,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .overview: return "square.grid.2x2"
         case .general: return "gearshape"
         case .transcription: return "text.bubble"
-        case .ai: return "sparkles"
         case .imports: return "square.and.arrow.down"
         }
     }
@@ -52,9 +48,6 @@ struct SettingsView: View {
     @State private var showResetConfirmation = false
     @State private var confirmRemoveLegacyKB = false
     @State private var showYouTubeSignOutConfirm = false
-    @State private var ollamaModels: [String] = []
-    @State private var ollamaDetectFailed = false
-    @State private var keyTests: [String: KeyTestState] = [:]   // keyed by Keychain account
 
     var body: some View {
         HStack(spacing: 0) {
@@ -80,7 +73,7 @@ struct SettingsView: View {
             Button("Reset Settings", role: .destructive) { resetSettingsToDefaults() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Every preference goes back to its default. Your transcripts, downloads and API keys are not touched.")
+            Text("Every preference goes back to its default. Your transcripts and downloads are not touched.")
         }
         .confirmationDialog("Sign out of YouTube?", isPresented: $showYouTubeSignOutConfirm, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) { downloader.signOutYouTube() }
@@ -96,7 +89,6 @@ struct SettingsView: View {
         case .overview: overviewPane
         case .general: generalPane
         case .transcription: transcriptionPane
-        case .ai: aiPane
         case .imports: importPane
         }
     }
@@ -124,7 +116,7 @@ struct SettingsView: View {
     // MARK: - Overview
 
     /// Where a job runs — the one thing people ask about most.
-    private enum Where { case onMac, internet, sentTo(String) }
+    private enum Where { case onMac, internet }
 
     /// Every job MindExtract does, the engine doing it right now, and where it runs.
     @ViewBuilder
@@ -141,19 +133,9 @@ struct SettingsView: View {
         } header: {
             Text("Speech to text")
         } footer: {
-            Text("Turning speech into text always happens on your Mac, whatever you choose below.")
+            Text("Turning speech into text always happens on your Mac.")
         }
 
-        Section {
-            engineRow("Summaries and titles", icon: "sparkles",
-                      engine: aiEngineName, where: aiWhere, pane: .ai)
-            engineRow("Ask anything and translation", icon: "bubble.left.and.text.bubble.right",
-                      engine: aiEngineName, where: aiWhere, pane: .ai)
-        } header: {
-            Text("Writing with AI")
-        } footer: {
-            Text("The AI engine only works with text that has already been transcribed. It never hears the audio.")
-        }
 
         Section {
             engineRow("Downloading from a link", icon: "arrow.down.circle",
@@ -201,9 +183,6 @@ struct SettingsView: View {
         case .internet:
             Label("Fetches from the website", systemImage: "network")
                 .font(.caption).foregroundStyle(.secondary)
-        case .sentTo(let name):
-            Label("Text is sent to \(name)", systemImage: "icloud.and.arrow.up")
-                .font(.caption).foregroundStyle(.orange)
         }
     }
 
@@ -214,20 +193,6 @@ struct SettingsView: View {
     private var otherLanguagesEngine: String {
         if transcriptionManager.useAppleSpeech() { return String(localized: "Apple speech recognition") }
         return "Whisper · \(settings.defaultWhisperModel.displayName)"
-    }
-
-    private var aiEngineName: String {
-        switch settings.aiBackend {
-        case .ollama: return settings.ollamaModel.isEmpty ? "Ollama" : "Ollama · \(settings.ollamaModel)"
-        default: return settings.aiBackend.rawValue
-        }
-    }
-
-    private var aiWhere: Where {
-        switch settings.aiBackend {
-        case .apple, .ollama: return .onMac
-        default: return .sentTo(settings.aiBackend.shortName)
-        }
     }
 
     // MARK: - General
@@ -245,37 +210,6 @@ struct SettingsView: View {
             Text("Appearance")
         } footer: {
             Text("Automatic follows your Mac's light or dark mode and accent color.")
-        }
-
-        Section {
-            Toggle(isOn: $settings.appLockEnabled) {
-                Text("Require Touch ID or password")
-                Text("Locks MindExtract when you switch away, so client or patient material isn't visible on an unlocked Mac.")
-            }
-        } header: {
-            Text("Privacy")
-        } footer: {
-            Text("Everything stays on your Mac. For encryption of the files on disk, turn on FileVault in System Settings → Privacy & Security.")
-        }
-
-        Section {
-            TextField("Business name", text: $settings.brandName, prompt: Text("Shown at the top of PDFs"))
-            LabeledContent("Logo") {
-                HStack {
-                    if !settings.brandLogoPath.isEmpty {
-                        Text(URL(fileURLWithPath: settings.brandLogoPath).lastPathComponent)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Button("Remove") { settings.brandLogoPath = "" }
-                    }
-                    Button(settings.brandLogoPath.isEmpty ? "Choose…" : "Change…") { selectLogo() }
-                }
-            }
-        } header: {
-            Text("PDF letterhead")
-        } footer: {
-            Text("Your name and logo on exported PDFs you hand to clients. PNG or JPG.")
         }
 
         Section("About MindExtract") {
@@ -312,7 +246,7 @@ struct SettingsView: View {
                 Button("Reset…", role: .destructive) { showResetConfirmation = true }
             }
         } footer: {
-            Text("Transcripts, downloads and API keys are kept.")
+            Text("Transcripts and downloads are kept.")
         }
     }
 
@@ -438,153 +372,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - AI
-
-    @ViewBuilder
-    private var aiPane: some View {
-        Section {
-            Picker("AI engine", selection: $settings.aiBackend) {
-                ForEach(AIBackendChoice.allCases) { choice in
-                    Text(verbatim: choice.rawValue).tag(choice)
-                }
-            }
-            switch settings.aiBackend {
-            case .apple:
-                EmptyView()
-            case .ollama:
-                LabeledContent("Model") {
-                    HStack {
-                        if ollamaModels.isEmpty {
-                            TextField("Model", text: $settings.ollamaModel, prompt: Text("e.g. llama3.2"))
-                                .labelsHidden()
-                        } else {
-                            Picker("Model", selection: $settings.ollamaModel) {
-                                ForEach(ollamaModels, id: \.self) { Text(verbatim: $0).tag($0) }
-                            }
-                            .labelsHidden()
-                        }
-                        Button("Find Models") { detectOllamaModels() }
-                    }
-                }
-                if ollamaDetectFailed {
-                    warningRow("Couldn't reach Ollama. Make sure the Ollama app is running.")
-                } else if !ollamaModels.isEmpty, !ollamaModels.contains(settings.ollamaModel) {
-                    warningRow("The selected model isn't installed in Ollama.")
-                }
-            default:
-                cloudProviderConfig(settings.aiBackend)
-            }
-        } header: {
-            Text("AI engine")
-        } footer: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Used for: summaries and titles, Ask anything and translation. Not used for transcribing — that's Settings → Transcription.")
-                Label(settings.aiBackend.detail,
-                      systemImage: [.apple, .ollama].contains(settings.aiBackend) ? "lock.fill" : "icloud.and.arrow.up")
-                    .foregroundStyle([.apple, .ollama].contains(settings.aiBackend) ? .green : .orange)
-            }
-        }
-    }
-
-    enum KeyTestState: Equatable { case idle, testing, ok, fail(String) }
-
-    /// A binding that reads/writes an API key straight to the Keychain.
-    private func keychainBinding(_ key: String) -> Binding<String> {
-        Binding(
-            get: { KeychainHelper.get(key) ?? "" },
-            // Trim — a pasted key with a trailing newline/space otherwise 401s forever.
-            set: { KeychainHelper.set($0.trimmingCharacters(in: .whitespacesAndNewlines), key: key); keyTests[key] = .idle }
-        )
-    }
-
-    /// The Settings model field for a given cloud provider.
-    private func cloudModelBinding(_ c: AIBackendChoice) -> Binding<String>? {
-        switch c {
-        case .openAI: return $settings.openAIModel
-        case .anthropic: return $settings.anthropicModel
-        case .gemini: return $settings.geminiModel
-        case .grok: return $settings.grokModel
-        case .mistral: return $settings.mistralModel
-        case .groq: return $settings.groqModel
-        case .openRouter: return $settings.openRouterModel
-        case .custom: return $settings.customModel
-        case .apple, .ollama: return nil
-        }
-    }
-
-    /// Validate a key by hitting the provider's "list models" endpoint.
-    private func testKey(_ provider: AIBackendChoice) {
-        guard let kc = provider.keychainKey else { return }
-        let key = KeychainHelper.get(kc) ?? ""
-        guard !key.isEmpty else { keyTests[kc] = .fail(String(localized: "Enter a key first")); return }
-        keyTests[kc] = .testing
-        var req: URLRequest
-        if provider == .anthropic {
-            req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/models")!)
-            req.setValue(key, forHTTPHeaderField: "x-api-key")
-            req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        } else if let cfg = provider.compatConfig(settings) {
-            let base = cfg.baseURL.hasSuffix("/") ? String(cfg.baseURL.dropLast()) : cfg.baseURL
-            guard !base.isEmpty, let u = URL(string: base + "/models") else {
-                keyTests[kc] = .fail(String(localized: "Set the server address first")); return
-            }
-            req = URLRequest(url: u)
-            req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        } else { return }
-        req.timeoutInterval = 12
-        Task { @MainActor in
-            let result: KeyTestState
-            do {
-                let (_, resp) = try await URLSession.shared.data(for: req)
-                let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-                result = code == 200 ? .ok : .fail(String(localized: "Key rejected (HTTP \(code))"))
-            } catch {
-                result = .fail(String(localized: "Couldn't reach the server"))
-            }
-            keyTests[kc] = result
-        }
-    }
-
-    /// Key + model (+ server address for custom) for any cloud provider.
-    @ViewBuilder
-    private func cloudProviderConfig(_ choice: AIBackendChoice) -> some View {
-        if choice == .custom {
-            TextField("Server address", text: $settings.customBaseURL, prompt: Text(verbatim: "https://your-host/v1"))
-        }
-        if let kc = choice.keychainKey {
-            LabeledContent("API key") {
-                HStack {
-                    SecureField("API key", text: keychainBinding(kc), prompt: Text("Paste your key"))
-                        .labelsHidden()
-                    Button("Test") { testKey(choice) }
-                }
-            }
-            switch keyTests[kc] ?? .idle {
-            case .idle: EmptyView()
-            case .testing: ProgressView().controlSize(.small)
-            case .ok: Label("The key works", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-            case .fail(let msg): Label(msg, systemImage: "xmark.circle.fill").foregroundStyle(.orange)
-            }
-            if (KeychainHelper.get(kc) ?? "").isEmpty, let url = choice.keyURL, let u = URL(string: url) {
-                Link("Get an API key", destination: u)
-            }
-        }
-        if let mb = cloudModelBinding(choice) {
-            TextField("Model", text: mb)
-        }
-    }
-
-    private func detectOllamaModels() {
-        Task {
-            let models = await OllamaBackend.installedModels()
-            ollamaModels = models
-            ollamaDetectFailed = models.isEmpty
-            if (settings.ollamaModel.isEmpty || !models.contains(settings.ollamaModel)), let first = models.first {
-                settings.ollamaModel = first
-            }
-        }
-    }
-
     // MARK: - Import
 
     @ViewBuilder
@@ -603,13 +390,6 @@ struct SettingsView: View {
                 ForEach(DownloadQuality.allCases) { q in
                     Text(q.displayName).tag(q)
                 }
-            }
-            Picker("Downloads at a time", selection: $settings.parallelDownloads) {
-                Text(verbatim: "1").tag(1); Text(verbatim: "2").tag(2); Text(verbatim: "3").tag(3); Text(verbatim: "4").tag(4)
-            }
-            Toggle(isOn: $settings.autoTranscribeOnDownload) {
-                Text("Transcribe after downloading")
-                Text("Uses the spoken language from Transcription settings.")
             }
             Toggle("Save subtitles when available", isOn: $settings.downloadSubtitles)
             if settings.downloadSubtitles {
@@ -718,18 +498,6 @@ struct SettingsView: View {
         panel.title = String(localized: "Choose a cookies file")
         if panel.runModal() == .OK, let url = panel.url {
             settings.cookiesFilePath = url.path
-        }
-    }
-
-    private func selectLogo() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.png, .jpeg, .image]
-        panel.title = String(localized: "Choose a logo")
-        if panel.runModal() == .OK, let url = panel.url {
-            settings.brandLogoPath = url.path
         }
     }
 

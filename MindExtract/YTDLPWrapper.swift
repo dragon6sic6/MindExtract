@@ -968,22 +968,6 @@ class YTDLPWrapper: ObservableObject {
     }
     private var qualityMergeFormat: String { settings.downloadQuality == .audioOnly ? "m4a" : "mp4" }
 
-    /// Kick off transcription of the just-downloaded file, if the user enabled it.
-    /// Runs in the background; a "transcription complete" notification fires when done.
-    private func autoTranscribeIfEnabled() {
-        guard settings.autoTranscribeOnDownload, let path = lastDownloadedFilePath else { return }
-        let manager = TranscriptionManager.shared
-        // Don't clobber a transcription the user already has running.
-        guard !manager.isTranscribing else { return }
-        let title = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
-        let model = AppSettings.shared.defaultWhisperModel
-        manager.startNewTranscription(title: title, model: model, source: .download)
-        manager.transcribe(videoPath: path,
-                            model: model,
-                            outputFormat: settings.transcriptionOutputFormat,
-                            language: AppSettings.shared.defaultTranscriptionLanguage)
-    }
-
     func download(url: String, formatId: String, outputPath: String) {
         state = .downloading(progress: 0, speed: "Starting…")
         startDownloadStallDetection()
@@ -1057,7 +1041,6 @@ class YTDLPWrapper: ObservableObject {
                 if self.settings.playSoundOnComplete {
                     self.playCompletionSound()
                 }
-                self.autoTranscribeIfEnabled()
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
             }
@@ -1110,7 +1093,6 @@ class YTDLPWrapper: ObservableObject {
                 if self.settings.playSoundOnComplete {
                     self.playCompletionSound()
                 }
-                self.autoTranscribeIfEnabled()
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
             }
@@ -1230,7 +1212,6 @@ class YTDLPWrapper: ObservableObject {
                 if self.settings.playSoundOnComplete {
                     self.playCompletionSound()
                 }
-                self.autoTranscribeIfEnabled()
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
             }

@@ -7,31 +7,38 @@ import AVFoundation
 @MainActor
 final class CoreLogicTests: XCTestCase {
 
-    // MARK: PII redaction (privacy-critical — must never silently stop masking)
+    // MARK: Copying a transcript for a language model
 
-    func testRedactorMasksEmailAndPhone() {
-        let input = "Email me at jane.doe@example.com or call 070-123 45 67 tomorrow."
-        let out = Redactor.redact(input)
-        XCTAssertFalse(out.contains("jane.doe@example.com"), "email should be redacted")
-        XCTAssertTrue(out.contains("[email]"))
-        XCTAssertFalse(out.contains("070-123 45 67"), "phone should be redacted")
-        XCTAssertTrue(out.contains("[phone]"))
+    func testPlainCopyDropsTimestampsAndSingleSpeakerLabel() {
+        let raw = "[00:00] Speaker 1: Hello there.\n\n[00:04] Speaker 1: Second line."
+        XCTAssertEqual(TranscriptCopy.plain(raw), "Hello there. Second line.")
     }
 
-    func testRedactorKnownNamesAreConsistentTokens() {
-        let input = "Anna said hello. Then Anna left. Bertil stayed."
-        let out = Redactor.redact(input, knownNames: ["Anna", "Bertil"])
-        XCTAssertFalse(out.contains("Anna"))
-        XCTAssertFalse(out.contains("Bertil"))
-        // Same name → same token both times.
-        let firstToken = out.contains("[Person 1]")
-        XCTAssertTrue(firstToken)
-        // Two distinct names → two distinct tokens.
-        XCTAssertTrue(out.contains("[Person 2]"))
+    func testPlainCopyKeepsSpeakersAndMergesTurns() {
+        let raw = """
+        [00:00] Anna: Hej.
+
+        [00:02] Anna: Hur mår du?
+
+        [00:05] Speaker 2: Bra!
+
+        [1:02:03] Anna: Skönt.
+        """
+        XCTAssertEqual(TranscriptCopy.plain(raw), "Anna: Hej. Hur mår du?\n\nSpeaker 2: Bra!\n\nAnna: Skönt.")
     }
 
-    func testRedactorEmptyInput() {
-        XCTAssertEqual(Redactor.redact(""), "")
+    func testPlainCopyLeavesSentencesWithColonsAlone() {
+        let raw = "[00:01] The plan for this year is simple: ship it."
+        XCTAssertEqual(TranscriptCopy.plain(raw), "The plan for this year is simple: ship it.")
+    }
+
+    @MainActor
+    func testLinkDetection() {
+        XCTAssertTrue(NotchModel.isLink("https://youtu.be/W-HVaV3OoPw"))
+        XCTAssertTrue(NotchModel.isLink("youtube.com/watch?v=abc"))
+        XCTAssertFalse(NotchModel.isLink("hello world"))
+        XCTAssertFalse(NotchModel.isLink("not a link"))
+        XCTAssertFalse(NotchModel.isLink(""))
     }
 
     // MARK: Custom vocabulary normalization
@@ -72,16 +79,6 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertNil(items[0].isFavorite)
         XCTAssertNil(items[0].sourceType)
         XCTAssertEqual(items[0].title, "Old transcript")
-    }
-
-    func testTranscriptAISidecarDecodesMinimalOldJSON() throws {
-        let json = #"{"chat":[]}"#.data(using: .utf8)!
-        let sidecar = try JSONDecoder().decode(TranscriptAISidecar.self, from: json)
-        XCTAssertNil(sidecar.summary)
-        XCTAssertNil(sidecar.speakerNames)
-        XCTAssertNil(sidecar.speakerSuggestions)
-        XCTAssertNil(sidecar.userNotes)
-        XCTAssertTrue(sidecar.chat.isEmpty)
     }
 
     func testTranscriptionHistoryItemRoundTripPreservesSourceAndFavorite() throws {

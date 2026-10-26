@@ -13,31 +13,20 @@
 		FA000001FA00000000000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = FA000002FA00000000000001 /* FluidAudio */; };
 		B1000E29 /* PianissimoEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E2A /* PianissimoEngine.swift */; };
 		B1000E3B /* AudioConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E3C /* AudioConverter.swift */; };
+		N0000007 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = N0000008 /* SettingsWindow.swift */; };
+		N0000005 /* NotchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N0000006 /* NotchView.swift */; };
+		N0000003 /* NotchController.swift in Sources */ = {isa = PBXBuildFile; fileRef = N0000004 /* NotchController.swift */; };
+		N0000001 /* NotchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = N0000002 /* NotchModel.swift */; };
 		B1000E49 /* PianissimoOffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E4A /* PianissimoOffer.swift */; };
-		B1000E45 /* DownloaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E46 /* DownloaderView.swift */; };
-		B1000E43 /* LegacyMeetingData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E44 /* LegacyMeetingData.swift */; };
-		B1000E37 /* TranscribeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E38 /* TranscribeSheet.swift */; };
-		B1000E2D /* EnhancedNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E2E /* EnhancedNotes.swift */; };
 		B1000001 /* MindExtractApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000011 /* MindExtractApp.swift */; };
-		B1000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000012 /* ContentView.swift */; };
 		B1000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000013 /* Models.swift */; };
 		B1000004 /* YTDLPWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000014 /* YTDLPWrapper.swift */; };
 		B1000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000015 /* Assets.xcassets */; };
 		B1000E39 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B1000E3A /* Localizable.xcstrings */; };
-		B1000D01 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D02 /* DesignSystem.swift */; };
-		B1000D03 /* Summarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D04 /* Summarizer.swift */; };
-		B1000E01 /* Translator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E02 /* Translator.swift */; };
-		B1000E03 /* Templates.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E04 /* Templates.swift */; };
-		B1000E15 /* TranscriptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E16 /* TranscriptLibrary.swift */; };
-		B1000E17 /* ExportTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E18 /* ExportTools.swift */; };
-		B1000E1D /* AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E1E /* AppLock.swift */; };
 		TST00011 /* CoreLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00010 /* CoreLogicTests.swift */; };
-		B1000D05 /* AIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000D06 /* AIBackend.swift */; };
 		B1000007 /* ytdlp in Resources */ = {isa = PBXBuildFile; fileRef = B1000023 /* ytdlp */; };
 		B1000031 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000024 /* SettingsView.swift */; };
 		B1000033 /* TranscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000026 /* TranscriptionManager.swift */; };
-		B1000035 /* TranscriptionResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000028 /* TranscriptionResultView.swift */; };
-		B1000036 /* RecentActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000029 /* RecentActivityView.swift */; };
 		B1000061 /* ffmpeg in Resources */ = {isa = PBXBuildFile; fileRef = B1000051 /* ffmpeg */; };
 		B1000E3D /* ffprobe in Resources */ = {isa = PBXBuildFile; fileRef = B1000E3E /* ffprobe */; };
 /* End PBXBuildFile section */
@@ -63,34 +52,23 @@
 /* Begin PBXFileReference section */
 		B1000010 /* MindExtract.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MindExtract.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000011 /* MindExtractApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MindExtractApp.swift; sourceTree = "<group>"; };
-		B1000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B1000013 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		B1000014 /* YTDLPWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YTDLPWrapper.swift; sourceTree = "<group>"; };
 		B1000015 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B1000E3A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		B1000016 /* MindExtract.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MindExtract.entitlements; sourceTree = "<group>"; };
-		B1000D02 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
-		B1000D04 /* Summarizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Summarizer.swift; sourceTree = "<group>"; };
-		B1000E02 /* Translator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Translator.swift; sourceTree = "<group>"; };
-		B1000E04 /* Templates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Templates.swift; sourceTree = "<group>"; };
-		B1000E16 /* TranscriptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLibrary.swift; sourceTree = "<group>"; };
 		B1000E2A /* PianissimoEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianissimoEngine.swift; sourceTree = "<group>"; };
 		B1000E3C /* AudioConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioConverter.swift; sourceTree = "<group>"; };
+		N0000008 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
+		N0000006 /* NotchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchView.swift; sourceTree = "<group>"; };
+		N0000004 /* NotchController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchController.swift; sourceTree = "<group>"; };
+		N0000002 /* NotchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchModel.swift; sourceTree = "<group>"; };
 		B1000E4A /* PianissimoOffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianissimoOffer.swift; sourceTree = "<group>"; };
-		B1000E46 /* DownloaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloaderView.swift; sourceTree = "<group>"; };
-		B1000E44 /* LegacyMeetingData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyMeetingData.swift; sourceTree = "<group>"; };
-		B1000E38 /* TranscribeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeSheet.swift; sourceTree = "<group>"; };
-		B1000E2E /* EnhancedNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedNotes.swift; sourceTree = "<group>"; };
-		B1000E18 /* ExportTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportTools.swift; sourceTree = "<group>"; };
-		B1000E1E /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		TST00010 /* CoreLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreLogicTests.swift; sourceTree = "<group>"; };
 		TST00020 /* MindExtractTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MindExtractTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		B1000D06 /* AIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackend.swift; sourceTree = "<group>"; };
 		B1000023 /* ytdlp */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ytdlp; sourceTree = "<group>"; };
 		B1000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B1000026 /* TranscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionManager.swift; sourceTree = "<group>"; };
-		B1000028 /* TranscriptionResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionResultView.swift; sourceTree = "<group>"; };
-		B1000029 /* RecentActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentActivityView.swift; sourceTree = "<group>"; };
 		B1000051 /* ffmpeg */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = ffmpeg; sourceTree = "<group>"; };
 		B1000E3E /* ffprobe */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = ffprobe; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -147,26 +125,15 @@
 			isa = PBXGroup;
 			children = (
 				B1000011 /* MindExtractApp.swift */,
-				B1000012 /* ContentView.swift */,
-				B1000D02 /* DesignSystem.swift */,
-				B1000D04 /* Summarizer.swift */,
-				B1000E02 /* Translator.swift */,
-				B1000E04 /* Templates.swift */,
-				B1000E16 /* TranscriptLibrary.swift */,
 				B1000E2A /* PianissimoEngine.swift */,
 				B1000E3C /* AudioConverter.swift */,
+				N0000008 /* SettingsWindow.swift */,
+				N0000006 /* NotchView.swift */,
+				N0000004 /* NotchController.swift */,
+				N0000002 /* NotchModel.swift */,
 				B1000E4A /* PianissimoOffer.swift */,
-				B1000E46 /* DownloaderView.swift */,
-				B1000E44 /* LegacyMeetingData.swift */,
-				B1000E38 /* TranscribeSheet.swift */,
-				B1000E2E /* EnhancedNotes.swift */,
-				B1000E18 /* ExportTools.swift */,
-				B1000E1E /* AppLock.swift */,
-				B1000D06 /* AIBackend.swift */,
 				B1000024 /* SettingsView.swift */,
 				B1000026 /* TranscriptionManager.swift */,
-				B1000028 /* TranscriptionResultView.swift */,
-				B1000029 /* RecentActivityView.swift */,
 				B1000013 /* Models.swift */,
 				B1000014 /* YTDLPWrapper.swift */,
 				B1000015 /* Assets.xcassets */,
@@ -303,26 +270,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				B1000001 /* MindExtractApp.swift in Sources */,
-				B1000002 /* ContentView.swift in Sources */,
-				B1000D01 /* DesignSystem.swift in Sources */,
-				B1000D03 /* Summarizer.swift in Sources */,
-				B1000E01 /* Translator.swift in Sources */,
-				B1000E03 /* Templates.swift in Sources */,
 				B1000E29 /* PianissimoEngine.swift in Sources */,
 				B1000E3B /* AudioConverter.swift in Sources */,
+				N0000007 /* SettingsWindow.swift in Sources */,
+				N0000005 /* NotchView.swift in Sources */,
+				N0000003 /* NotchController.swift in Sources */,
+				N0000001 /* NotchModel.swift in Sources */,
 				B1000E49 /* PianissimoOffer.swift in Sources */,
-				B1000E45 /* DownloaderView.swift in Sources */,
-				B1000E43 /* LegacyMeetingData.swift in Sources */,
-				B1000E37 /* TranscribeSheet.swift in Sources */,
-				B1000E2D /* EnhancedNotes.swift in Sources */,
-				B1000E15 /* TranscriptLibrary.swift in Sources */,
-				B1000E17 /* ExportTools.swift in Sources */,
-				B1000E1D /* AppLock.swift in Sources */,
-				B1000D05 /* AIBackend.swift in Sources */,
 				B1000031 /* SettingsView.swift in Sources */,
 				B1000033 /* TranscriptionManager.swift in Sources */,
-				B1000035 /* TranscriptionResultView.swift in Sources */,
-				B1000036 /* RecentActivityView.swift in Sources */,
 				B1000003 /* Models.swift in Sources */,
 				B1000004 /* YTDLPWrapper.swift in Sources */,
 			);

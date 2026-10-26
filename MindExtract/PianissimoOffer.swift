@@ -3,9 +3,8 @@ import SwiftUI
 // MARK: - Getting Pianissimo to Swedish users
 //
 // Pianissimo (~690 MB) isn't bundled — every app update would carry it again.
-// Swedish users get it automatically on first launch instead, with a clear bar
-// showing what's downloading; if they cancel or it fails, the bar offers it again
-// until they have it or close the bar.
+// Swedish users get it automatically on first launch instead; the notch shows
+// the download while it runs, and Settings → Transcription offers it again.
 
 enum PianissimoOffer {
     /// The Mac speaks Swedish, or Swedish is the chosen transcription language.
@@ -59,71 +58,5 @@ struct PianissimoDownloadControl: View {
             }
             .disabled(tm.downloadingModel != nil)
         }
-    }
-}
-
-/// A slim bar above the notes while Swedish users don't have Pianissimo yet.
-struct PianissimoBanner: View {
-    @ObservedObject private var tm = TranscriptionManager.shared
-    @AppStorage("pianissimoBannerClosed") private var closed = false
-
-    private var visible: Bool {
-        guard PianissimoOffer.isForThisUser else { return false }
-        if tm.downloadingModel == .pianissimo { return true }
-        if tm.isModelDownloaded(.pianissimo) { return tm.prewarmingModel == .pianissimo }
-        return !closed
-    }
-
-    var body: some View {
-        if visible {
-            HStack(spacing: 12) {
-                Image(systemName: "waveform.badge.plus")
-                    .font(.title3)
-                    .foregroundStyle(DS.Colors.accent)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.body.weight(.medium))
-                    Text(detail)
-                        .font(.callout)
-                        .foregroundStyle(tm.modelDownloadError?.model == .pianissimo && tm.downloadingModel == nil ? .orange : .secondary)
-                        .lineLimit(2)
-                }
-                Spacer(minLength: 12)
-                PianissimoDownloadControl()
-                if tm.downloadingModel != .pianissimo && !tm.isModelDownloaded(.pianissimo) {
-                    Button {
-                        closed = true
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Hide — you can download it later in Settings → Transcription")
-                    .accessibilityLabel("Hide")
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-            .background(DS.Colors.accent.opacity(0.08))
-            .overlay(alignment: .bottom) { Divider() }
-        }
-    }
-
-    private var title: LocalizedStringKey {
-        if tm.downloadingModel == .pianissimo { return "Downloading Pianissimo, the Swedish speech model" }
-        if tm.isModelDownloaded(.pianissimo) { return "Pianissimo is downloaded" }
-        return "Get Pianissimo for the best Swedish"
-    }
-
-    private var detail: String {
-        if tm.downloadingModel == .pianissimo {
-            return String(localized: "\(WhisperModel.pianissimo.sizeDescription), once. You can keep using MindExtract meanwhile.")
-        }
-        if tm.isModelDownloaded(.pianissimo) {
-            return String(localized: "Preparing it for your Mac — a few minutes the first time.")
-        }
-        if let failure = tm.modelDownloadError, failure.model == .pianissimo {
-            return failure.message
-        }
-        return String(localized: "\(WhisperModel.pianissimo.sizeDescription), downloaded once, then works offline. Until then Swedish uses a less accurate engine.")
     }
 }
