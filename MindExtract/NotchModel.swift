@@ -442,6 +442,7 @@ final class NotchModel: ObservableObject {
         case .transcribing(let p):
             stage = .working(item, .transcribe, phase: String(localized: "Transcribing…"), progress: p > 0 ? p : nil)
         case .completed(let path):
+            if path == Self.sampleTranscriptPath { Self.spellSampleNames(at: path) }
             TranscriptionHistoryManager.shared.setSource(url: item.url, thumbnail: item.thumbnail?.absoluteString,
                                                          channel: item.channel.isEmpty ? nil : item.channel, forPath: path)
             autoCopiedPath = nil
@@ -562,6 +563,14 @@ final class NotchModel: ObservableObject {
             .appendingPathComponent("com.mindact.mindextract")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("Welcome to MindExtract.txt").path
+    }
+
+    /// The speech model spells names the usual English way; the sample's speaker
+    /// spells his own name with one t.
+    private static func spellSampleNames(at path: String) {
+        guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+        let fixed = text.replacingOccurrences(of: "Matthias", with: "Mathias")
+        if fixed != text { try? fixed.write(toFile: path, atomically: true, encoding: .utf8) }
     }
 
     func transcribeSample() {
