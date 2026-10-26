@@ -30,7 +30,19 @@ Don't bundle an Intel-only or Homebrew (dynamically linked) ffmpeg — it fails 
 
 The official `yt-dlp_macos.zip` (universal onedir build) from
 https://github.com/yt-dlp/yt-dlp/releases, unpacked into `Resources/ytdlp/`.
-Verify it against `SHA2-256SUMS` from the same release. Update it regularly —
+Verify it against `SHA2-256SUMS` from the same release.
+
+The zip stores `_internal/Python.framework` with its symlinks flattened into
+copies, and codesign then refuses it ("bundle format is ambiguous"). After
+unpacking, turn them back into symlinks:
+
+```bash
+cd MindExtract/Resources/ytdlp/_internal/Python.framework
+rm -rf Versions/Current Python Resources
+ln -s 3.14 Versions/Current            # the version folder that's there
+ln -s Versions/Current/Python Python
+ln -s Versions/Current/Resources Resources
+``` Update it regularly —
 sites like YouTube change often and old versions start failing (HTTP 403).
 
 The app passes `--ffmpeg-location` so yt-dlp always uses a working ffmpeg
