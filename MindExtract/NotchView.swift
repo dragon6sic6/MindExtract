@@ -921,8 +921,43 @@ struct RecentList: View {
                     .padding(.leading, 8)
                     .padding(.bottom, 2)
                 ForEach(entries) { RecentRow(entry: $0) }
+                ShowAllRow()
             }
         }
+    }
+}
+
+/// The last row of Recent: everything else is in the save folder.
+private struct ShowAllRow: View {
+    @State private var hovering = false
+
+    var body: some View {
+        Button {
+            NSWorkspace.shared.open(URL(fileURLWithPath: AppSettings.shared.downloadPath))
+            NotchController.shared.closeAfterHandOff()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "folder")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 16, alignment: .leading)
+                Text("Show All in Finder")
+                    .font(NotchStyle.body)
+                Spacer(minLength: 8)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .opacity(hovering ? 1 : 0)
+            }
+            .foregroundStyle(hovering ? NotchStyle.text : NotchStyle.secondary)
+            .padding(.horizontal, 8)
+            .frame(height: NotchStyle.rowHeight)
+            .background(RoundedRectangle(cornerRadius: NotchStyle.radiusSmall, style: .continuous)
+                .fill(hovering ? Color.white.opacity(0.06) : .clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .accessibilityHint(String(localized: "Opens the save folder in Finder"))
     }
 }
 
