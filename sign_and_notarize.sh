@@ -308,7 +308,7 @@ xml = f"""<?xml version="1.0" encoding="utf-8"?>
       <pubDate>{pubdate}</pubDate>
       <sparkle:version>{build}</sparkle:version>
       <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
 {notes}
       ]]></description>
@@ -332,13 +332,14 @@ PYEOF
 
     echo "  appcast.xml updated ✓"
 
-    # Push docs/ to GitHub
+    # Commit, but don't push: the appcast must not go live before the DMG is
+    # uploaded to the GitHub release, or Sparkle hands users a dead link.
     cd "$PROJECT_DIR"
     git add docs/appcast.xml
     git commit -m "chore: update appcast.xml for v${VERSION}" --allow-empty
-    git push origin master
-    echo "  appcast.xml pushed to GitHub Pages ✓"
-    echo "  Live at: https://dragon6sic6.github.io/MindExtract/appcast.xml"
+    echo "  appcast.xml committed (not pushed) ✓"
+    echo "  Next: upload the DMG to release v${VERSION}, check that it downloads, then:"
+    echo "    git push origin $(git branch --show-current)"
     cd - > /dev/null
 else
     echo "▸ Skipping appcast update (Sparkle tools or appcast.xml not found)"
