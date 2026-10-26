@@ -2,6 +2,16 @@
 
 All notable changes to MindExtract. Versions follow [semantic versioning](https://semver.org). Downloads are on the [Releases](https://github.com/dragon6sic6/MindExtract/releases) page.
 
+## 3.0.1 (2026-10-26)
+
+### Added
+- A new introduction you do instead of read: the notch closes so you open it yourself, a short sample in Mathias's voice plays while its transcript appears line by line, and you paste it with ⌘V right in the notch.
+- Show All in Finder at the end of Recent.
+
+### Fixed
+- ⌘V could paste into another app when MindExtract believed it was active but another app still had the keyboard, for example with two screens.
+- No notification or permission prompt pops up during the introduction.
+
 ## 3.0.0 (2026-10-26)
 
 A new app, built around one job: videos and recordings in, text out.
