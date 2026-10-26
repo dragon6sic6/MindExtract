@@ -1734,6 +1734,9 @@ extension TranscriptionManager {
             route(audioPath: audioPath, model: model, outputPath: outputPath, outputFormat: outputFormat, language: language, cleanup: cleanup)
             return
         }
+        // Detection loads a model the first time after launch, which can take a
+        // while: say "starting" rather than leaving "reading the audio" up.
+        transcriptionState = .loadingModel(modelName: String(localized: "Language detection"))
         currentTask = Task { @MainActor in
             let detected = await self.detectSpokenLanguage(audioPath: audioPath)
             guard !Task.isCancelled else { cleanup(); return }

@@ -53,7 +53,7 @@ struct OnboardingView: View {
             .frame(height: 96)
             .background(RoundedRectangle(cornerRadius: NotchStyle.radiusLarge, style: .continuous).fill(Color.white.opacity(0.05)))
             .id(step)
-            .transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.97)), removal: .identity))
+            .transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.97)), removal: .opacity.animation(.easeOut(duration: 0.06))))
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 6) {
@@ -65,7 +65,7 @@ struct OnboardingView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .id("text\(step)")
-            .transition(.asymmetric(insertion: .opacity, removal: .identity))
+            .transition(NotchStyle.swap)
 
             if page == .meetings {
                 ChipButton(icon: "folder", title: String(localized: "Show My Old Recordings")) {

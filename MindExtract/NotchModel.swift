@@ -200,7 +200,7 @@ final class NotchModel: ObservableObject {
     }
 
     func clear() {
-        if isBusy { cancel() }
+        if isBusy { cancel() } else { downloader.cancelLoad() }   // a lookup may still run behind a preview
         input = ""
         awaitedModel = nil
         language = AppSettings.shared.defaultTranscriptionLanguage

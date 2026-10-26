@@ -7,6 +7,10 @@ import UniformTypeIdentifiers
 // one solid-white control per screen — the thing you most likely want next.
 
 enum NotchStyle {
+    /// One screen replacing another: the old one is gone almost at once, so
+    /// two layers of text never show on top of each other.
+    static var swap: AnyTransition { .asymmetric(insertion: .opacity,
+                                               removal: .opacity.animation(.easeOut(duration: 0.06))) }
     static let surface = Color.black
     // Text
     static let text = Color.white.opacity(0.94)
@@ -325,7 +329,7 @@ struct OpenNotch: View {
                             .id(model.stage.screen)
                     }
                 }
-                .transition(.asymmetric(insertion: .opacity, removal: .identity))
+                .transition(NotchStyle.swap)
                 if let downloading = tm.downloadingModel, !model.isBusy, model.onboardingStep == nil {
                     ModelDownloadLine(name: downloading.displayName, progress: tm.modelDownloadProgress)
                 }
@@ -366,7 +370,7 @@ struct OpenNotch: View {
                 .onHover { backHover = $0 }
                 .padding(.leading, -8)
                 .help(String(localized: "Back to the start"))
-                .transition(.opacity)
+                .transition(NotchStyle.swap)
             } else {
                 HStack(spacing: 6) {
                     Image(systemName: "waveform").font(.system(size: 11, weight: .semibold))
@@ -374,7 +378,7 @@ struct OpenNotch: View {
                 }
                 .foregroundStyle(Color.white.opacity(0.5))
                 .accessibilityHidden(true)
-                .transition(.opacity)
+                .transition(NotchStyle.swap)
             }
             Spacer(minLength: model.geometry.notchSize.width + 24)
             NotchMenu()
