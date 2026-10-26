@@ -338,14 +338,44 @@ struct OpenNotch: View {
     }
 
     /// Beside the hardware notch: the name on the left, the menu on the right.
+    @State private var backHover = false
+
+    /// Not on the start screen, not mid-job, not in the introduction.
+    private var showsBack: Bool {
+        guard model.onboardingStep == nil, !model.isBusy else { return false }
+        if case .idle = model.stage { return false }
+        return true
+    }
+
     private var header: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: "waveform").font(.system(size: 11, weight: .semibold))
-                Text(verbatim: "MindExtract").font(.system(size: 12, weight: .semibold))
+            if showsBack {
+                // Any finished or waiting screen: one click back to the start.
+                Button { withAnimation(NotchStyle.snappy) { model.clear() } } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "chevron.left").font(.system(size: 11, weight: .semibold))
+                        Text("Start").font(.system(size: 12, weight: .semibold))
+                    }
+                    .padding(.horizontal, 8)
+                    .frame(height: 24)
+                    .background(Capsule().fill(Color.white.opacity(backHover ? 0.12 : 0)))
+                    .foregroundStyle(Color.white.opacity(backHover ? 0.94 : 0.64))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .onHover { backHover = $0 }
+                .padding(.leading, -8)
+                .help(String(localized: "Back to the start"))
+                .transition(.opacity)
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "waveform").font(.system(size: 11, weight: .semibold))
+                    Text(verbatim: "MindExtract").font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(Color.white.opacity(0.5))
+                .accessibilityHidden(true)
+                .transition(.opacity)
             }
-            .foregroundStyle(Color.white.opacity(0.5))
-            .accessibilityHidden(true)
             Spacer(minLength: model.geometry.notchSize.width + 24)
             NotchMenu()
         }

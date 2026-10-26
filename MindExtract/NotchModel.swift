@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import Combine
 
 // MARK: - What the notch is doing
@@ -185,6 +186,10 @@ final class NotchModel: ObservableObject {
     func useFile(_ url: URL) {
         guard !isBusy else { return }
         input = ""
+        guard Self.isMedia(url) else {
+            fail(nil, work: nil, String(localized: "That isn't a video or audio file. Drag a video or a recording here."))
+            return
+        }
         let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map {
             ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file)
         } ?? ""
@@ -199,6 +204,14 @@ final class NotchModel: ObservableObject {
         awaitedModel = nil
         language = AppSettings.shared.defaultTranscriptionLanguage
         stage = .idle
+    }
+
+    /// Video or audio, including formats macOS doesn't know by name.
+    static func isMedia(_ url: URL) -> Bool {
+        if let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType,
+           type.conforms(to: .audiovisualContent) { return true }
+        return ["mkv", "webm", "opus", "ogg", "oga", "flac", "wma", "wmv", "flv", "avi", "ts", "mts", "m2ts", "3gp"]
+            .contains(url.pathExtension.lowercased())
     }
 
     // MARK: Actions

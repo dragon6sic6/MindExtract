@@ -8,7 +8,14 @@ import SwiftUI
 
 enum Onboarding {
     static let seenKey = "hasSeenNotchOnboarding"
-    static let pages = 4
+
+    enum Page { case notch, link, paste, meetings, privacy }
+
+    /// Someone coming from 2.x also hears where meetings went.
+    @MainActor static let order: [Page] = TranscriptionHistoryManager.shared.hasOldMeetings
+        ? [.notch, .link, .paste, .meetings, .privacy]
+        : [.notch, .link, .paste, .privacy]
+    @MainActor static var pages: Int { order.count }
 
     static var hasBeenSeen: Bool { UserDefaults.standard.bool(forKey: seenKey) }
 
@@ -29,14 +36,17 @@ struct OnboardingView: View {
     @EnvironmentObject var model: NotchModel
     let step: Int
 
+    private var page: Onboarding.Page { Onboarding.order[min(step, Onboarding.pages - 1)] }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             ZStack {
-                switch step {
-                case 0: NotchIllustration()
-                case 1: LinkIllustration()
-                case 2: PasteIllustration()
-                default: PrivacyIllustration()
+                switch page {
+                case .notch: NotchIllustration()
+                case .link: LinkIllustration()
+                case .paste: PasteIllustration()
+                case .meetings: MeetingsIllustration()
+                case .privacy: PrivacyIllustration()
                 }
             }
             .frame(maxWidth: .infinity)
@@ -57,6 +67,16 @@ struct OnboardingView: View {
             .id("text\(step)")
             .transition(.asymmetric(insertion: .opacity, removal: .identity))
 
+            if page == .meetings {
+                ChipButton(icon: "folder", title: String(localized: "Show My Old Recordings")) {
+                    let folder = TranscriptionHistoryManager.recordingsFolder
+                    if FileManager.default.fileExists(atPath: folder.path) {
+                        NSWorkspace.shared.activateFileViewerSelecting([folder])
+                    } else {
+                        NSWorkspace.shared.open(URL(fileURLWithPath: AppSettings.shared.downloadPath))
+                    }
+                }
+            }
             if step == Onboarding.pages - 1 { SetupRows() }
 
             HStack(spacing: 10) {
@@ -90,25 +110,28 @@ struct OnboardingView: View {
     }
 
     private var title: LocalizedStringKey {
-        switch step {
-        case 0: return "MindExtract lives in the notch"
-        case 1: return "Paste a link or drag a file here"
-        case 2: return "The text lands on your clipboard"
-        default: return "Everything stays on your Mac"
+        switch page {
+        case .notch: return "MindExtract lives in the notch"
+        case .link: return "Paste a link or drag a file here"
+        case .paste: return "The text lands on your clipboard"
+        case .meetings: return "Meeting recording is gone"
+        case .privacy: return "Everything stays on your Mac"
         }
     }
 
     private var message: String {
-        switch step {
-        case 0:
+        switch page {
+        case .notch:
             let key = GlobalHotKey.shared.combo?.display
             return key.map { String(localized: "Rest the pointer on the notch or click it. You can also press \($0) from any app.") }
                 ?? String(localized: "Rest the pointer on the notch or click it. It works from any app.")
-        case 1:
+        case .link:
             return String(localized: "YouTube and over a thousand other sites. If you've already copied a link, one click is enough. Save the video too, if you want it.")
-        case 2:
+        case .paste:
             return String(localized: "When the transcript is done it's copied automatically. Paste it with ⌘V in Claude, ChatGPT or anywhere you like.")
-        default:
+        case .meetings:
+            return String(localized: "MindExtract now does one thing well: videos and recordings in, text out. Your old meetings are still on this Mac, untouched.")
+        case .privacy:
             return String(localized: "Transcribing happens on this Mac and nothing is uploaded. Only the video itself is fetched from the site.")
         }
     }
@@ -266,6 +289,21 @@ private struct KeyCap: View {
             .frame(width: 30, height: 30)
             .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white.opacity(0.12)))
             .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.white.opacity(0.18)))
+    }
+}
+
+/// A calendar crossed out, and a film: what it does now.
+private struct MeetingsIllustration: View {
+    var body: some View {
+        HStack(spacing: 18) {
+            Image(systemName: "person.2.wave.2")
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(NotchStyle.tertiary)
+                .overlay(Rectangle().fill(NotchStyle.tertiary).frame(width: 44, height: 1.5).rotationEffect(.degrees(-30)))
+            Image(systemName: "arrow.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(NotchStyle.tertiary)
+            Image(systemName: "film").font(.system(size: 26, weight: .regular))
+            Image(systemName: "doc.text").font(.system(size: 26, weight: .regular))
+        }
     }
 }
 

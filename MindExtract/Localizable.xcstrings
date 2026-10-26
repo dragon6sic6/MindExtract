@@ -10377,6 +10377,176 @@
           }
         }
       }
+    },
+    "A browser on this Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En webbläsare på den här Macen."
+          }
+        }
+      }
+    },
+    "Back to the start": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tillbaka till start"
+          }
+        }
+      }
+    },
+    "Keep Working": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortsätt arbeta"
+          }
+        }
+      }
+    },
+    "Meeting recording is gone": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mötesinspelning finns inte längre"
+          }
+        }
+      }
+    },
+    "MindExtract now does one thing well: videos and recordings in, text out. Your old meetings are still on this Mac, untouched.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MindExtract gör nu en sak riktigt bra: video och inspelningar in, text ut. Dina gamla möten finns kvar på den här Macen, orörda."
+          }
+        }
+      }
+    },
+    "Most videos download without signing in. If a site blocks one, for example an age-restricted or members-only video, borrow the sign-in from a browser where you're logged in.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De flesta videor laddas ner utan inloggning. Om en sajt stoppar en video, till exempel en åldersbegränsad eller en för medlemmar, kan du låna inloggningen från en webbläsare där du är inloggad."
+          }
+        }
+      }
+    },
+    "Quit": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avsluta"
+          }
+        }
+      }
+    },
+    "Quit while it's working?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avsluta medan den arbetar?"
+          }
+        }
+      }
+    },
+    "Safari needs Full Disk Access for MindExtract in System Settings.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safari kräver att MindExtract har full skivåtkomst i Systeminställningar."
+          }
+        }
+      }
+    },
+    "Show My Old Recordings": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa mina gamla inspelningar"
+          }
+        }
+      }
+    },
+    "Signing in": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inloggning"
+          }
+        }
+      }
+    },
+    "Start": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        }
+      }
+    },
+    "That isn't a video or audio file. Drag a video or a recording here.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det är ingen video eller ljudfil. Dra hit en video eller en inspelning."
+          }
+        }
+      }
+    },
+    "The download or transcription in progress will stop.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedladdningen eller transkriberingen som pågår avbryts."
+          }
+        }
+      }
+    },
+    "This file couldn't be read. It may be damaged, or in a format MindExtract doesn't support.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filen gick inte att läsa. Den kan vara skadad eller i ett format som MindExtract inte stöder."
+          }
+        }
+      }
+    },
+    "Use a cookies file instead": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använd en cookiefil i stället"
+          }
+        }
+      }
+    },
+    "Use the sign-in from": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Använd inloggningen från"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

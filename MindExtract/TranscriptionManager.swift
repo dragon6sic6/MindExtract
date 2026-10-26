@@ -573,7 +573,9 @@ class TranscriptionManager: ObservableObject {
         }
 
         let videoURL = URL(fileURLWithPath: videoPath)
-        let videoDirectory = videoURL.deletingLastPathComponent().path
+        // Next to the file, unless that folder is read-only (a disk image, a shared folder).
+        let sourceDirectory = videoURL.deletingLastPathComponent().path
+        let videoDirectory = fileManager.isWritableFile(atPath: sourceDirectory) ? sourceDirectory : AppSettings.shared.downloadPath
         let videoBaseName = videoURL.deletingPathExtension().lastPathComponent
         let tempAudioPath = NSTemporaryDirectory() + UUID().uuidString + ".wav"
         // Name the transcript after the meeting/title the user gave it (not the raw
@@ -1192,7 +1194,9 @@ class TranscriptionManager: ObservableObject {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: ffmpegPath)
         process.arguments = [
+            "-nostdin", "-loglevel", "error",
             "-i", videoPath,
+            "-vn",
             "-ar", "16000",
             "-ac", "1",
             "-c:a", "pcm_s16le",
@@ -1204,10 +1208,16 @@ class TranscriptionManager: ObservableObject {
         process.standardOutput = FileHandle.nullDevice
         do {
             try process.run()
+            // Read before waiting: a full pipe would stall ffmpeg.
+            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
             if process.terminationStatus == 0 { return (true, nil) }
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            return (false, "FFmpeg error: \(String(data: errorData, encoding: .utf8) ?? "unknown")")
+            appLog("[MindExtract] ffmpeg: \(String(data: errorData, encoding: .utf8) ?? "")")
+            let detail = (String(data: errorData, encoding: .utf8) ?? "").lowercased()
+            if detail.contains("does not contain any stream") || detail.contains("output file #0 does not contain") {
+                return (false, AudioConverter.ConversionError.noAudio.localizedDescription)
+            }
+            return (false, String(localized: "This file couldn't be read. It may be damaged, or in a format MindExtract doesn't support."))
         } catch {
             return (false, String(localized: "This file format needs a conversion tool that couldn't start on this Mac. Try an audio file such as m4a, mp3 or wav."))
         }
@@ -1443,13 +1453,11 @@ class TranscriptionManager: ObservableObject {
         guard let path = lastSavedPath else { return }
         let format = TranscriptionOutputFormat(rawValue: URL(fileURLWithPath: path).pathExtension) ?? .txt
         try? buildTranscriptText(segments, format: format).write(toFile: path, atomically: true, encoding: .utf8)
-        saveSegmentData(to: path + ".segments.json")
     }
 
     private func saveToHistory(title: String, filePath: String) {
-        // Save segment data alongside the transcription for later reload
-        let segmentDataPath = filePath + ".segments.json"
-        saveSegmentData(to: segmentDataPath)
+        // No ".segments.json" next to the transcript anymore: the notch only
+        // needs the text file, and the extra file just cluttered Downloads.
 
         // Use a meaningful title: prefer the provided title, fall back to filename
         var resolvedTitle = title

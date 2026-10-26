@@ -729,6 +729,19 @@ class TranscriptionHistoryManager: ObservableObject {
     /// save so the history file never loses them.
     private var hiddenMeetings: [TranscriptionHistoryItem] = []
 
+    /// Where 2.x kept meeting recordings.
+    static var recordingsFolder: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("com.mindact.mindextract/Recordings", isDirectory: true)
+    }
+
+    /// Someone coming from 2.x who recorded meetings.
+    var hasOldMeetings: Bool {
+        if !hiddenMeetings.isEmpty { return true }
+        let items = (try? FileManager.default.contentsOfDirectory(atPath: Self.recordingsFolder.path)) ?? []
+        return items.contains { !$0.hasPrefix(".") }
+    }
+
     private let fileURL = historyFileURL(named: "transcriptionHistory.json")
     private let legacyKey = "transcriptionHistory"
     private let maxHistoryItems = 50
