@@ -40,6 +40,27 @@ final class NotchPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) {
         MainActor.assumeIsolated { NotchController.shared.close() }
     }
+
+    /// The app is never active while you use the notch, so the Edit menu never
+    /// sees ⌘V and friends — send them to the text field directly.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard mods == .command || mods == [.command, .shift], let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return super.performKeyEquivalent(with: event)
+        }
+        let action: Selector?
+        switch (key, mods.contains(.shift)) {
+        case ("v", false): action = #selector(NSText.paste(_:))
+        case ("c", false): action = #selector(NSText.copy(_:))
+        case ("x", false): action = #selector(NSText.cut(_:))
+        case ("a", false): action = #selector(NSText.selectAll(_:))
+        case ("z", false): action = Selector(("undo:"))
+        case ("z", true): action = Selector(("redo:"))
+        default: action = nil
+        }
+        if let action, NSApp.sendAction(action, to: nil, from: self) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 /// Shared sizes for the notch's shapes.
@@ -87,7 +108,9 @@ final class NotchController {
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         panel.isMovable = false
         panel.hidesOnDeactivate = false
-        panel.becomesKeyOnlyIfNeeded = true      // only the text field takes the keyboard
+        // A click in the notch takes the keyboard (SwiftUI's field doesn't ask for
+        // it on its own); close() hands it straight back.
+        panel.becomesKeyOnlyIfNeeded = false
         panel.acceptsMouseMovedEvents = true
         panel.ignoresMouseEvents = true
         panel.contentView = NSHostingView(rootView: NotchRootView().environmentObject(model))

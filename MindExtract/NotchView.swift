@@ -464,7 +464,7 @@ struct LinkField: View {
     static func shortLink(_ link: String) -> String {
         guard let url = URL(string: link), let host = url.host else { return link }
         let h = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
-        return h + url.path
+        return h + url.path + (url.query.map { "?" + $0 } ?? "")
     }
 }
 
