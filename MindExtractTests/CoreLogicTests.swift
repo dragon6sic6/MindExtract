@@ -58,71 +58,6 @@ final class CoreLogicTests: XCTestCase {
         }
     }
 
-    // MARK: Meeting insights (talk-time math)
-
-    private func seg(_ start: Float, _ end: Float, _ text: String, _ speaker: String?) -> TranscriptionSegmentData {
-        TranscriptionSegmentData(start: start, end: end, text: text, speaker: speaker, words: [], avgLogprob: 0)
-    }
-
-    func testMeetingInsightsTalkTimeAndTurns() {
-        let segs = [
-            seg(0, 10, "Hello there.", "Speaker 1"),
-            seg(10, 20, "Hi. How are you?", "Speaker 2"),
-            seg(20, 30, "Good thanks.", "Speaker 1"),
-            seg(30, 35, "Great.", "Speaker 2"),
-        ]
-        let insights = MeetingInsights.compute(from: segs, displayName: { $0 })
-        let unwrapped = try! XCTUnwrap(insights)
-        XCTAssertEqual(unwrapped.speakerCount, 2)
-        // Speaker 1: 10+10=20s, Speaker 2: 10+5=15s, total 35.
-        let s1 = unwrapped.speakers.first { $0.name == "Speaker 1" }!
-        XCTAssertEqual(s1.seconds, 20, accuracy: 0.01)
-        XCTAssertEqual(s1.turns, 2)
-        XCTAssertEqual(unwrapped.totalSeconds, 35, accuracy: 0.01)
-        let fractionSum = unwrapped.speakers.reduce(0) { $0 + $1.fraction }
-        XCTAssertEqual(fractionSum, 1.0, accuracy: 0.001)
-        // Speaker 2 asked a question.
-        XCTAssertEqual(unwrapped.speakers.first { $0.name == "Speaker 2" }!.questions, 1)
-    }
-
-    func testMeetingInsightsNilForSingleSpeaker() {
-        let segs = [seg(0, 10, "Solo.", "Speaker 1")]
-        XCTAssertNil(MeetingInsights.compute(from: segs, displayName: { $0 }))
-    }
-
-    func testMeetingInsightsRespectsRenamedSpeakers() {
-        let segs = [
-            seg(0, 10, "A", "Speaker 1"),
-            seg(10, 20, "B", "Speaker 2"),
-        ]
-        let names = ["Speaker 1": "Anna", "Speaker 2": "Bertil"]
-        let insights = MeetingInsights.compute(from: segs, displayName: { names[$0] ?? $0 })
-        XCTAssertTrue(insights!.speakers.contains { $0.name == "Anna" })
-        XCTAssertFalse(insights!.speakers.contains { $0.name == "Speaker 1" })
-    }
-
-    // MARK: Action item parsing (for Reminders)
-
-    func testParseActionItemsBulletsAndNumbers() {
-        let text = """
-        Here are the next steps:
-        - Send the contract to Anna
-        * Book the room
-        1. Follow up with finance
-        ☐ Draft the email
-        """
-        let items = RemindersExporter.parseActionItems(text)
-        XCTAssertEqual(items.count, 4)
-        XCTAssertTrue(items.contains("Send the contract to Anna"))
-        XCTAssertTrue(items.contains("Follow up with finance"))
-        XCTAssertTrue(items.contains("Draft the email"))
-        XCTAssertFalse(items.contains { $0.hasPrefix("Here are") }, "prose line must not become a task")
-    }
-
-    func testParseActionItemsNoMarkersReturnsEmpty() {
-        XCTAssertTrue(RemindersExporter.parseActionItems("Just some prose with no list at all.").isEmpty)
-    }
-
     // MARK: Codable backward-compatibility (silent data-loss guard)
 
     func testTranscriptionHistoryItemDecodesOldJSONWithoutNewKeys() throws {
@@ -161,12 +96,6 @@ final class CoreLogicTests: XCTestCase {
 
     // MARK: Stable identifiers / enums
 
-    func testMeetingTemplateIDsMatchBuiltIns() {
-        let ids = PromptTemplateLibrary.builtIns.map(\.id)
-        XCTAssertTrue(ids.contains(PromptTemplateLibrary.meetingMinutesID))
-        XCTAssertTrue(ids.contains(PromptTemplateLibrary.actionItemsID))
-    }
-
     func testTranscriptSourceRoundTrip() {
         for s in TranscriptSource.allCases {
             XCTAssertEqual(TranscriptSource(rawValue: s.rawValue), s)
@@ -177,29 +106,6 @@ final class CoreLogicTests: XCTestCase {
     func testDownloadQualityHasDistinctDisplayNames() {
         let names = Set(DownloadQuality.allCases.map(\.displayName))
         XCTAssertEqual(names.count, DownloadQuality.allCases.count)
-    }
-
-    // MARK: Meeting Memory (daily-love layer)
-
-    func testEnhancedNotesTitleIsSplitOffAndSwedishGenericTitlesMatch() {
-        let (title, body) = EnhancedNotesGenerator.splitTitle("# Budget Q3 och avtal\n## Beslut\n- Budget klar [01:02]")
-        XCTAssertEqual(title, "Budget Q3 och avtal")
-        XCTAssertFalse(body.contains("# Budget"))
-        XCTAssertEqual(EnhancedNotesGenerator.parse(body, userNotes: "").first?.heading, "Beslut")
-        // No title line: everything stays notes.
-        XCTAssertNil(EnhancedNotesGenerator.splitTitle("## Beslut\n- A").title)
-        // Echoed prompt labels are dropped; quoted transcript lines are unquoted.
-        let echoed = EnhancedNotesGenerator.parse("## Punkter\n- THE USER'S NOTES: (none) [00:00]\n- \"Budgeten är klar.\" [00:09]", userNotes: "")
-        XCTAssertEqual(echoed.first?.lines.count, 1)
-        XCTAssertEqual(echoed.first?.lines.first?.text, "Budgeten är klar.")
-        XCTAssertTrue(MeetingText.isGenericTitle("Möte 2026-09-25 16.06"))
-        XCTAssertFalse(MeetingText.isGenericTitle("Budget Q3 och avtal"))
-    }
-
-    func testGenericTitleDetectionAndSuggestion() {
-        XCTAssertTrue(MeetingText.isGenericTitle("Meeting 2026-06-22 15.30"))
-        XCTAssertFalse(MeetingText.isGenericTitle("Aspia GO - Bokföring"))
-        XCTAssertEqual(MeetingText.briefSection("## Åtgärdspunkter\n- A\n## Other\n- B", "Action items"), "- A")
     }
 
     // MARK: Pianissimo (Swedish engine)
@@ -273,108 +179,6 @@ final class CoreLogicTests: XCTestCase {
             for s in segs { print("PIANISSIMO   [\(String(format: "%.1f", s.start))-\(String(format: "%.1f", s.end))] \(s.text)") }
             XCTAssertFalse(out.text.isEmpty)
         }
-    }
-
-    /// Opt-in: the dictation path (in-memory 16 kHz samples, short clip) on Pianissimo.
-    func testDictationSamplesEndToEnd() async throws {
-        guard let path = ProcessInfo.processInfo.environment["PIANISSIMO_E2E_AUDIO"]?.split(separator: ":").first,
-              PianissimoEngine.isInstalled else { throw XCTSkip("Set PIANISSIMO_E2E_AUDIO to run") }
-        let file = try AVAudioFile(forReading: URL(fileURLWithPath: String(path)))
-        let target = DictationRecorder.targetFormat
-        let converter = try XCTUnwrap(AVAudioConverter(from: file.processingFormat, to: target))
-        let inBuf = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)))
-        try file.read(into: inBuf)
-        let outBuf = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: target, frameCapacity: AVAudioFrameCount(Double(file.length) * 16_000 / file.processingFormat.sampleRate) + 64))
-        var fed = false
-        converter.convert(to: outBuf, error: nil) { _, status in
-            if fed { status.pointee = .endOfStream; return nil }
-            fed = true; status.pointee = .haveData; return inBuf
-        }
-        let all = Array(UnsafeBufferPointer(start: outBuf.floatChannelData![0], count: Int(outBuf.frameLength)))
-        for seconds in [0.8, 4.0, 12.0] {
-            let clip = Array(all.prefix(Int(seconds * 16_000)))
-            let t = CFAbsoluteTimeGetCurrent()
-            let text = try await TranscriptionManager.shared.transcribeDictation(samples: clip, language: "sv")
-            print("DICTATION \(seconds)s in \(String(format: "%.2f", CFAbsoluteTimeGetCurrent() - t))s: \(text)")
-        }
-    }
-
-    // MARK: Enhanced notes parsing
-
-    func testEnhancedNotesMarkUserWordsAndTimestamps() {
-        let md = """
-        ## Beslut
-        - Sara tar fram kostnadsjämförelse — presenteras 9 oktober. [10:08]
-        - **Lanseringen** ligger kvar i november [1:02:14]
-
-        ## Åtgärder
-        1. Anna — stäm av budgeten med ekonomi — i dag [03:05]
-        """
-        let notes = "- sara tar fram kostnadsjämförelse\nbudget"
-        let sections = EnhancedNotesGenerator.parse(md, userNotes: notes)
-        XCTAssertEqual(sections.map(\.heading), ["Beslut", "Åtgärder"])
-        let first = sections[0].lines[0]
-        XCTAssertEqual(first.parts.first?.isUser, true)
-        XCTAssertEqual(first.parts.first?.text, "Sara tar fram kostnadsjämförelse")
-        XCTAssertEqual(first.parts.last?.isUser, false)
-        XCTAssertEqual(first.at, 608)
-        XCTAssertFalse(first.text.contains("["), "citation removed from visible text")
-        XCTAssertEqual(sections[0].lines[1].at, 3734)
-        XCTAssertEqual(sections[0].lines[1].text, "Lanseringen ligger kvar i november")
-        XCTAssertEqual(sections[1].lines[0].at, 185)
-        XCTAssertEqual(sections[1].lines[0].parts.count, 1, "no user note in this line")
-    }
-
-    func testEnhancedNotesCitationListsAndPunctuation() {
-        let (text, at) = EnhancedNotesGenerator.extractTimestamp("Anna jagar ekonomin i dag [00:02, 00:09] .")
-        XCTAssertEqual(text, "Anna jagar ekonomin i dag.")
-        XCTAssertEqual(at, 2)
-        let (task, due) = EnhancedNotesGenerator.extractTimestamp("Sara — kostnadsjämförelse — [08:08]")
-        XCTAssertEqual(task, "Sara — kostnadsjämförelse")
-        XCTAssertEqual(due, 488)
-        XCTAssertEqual(EnhancedNotesGenerator.extractTimestamp("Ingen tid här").1, nil)
-    }
-
-    func testEnhancedNotesWithoutHeadingsOrTimestamps() {
-        let sections = EnhancedNotesGenerator.parse("- Point one\n* Point two", userNotes: "")
-        XCTAssertEqual(sections.count, 1)
-        XCTAssertEqual(sections[0].heading, "")
-        XCTAssertEqual(sections[0].lines.map(\.text), ["Point one", "Point two"])
-        XCTAssertNil(sections[0].lines[0].at)
-    }
-
-    func testTimestampedTranscriptAndClock() {
-        XCTAssertEqual(EnhancedNotesGenerator.clock(65), "01:05")
-        XCTAssertEqual(EnhancedNotesGenerator.clock(3725), "1:02:05")
-        let segs = [TranscriptionSegmentData(start: 12, end: 15, text: "Hej", speaker: "You", words: [], avgLogprob: 0)]
-        XCTAssertEqual(EnhancedNotesGenerator.timestampedTranscript(segs), "[00:12] You: Hej")
-    }
-
-    /// Opt-in: runs enhanced notes on the configured AI backend (set ENHANCE_E2E=1).
-    func testEnhancedNotesEndToEnd() async throws {
-        guard ProcessInfo.processInfo.environment["ENHANCE_E2E"] != nil else { throw XCTSkip("Set ENHANCE_E2E to run") }
-        let lines: [(Float, String, String)] = [
-            (2, "You", "Då kör vi, alla är på plats. Första punkten är budgeten för fjärde kvartalet."),
-            (9, "Anna", "Ekonomi har inte återkommit om budgeten än. Jag jagar dem i dag, annars riskerar vi att rekryteringen skjuts till nästa år."),
-            (185, "Johan", "Lanseringsplanen – jag siktar på att skicka ett utkast på fredag."),
-            (488, "Sara", "Jag kan ta fram en kostnadsjämförelse mellan en extern konsult och en intern resurs till nästa styrgrupp den nionde oktober."),
-            (671, "Anna", "Vi måste räkna med att juli blir tunt bemannat, så planen behöver vara klar före semestrarna."),
-            (854, "You", "Bra, då bestämmer vi att lanseringen ligger kvar i november."),
-        ]
-        let segs = lines.map { TranscriptionSegmentData(start: $0.0, end: $0.0 + 8, text: $0.2, speaker: $0.1, words: [], avgLogprob: 0) }
-        let notes = "budget q4 – ekonomi har inte återkommit\njohan: lanseringsplan klar fre?\nkonsult vs intern → Sara kollar kostnad"
-        let t = CFAbsoluteTimeGetCurrent()
-        let backend: AIBackend = ProcessInfo.processInfo.environment["ENHANCE_E2E"] == "apple" ? AppleIntelligenceBackend() : AIBackends.current()
-        let result = try await EnhancedNotesGenerator.generate(userNotes: notes, segments: segs, backend: backend)
-        print("ENHANCED (\(result.badge), \(String(format: "%.1f", CFAbsoluteTimeGetCurrent() - t))s)")
-        for s in result.sections {
-            print("ENHANCED ## \(s.heading)")
-            for l in s.lines {
-                let marked = l.parts.map { $0.isUser ? "«\($0.text)»" : $0.text }.joined()
-                print("ENHANCED - \(marked) \(l.at.map { "@\(EnhancedNotesGenerator.clock($0))" } ?? "")")
-            }
-        }
-        XCTAssertFalse(result.isEmpty)
     }
 
     /// Opt-in: native conversion of a real recording (set CONVERT_E2E_AUDIO).

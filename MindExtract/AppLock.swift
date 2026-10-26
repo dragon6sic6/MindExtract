@@ -23,7 +23,7 @@ final class AppLock: ObservableObject {
     /// no longer frontmost). Skipped while recording so a meeting (where you're
     /// in Zoom/Teams, not MindExtract) isn't interrupted by repeated unlocks.
     func lockIfEnabled() {
-        guard isEnabled, !MeetingRecorder.shared.isBusy else { return }
+        guard isEnabled else { return }
         isLocked = true
     }
 

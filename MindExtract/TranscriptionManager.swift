@@ -67,124 +67,6 @@ class TranscriptionManager: ObservableObject {
     @Published var segments: [TranscriptionSegmentData] = []
     @Published var audioDuration: Float = 0
     @Published var audioFilePath: String?  // Keep audio for playback
-    /// Notes the user typed during a meeting recording, handed to the next
-    /// transcript so the result view can save + AI-merge them. Consumed once.
-    var pendingMeetingNotes: String?
-    /// Notes + consent from the meeting being transcribed, consumed on completion
-    /// (independently of the view, which consumes `pendingMeetingNotes` early).
-    var pendingMeetingExtras: (notes: String, consentAt: Double?)?
-    /// Transcript paths whose enhanced notes are being written right now.
-    @Published private(set) var enhancingPaths: Set<String> = []
-    /// Why the notes couldn't be written, per transcript path (cleared on retry).
-    @Published var enhanceErrors: [String: String] = [:]
-    /// Separate mic/system tracks from a meeting recording, for channel-aware
-    /// "you vs them" speaker attribution. Consumed (and the files deleted) once.
-    var pendingChannelSources: (mic: String, system: String)?
-    /// Speaker-name suggestions for the next transcript ("You" + calendar
-    /// attendees), shown in the rename popover. Set when a meeting is confirmed.
-    var pendingSpeakerSuggestions: [String] = []
-    /// Marked moments (seconds from start) bookmarked during recording, and the
-    /// meeting's attendee emails — handed to the result view for the Brief + recap.
-    var pendingMarkedMoments: [TimeInterval] = []
-    var pendingAttendeeEmails: [String] = []
-    /// True when the next transcript comes from a meeting recording, so the result
-    /// view can auto-generate notes once. Consumed on first open.
-    private(set) var pendingIsMeeting = false
-    func markPendingMeeting() { pendingIsMeeting = true }
-    /// Reads and clears the flag atomically so only the first result view to open
-    /// after a recording auto-generates notes.
-    func consumePendingIsMeeting() -> Bool {
-        let v = pendingIsMeeting
-        pendingIsMeeting = false
-        return v
-    }
-
-    // MARK: - AI engine readiness
-
-    private func aiEngineConfigured() -> Bool {
-        switch AppSettings.shared.aiBackend {
-        case .apple: return true   // on-device; fails gracefully if AI is off
-        case .ollama: return !AppSettings.shared.ollamaModel.isEmpty
-        case .custom:
-            return !AppSettings.shared.customBaseURL.isEmpty
-                && !(KeychainHelper.get("custom-api-key") ?? "").isEmpty
-        default:
-            guard let kc = AppSettings.shared.aiBackend.keychainKey else { return true }
-            return !(KeychainHelper.get(kc) ?? "").isEmpty
-        }
-    }
-
-    // MARK: - Meeting notes (enhanced)
-
-    /// True when a finished recording can be transcribed without asking — some
-    /// engine is ready. Otherwise the confirm sheet appears (it offers downloads).
-    var canAutoTranscribe: Bool {
-        useAppleSpeech() || !downloadedModels.isEmpty
-    }
-
-    /// Saves the meeting's notes + consent next to the transcript, then writes the
-    /// notes in the background — always, with the user's own lines woven in.
-    private func finishMeetingExtras(path: String) {
-        guard let extras = pendingMeetingExtras else { return }
-        pendingMeetingExtras = nil
-        var sidecar = TranscriptAIStore.load(for: path)
-            ?? TranscriptAISidecar(summary: nil, chat: [], translation: nil, translationLanguageCode: nil,
-                                   templateOutputs: nil, userNotes: nil, speakerNames: nil,
-                                   speakerSuggestions: nil, markedMoments: nil)
-        let notes = extras.notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !notes.isEmpty, (sidecar.userNotes ?? "").isEmpty { sidecar.userNotes = notes }
-        if let at = extras.consentAt { sidecar.consentConfirmedAt = at }
-        TranscriptAIStore.save(sidecar, for: path)
-        if AppSettings.shared.autoGenerateMeetingNotes {
-            generateEnhancedNotes(path: path, userNotes: notes, segments: segments)
-        }
-    }
-
-    /// Writes (or rewrites) the enhanced notes for a transcript and saves them.
-    func generateEnhancedNotes(path: String, userNotes: String, segments: [TranscriptionSegmentData]) {
-        guard !enhancingPaths.contains(path), !segments.isEmpty else { return }
-        enhanceErrors[path] = nil
-        guard aiEngineConfigured() else {
-            enhanceErrors[path] = String(localized: "The notes need an AI engine. Choose one in Settings → AI — Apple Intelligence works on this Mac.")
-            return
-        }
-        enhancingPaths.insert(path)
-        let backend = AIBackends.current()
-        Task { @MainActor in
-            defer {
-                self.enhancingPaths.remove(path)
-                NotificationCenter.default.post(name: .enhancedNotesUpdated, object: path)
-            }
-            do {
-                let notes = try await EnhancedNotesGenerator.generate(userNotes: userNotes, segments: segments, backend: backend)
-                guard !notes.isEmpty else { return }
-                var sidecar = TranscriptAIStore.load(for: path)
-                    ?? TranscriptAISidecar(summary: nil, chat: [], translation: nil, translationLanguageCode: nil,
-                                           templateOutputs: nil, userNotes: nil, speakerNames: nil,
-                                           speakerSuggestions: nil, markedMoments: nil)
-                sidecar.enhancedNotes = notes
-                if (sidecar.userNotes ?? "").isEmpty, !userNotes.isEmpty { sidecar.userNotes = userNotes }
-                TranscriptAIStore.save(sidecar, for: path)
-                self.adoptTitle(notes.title, for: path)
-                appLog("[MindExtract] Enhanced notes written: \(path)")
-            } catch is CancellationError {
-            } catch {
-                self.enhanceErrors[path] = String(localized: "Couldn't write the notes: \(error.localizedDescription)")
-                appLog("[MindExtract] Enhanced notes failed: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    /// Replaces a timestamp-only title ("Möte 2026-09-25 16.06") with the one
-    /// written with the notes. A title the user typed is never touched.
-    private func adoptTitle(_ title: String?, for path: String) {
-        guard let title, !title.isEmpty,
-              let item = transcriptionHistory.history.first(where: { $0.filePath == path }),
-              MeetingText.isGenericTitle(item.title) else { return }
-        transcriptionHistory.rename(item, to: title)
-        if lastSavedPath == path { currentTranscriptionTitle = title }
-    }
-
     /// The recording that belongs to a transcript: same base name next to it, or
     /// the combined mix in a meeting folder (never the raw mic/system tracks).
     nonisolated static func audioBeside(transcript path: String) -> String? {
@@ -514,17 +396,10 @@ class TranscriptionManager: ObservableObject {
         // Pianissimo if it detects Swedish under "auto".
         let model: WhisperModel = (language == "sv" && isModelDownloaded(.pianissimo)) ? .pianissimo
                                                                                        : multilingualBaseModel()
-        // Drop the stale brief/commitments so they rebuild from the corrected text.
-        if var sc = TranscriptAIStore.load(for: outputPath) {
-            sc.templateOutputs?[PromptTemplateLibrary.meetingBriefID.uuidString] = nil
-            sc.commitments = nil
-            TranscriptAIStore.save(sc, for: outputPath)
-            if currentTranscriptSource == .meeting { markPendingMeeting() }
-        }
         // transcribeAudioFile deletes its input, so feed it a throwaway copy.
         let tmp = NSTemporaryDirectory() + UUID().uuidString + ".wav"
         do { try fileManager.copyItem(atPath: audio, toPath: tmp) }
-        catch { transcriptionState = .error("Couldn't access the recording to re-transcribe."); return }
+        catch { transcriptionState = .error("Couldn't access the audio to transcribe it again."); return }
         transcribeAudioFile(audioPath: tmp, model: model, outputPath: outputPath, outputFormat: .txt, language: language)
     }
 
@@ -1016,11 +891,6 @@ class TranscriptionManager: ObservableObject {
                     appLog("[MindExtract] Post-diarization segments count: \(allSegments.count)")
                 }
 
-                // Channel-aware "you vs them": if this came from a meeting recording
-                // with separate mic/system tracks, relabel who's speaking. Runs even
-                // when diarization is off (degrades to You / Others).
-                allSegments = await applyChannelAttribution(allSegments)
-
                 // Build output text based on format
                 let fullText: String
                 switch outputFormat {
@@ -1060,7 +930,6 @@ class TranscriptionManager: ObservableObject {
                     self.transcriptionState = .completed(outputPath: outputPath)
                     self.saveToHistory(title: self.currentTranscriptionTitle, filePath: outputPath)
                     self.notifyTranscriptionComplete()
-                    self.finishMeetingExtras(path: outputPath)
                     self.advanceBatchIfNeeded()
                     appLog("[MindExtract] Final state: segments=\(self.segments.count), title='\(self.currentTranscriptionTitle)', liveText length=\(self.liveTranscriptionText.count)")
                 }
@@ -1082,7 +951,7 @@ class TranscriptionManager: ObservableObject {
                         }
                     }
                 }
-                await MainActor.run { self.discardPendingChannelSources(); self.advanceBatchIfNeeded() }
+                await MainActor.run { self.advanceBatchIfNeeded() }
                 cleanup()
             }
         }
@@ -1100,56 +969,10 @@ class TranscriptionManager: ObservableObject {
         return Array(UnsafeBufferPointer(start: data, count: Int(buffer.frameLength)))
     }
 
-    // MARK: - Dictation
-
-    enum DictationError: LocalizedError {
-        case busy, noModel
-        var errorDescription: String? {
-            switch self {
-            case .busy: return "Busy transcribing a file — try again in a moment."
-            case .noModel: return "Download a speech model in Settings first."
-            }
-        }
-    }
-
-    /// Transcribes a short 16 kHz mono clip for push-to-talk dictation. Swedish →
-    /// Pianissimo; other languages (and "auto" detection) → a Whisper model.
-    /// Never touches the main transcript UI state.
-    func transcribeDictation(samples: [Float], language: String) async throws -> String {
-        let pianissimoReady = isModelDownloaded(.pianissimo)
-        let whisperModel = multilingualBaseModel()
-        let whisperReady = findModelFolder(whisperModel) != nil
-        var lang = language
-        if lang == "auto" {
-            if whisperReady && !isTranscribing {
-                let kit = try await ensureWhisperKit(model: whisperModel, announce: false)
-                if let detected = try? await kit.detectLangauge(audioArray: samples) { lang = detected.language }
-            } else if pianissimoReady {
-                lang = "sv"
-            }
-        }
-        if lang == "sv", pianissimoReady {
-            return try await PianissimoEngine.shared.transcribe(samples: samples).text
-        }
-        // The shared WhisperKit instance isn't safe to use alongside a file job.
-        guard !isTranscribing else { throw DictationError.busy }
-        guard whisperReady else { throw DictationError.noModel }
-        let kit = try await ensureWhisperKit(model: whisperModel, announce: false)
-        var options = DecodingOptions()
-        if lang != "auto" { options.language = lang }
-        let vocab = Self.vocabularyPrompt(UserDefaults.standard.string(forKey: "customVocabulary") ?? "")
-        if !vocab.isEmpty, let tokenizer = kit.tokenizer {
-            let tokens = tokenizer.encode(text: " " + vocab).filter { $0 < tokenizer.specialTokens.specialTokenBegin }
-            if !tokens.isEmpty { options.promptTokens = tokens }
-        }
-        let results = try await kit.transcribe(audioArray: samples, decodeOptions: options)
-        return cleanTokens(results.map(\.text).joined(separator: " "))
-    }
-
     // MARK: - Pianissimo Transcription
 
     /// Runs Pianissimo and returns WhisperKit-shaped results, so speaker
-    /// diarization, channel attribution and export run unchanged for both engines.
+    /// diarization and export run unchanged for both engines.
     private func transcribeWithPianissimo(audioPath: String) async throws -> [TranscriptionResult] {
         usedEngineName = "Pianissimo"
         let isFirstLoad = await !PianissimoEngine.shared.isLoaded
@@ -1379,7 +1202,6 @@ class TranscriptionManager: ObservableObject {
         currentTask = nil
         currentProcess?.terminate()
         currentProcess = nil
-        discardPendingChannelSources()
         DispatchQueue.main.async {
             // Don't throw away work already transcribed — save the partial result
             // so the user can still read, copy, and export it.
@@ -1812,62 +1634,6 @@ extension TranscriptionManager {
         }
     }
 
-    /// Channel-aware "you vs them" attribution. When a meeting was recorded with
-    /// separate mic and system tracks (set via `pendingChannelSources`), this
-    /// compares per-segment loudness across the two channels: a segment where the
-    /// microphone dominates is *you* speaking; where system audio dominates it's a
-    /// remote participant. Overlays on top of any existing SpeakerKit labels:
-    ///   • mic-dominant  → relabel as "You"
-    ///   • system-dominant → keep the diarized "Speaker N" label, or "Others" if none
-    /// Works even with diarization off (degrades to You / Others). Consumes (deletes)
-    /// the source files. Returns the input unchanged when no channel sources are set.
-    func applyChannelAttribution(_ segments: [TranscriptionSegmentData]) async -> [TranscriptionSegmentData] {
-        guard let sources = pendingChannelSources else { return segments }
-        pendingChannelSources = nil   // consumed on the main actor before the I/O hop
-        // Decode both source files and compute per-segment energy off the main
-        // thread — on a long meeting these files are large and would otherwise
-        // freeze the UI.
-        return await Task.detached(priority: .userInitiated) {
-            let fm = FileManager.default
-            defer {
-                try? fm.removeItem(atPath: sources.mic)
-                try? fm.removeItem(atPath: sources.system)
-            }
-            guard let mic = try? AudioProcessor.loadAudioAsFloatArray(fromPath: sources.mic),
-                  let sys = try? AudioProcessor.loadAudioAsFloatArray(fromPath: sources.system),
-                  !mic.isEmpty, !sys.isEmpty else { return segments }
-
-            // loadAudioAsFloatArray returns 16 kHz mono Float32 (WhisperKit's rate).
-            let sr = 16000.0
-            func rms(_ a: [Float], _ start: Float, _ end: Float) -> Float {
-                // Double math for the index — Float loses sample precision past ~30 min.
-                let s = max(0, Int(Double(start) * sr))
-                let e = min(a.count, Int(Double(end) * sr))
-                guard e > s else { return 0 }
-                // Subsample long windows so per-segment energy is cheap.
-                let step = max(1, (e - s) / 1024)
-                var sum: Float = 0
-                var n = 0
-                var i = s
-                while i < e { sum += a[i] * a[i]; i += step; n += 1 }
-                return n > 0 ? (sum / Float(n)).squareRoot() : 0
-            }
-
-            return segments.map { seg in
-                var copy = seg
-                let micE = rms(mic, seg.start, seg.end)
-                let sysE = rms(sys, seg.start, seg.end)
-                // Require a clear margin so cross-talk/echo doesn't flip the label.
-                if micE > 0.003 && micE > sysE * 1.3 {
-                    copy.speaker = "You"
-                } else if sysE > 0.003 && sysE > micE * 1.3 {
-                    copy.speaker = copy.speaker ?? "Others"
-                }
-                return copy
-            }
-        }.value
-    }
-
     /// Normalize the user's custom-vocabulary text (lines and/or commas) into a
     /// single comma-separated prompt string. Caps length so the conditioning
     /// prompt stays short (WhisperKit also trims to its own max).
@@ -1903,17 +1669,6 @@ extension TranscriptionManager {
         UNUserNotificationCenter.current().add(request) { error in
             if let error { appLog("[MindExtract] transcription notification failed: \(error)") }
         }
-    }
-
-    /// Drop unconsumed channel sources (delete the temp mic/system files) so a
-    /// failed/cancelled meeting transcription can't leak files or mis-attribute a
-    /// later, unrelated transcript.
-    func discardPendingChannelSources() {
-        guard let sources = pendingChannelSources else { return }
-        pendingChannelSources = nil
-        let fm = FileManager.default
-        try? fm.removeItem(atPath: sources.mic)
-        try? fm.removeItem(atPath: sources.system)
     }
 
     /// Whether to use Apple's SpeechAnalyzer for the next transcription.
@@ -2111,9 +1866,6 @@ extension TranscriptionManager {
                     finalSegments = await assignSpeakersByOverlap(to: collected, audioPath: audioPath)
                 }
 
-                // Channel-aware "you vs them" overlay (meeting recordings only).
-                finalSegments = await applyChannelAttribution(finalSegments)
-
                 let fullText = buildTranscriptText(finalSegments, format: outputFormat)
                 try fullText.write(toFile: outputPath, atomically: true, encoding: .utf8)
 
@@ -2123,7 +1875,6 @@ extension TranscriptionManager {
                 transcriptionState = .completed(outputPath: outputPath)
                 saveToHistory(title: currentTranscriptionTitle, filePath: outputPath)
                 notifyTranscriptionComplete()
-                finishMeetingExtras(path: outputPath)
                 advanceBatchIfNeeded()
                 cleanup()
             } catch {
@@ -2132,7 +1883,6 @@ extension TranscriptionManager {
                 } else {
                     transcriptionState = .error("Transcription failed: \(error.localizedDescription)")
                 }
-                discardPendingChannelSources()
                 advanceBatchIfNeeded()
                 cleanup()
             }

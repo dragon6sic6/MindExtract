@@ -120,8 +120,7 @@ struct DownloaderView: View {
         }
         .sheet(isPresented: $showTranscriptionLanguagePicker) {
             TranscribeSheet(
-                mode: .importMedia,
-                onStart: { _, language, model in
+                onStart: { language, model in
                     selectedTranscriptionLanguage = language
                     showTranscriptionLanguagePicker = false
                     if let file = pendingTranscriptionFile {

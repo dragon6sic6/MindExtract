@@ -8437,7 +8437,237 @@
       }
     },
     "•": {},
-    "↩": {}
+    "↩": {},
+    "%lld transcripts selected": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld transkript markerade"
+          }
+        }
+      }
+    },
+    "Ask anything and translation": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fråga vad som helst och översättning"
+          }
+        }
+      }
+    },
+    "Automatic detects the language of each video. You can always transcribe again in another language.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatiskt känner av språket i varje video. Du kan alltid transkribera igen på ett annat språk."
+          }
+        }
+      }
+    },
+    "Download or Transcribe…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladda ned eller transkribera…"
+          }
+        }
+      }
+    },
+    "Every preference goes back to its default. Your transcripts, downloads and API keys are not touched.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alla inställningar återställs. Dina transkript, nedladdningar och API-nycklar påverkas inte."
+          }
+        }
+      }
+    },
+    "Get the words out of any video": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Få ut orden ur vilken video som helst"
+          }
+        }
+      }
+    },
+    "Move %lld Transcripts to Trash…": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flytta %lld transkript till papperskorgen…"
+          }
+        }
+      }
+    },
+    "Move %lld transcripts to the Trash?": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flytta %lld transkript till papperskorgen?"
+          }
+        }
+      }
+    },
+    "No transcripts yet": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inga transkript ännu"
+          }
+        }
+      }
+    },
+    "Paste a link from YouTube or 1,000 other sites, or drop a video or audio file. MindExtract downloads it, transcribes it, or both — on your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in en länk från YouTube eller 1 000 andra webbplatser, eller släpp en video- eller ljudfil. MindExtract laddar ned den, transkriberar den, eller båda – på din Mac."
+          }
+        }
+      }
+    },
+    "Paste a link or drop a file (⌘N)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in en länk eller släpp en fil (⌘N)"
+          }
+        }
+      }
+    },
+    "Paste a link or drop a file under Download.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in en länk eller släpp en fil under Ladda ned."
+          }
+        }
+      }
+    },
+    "Pick a transcript": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Välj ett transkript"
+          }
+        }
+      }
+    },
+    "Search transcripts": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sök i transkript"
+          }
+        }
+      }
+    },
+    "Summaries and titles": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sammanfattningar och titlar"
+          }
+        }
+      }
+    },
+    "The transcript goes to the Trash. You can put it back from there. A downloaded video stays where it is.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriptet hamnar i papperskorgen. Du kan lägga tillbaka det därifrån. En nedladdad video ligger kvar där den är."
+          }
+        }
+      }
+    },
+    "Transcripts, downloads and API keys are kept.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript, nedladdningar och API-nycklar behålls."
+          }
+        }
+      }
+    },
+    "Used for other languages when Whisper is chosen.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Används för andra språk när Whisper är valt."
+          }
+        }
+      }
+    },
+    "Used for: summaries and titles, Ask anything and translation. Not used for transcribing — that's Settings → Transcription.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Används till: sammanfattningar och titlar, Fråga vad som helst och översättning. Används inte till transkribering – det sköts i Inställningar → Transkribering."
+          }
+        }
+      }
+    },
+    "Want show notes, a blog draft or your own format? Choose one above ↑": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vill du ha programanteckningar, ett bloggutkast eller ett eget format? Välj ovan ↑"
+          }
+        }
+      }
+    },
+    "An overview and the key points — generated with your selected AI model. %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En översikt och de viktigaste punkterna – skrivna med din valda AI-modell. %@"
+          }
+        }
+      }
+    },
+    "With Apple Intelligence or Ollama it runs entirely on your Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Med Apple Intelligence eller Ollama sker allt på din Mac."
+          }
+        }
+      }
+    },
+    "Your selected provider (%@) processes the text in the cloud.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Din valda tjänst (%@) bearbetar texten i molnet."
+          }
+        }
+      }
+    }
   },
   "version": "1.0"
 }

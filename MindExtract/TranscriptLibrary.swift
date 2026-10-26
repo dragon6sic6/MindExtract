@@ -293,7 +293,7 @@ struct CorpusChatView: View {
     @State private var input = ""
 
     private let suggestions = [
-        "What action items came up across my recent meetings?",
+        "What were the main points across my recent videos?",
         "Summarize the key decisions from this week.",
         "What did we say about pricing?"
     ]

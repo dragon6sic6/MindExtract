@@ -6,9 +6,7 @@ import UniformTypeIdentifiers
 enum SettingsCategory: String, CaseIterable, Identifiable {
     case overview
     case general
-    case recording
     case transcription
-    case dictation
     case ai
     case imports
 
@@ -18,9 +16,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .overview: return "Overview"
         case .general: return "General"
-        case .recording: return "Recording"
         case .transcription: return "Transcription"
-        case .dictation: return "Dictation"
         case .ai: return "AI"
         case .imports: return "Import"
         }
@@ -30,9 +26,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .overview: return String(localized: "Overview")
         case .general: return String(localized: "General")
-        case .recording: return String(localized: "Recording")
         case .transcription: return String(localized: "Transcription")
-        case .dictation: return String(localized: "Dictation")
         case .ai: return String(localized: "AI")
         case .imports: return String(localized: "Import")
         }
@@ -42,9 +36,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .overview: return "square.grid.2x2"
         case .general: return "gearshape"
-        case .recording: return "record.circle"
         case .transcription: return "text.bubble"
-        case .dictation: return "keyboard"
         case .ai: return "sparkles"
         case .imports: return "square.and.arrow.down"
         }
@@ -55,8 +47,6 @@ struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var downloader: YTDLPWrapper
     @ObservedObject var transcriptionManager = TranscriptionManager.shared
-    @ObservedObject var dictation = DictationController.shared
-    @ObservedObject private var recorder = MeetingRecorder.shared
     /// Persisted so other parts of the app can deep-link a pane before opening Settings.
     @AppStorage("settingsCategory") private var category: SettingsCategory = .overview
     @State private var showResetConfirmation = false
@@ -85,13 +75,12 @@ struct SettingsView: View {
         .frame(minWidth: 760, idealWidth: 820, minHeight: 540, idealHeight: 640)
         .onAppear {
             transcriptionManager.loadDownloadedModels()
-            recorder.refreshPermissions()
         }
         .confirmationDialog("Reset all settings?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
             Button("Reset Settings", role: .destructive) { resetSettingsToDefaults() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Every preference goes back to its default. Your transcripts, recordings and API keys are not touched.")
+            Text("Every preference goes back to its default. Your transcripts, downloads and API keys are not touched.")
         }
         .confirmationDialog("Sign out of YouTube?", isPresented: $showYouTubeSignOutConfirm, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) { downloader.signOutYouTube() }
@@ -106,9 +95,7 @@ struct SettingsView: View {
         switch category {
         case .overview: overviewPane
         case .general: generalPane
-        case .recording: recordingPane
         case .transcription: transcriptionPane
-        case .dictation: dictationPane
         case .ai: aiPane
         case .imports: importPane
         }
@@ -148,13 +135,9 @@ struct SettingsView: View {
                       warning: transcriptionManager.isModelDownloaded(.pianissimo) ? nil : "Download Pianissimo for the best Swedish.")
             engineRow("Transcribing other languages", icon: "globe",
                       engine: otherLanguagesEngine, where: .onMac, pane: .transcription)
-            engineRow("Live text while recording", icon: "waveform",
-                      engine: liveEngine, where: .onMac, pane: .transcription)
             engineRow("Telling speakers apart", icon: "person.2",
                       engine: settings.enableSpeakerDiarization ? "SpeakerKit" : String(localized: "Off"),
                       where: .onMac, pane: .transcription)
-            engineRow("Dictation (hold \(settings.dictationKey.name))", icon: "keyboard",
-                      engine: dictationEngine, where: .onMac, pane: .dictation)
         } header: {
             Text("Speech to text")
         } footer: {
@@ -162,9 +145,9 @@ struct SettingsView: View {
         }
 
         Section {
-            engineRow("Notes and titles after a recording", icon: "sparkles",
+            engineRow("Summaries and titles", icon: "sparkles",
                       engine: aiEngineName, where: aiWhere, pane: .ai)
-            engineRow("Ask anything and follow-up email", icon: "bubble.left.and.text.bubble.right",
+            engineRow("Ask anything and translation", icon: "bubble.left.and.text.bubble.right",
                       engine: aiEngineName, where: aiWhere, pane: .ai)
         } header: {
             Text("Writing with AI")
@@ -231,23 +214,6 @@ struct SettingsView: View {
     private var otherLanguagesEngine: String {
         if transcriptionManager.useAppleSpeech() { return String(localized: "Apple speech recognition") }
         return "Whisper · \(settings.defaultWhisperModel.displayName)"
-    }
-
-    private var liveEngine: String {
-        let swedish = transcriptionManager.isModelDownloaded(.pianissimo) ? "Pianissimo" : nil
-        let other = MeetingRecorder.defaultLiveModel(for: "en").map { "Whisper · \($0.displayName)" }
-        switch (swedish, other) {
-        case let (s?, o?): return String(localized: "\(s) (Swedish), \(o)")
-        case let (s?, nil): return String(localized: "\(s) (Swedish only)")
-        case let (nil, o?): return o
-        default: return String(localized: "None — download a speech model")
-        }
-    }
-
-    private var dictationEngine: String {
-        guard settings.dictationEnabled else { return String(localized: "Off") }
-        if settings.dictationLanguage == "sv", transcriptionManager.isModelDownloaded(.pianissimo) { return "Pianissimo" }
-        return "Whisper · \(transcriptionManager.multilingualBaseModel().displayName)"
     }
 
     private var aiEngineName: String {
@@ -346,7 +312,7 @@ struct SettingsView: View {
                 Button("Reset…", role: .destructive) { showResetConfirmation = true }
             }
         } footer: {
-            Text("Transcripts, recordings and API keys are kept.")
+            Text("Transcripts, downloads and API keys are kept.")
         }
     }
 
@@ -361,46 +327,6 @@ struct SettingsView: View {
             Link(license, destination: URL(string: url)!)
         } label: {
             Text(verbatim: name)
-        }
-    }
-
-    // MARK: - Recording
-
-    @ViewBuilder
-    private var recordingPane: some View {
-        Section {
-            permissionRow("Microphone", granted: recorder.micGranted) {
-                Task { _ = await recorder.requestMicPermission() }
-            }
-            permissionRow("Meeting audio", granted: recorder.screenGranted) {
-                recorder.requestScreenPermission()
-            }
-            Picker("Microphone to use", selection: $settings.preferredMicrophoneID) {
-                Text("System default").tag("")
-                ForEach(MeetingRecorder.availableMicrophones(), id: \.uniqueID) { dev in
-                    Text(verbatim: dev.localizedName).tag(dev.uniqueID)
-                }
-            }
-        } header: {
-            Text("Audio")
-        } footer: {
-            Text("MindExtract records your microphone and the other participants' audio. No bot joins the call, and nothing leaves your Mac. \"System default\" follows AirPods and headsets automatically.")
-        }
-
-        Section {
-            LabeledContent("Live text") {
-                Text(verbatim: liveEngine)
-            }
-            Toggle(isOn: $settings.autoShowCaptions) {
-                Text("Show live captions")
-                Text("A floating window with the live text, on top of Zoom and Teams.")
-            }
-            Toggle(isOn: $settings.confirmBeforeTranscribing) {
-                Text("Ask before transcribing")
-                Text("Off: when you finish, the whole recording is transcribed again (more accurate than the live text) in the language that's spoken.")
-            }
-        } header: {
-            Text("While and after recording")
         }
     }
 
@@ -433,7 +359,7 @@ struct SettingsView: View {
         } header: {
             Text("Transcripts")
         } footer: {
-            Text("Automatic detects the language of each recording. You can always transcribe again in another language.")
+            Text("Automatic detects the language of each video. You can always transcribe again in another language.")
         }
 
         Section {
@@ -460,7 +386,7 @@ struct SettingsView: View {
                 }
             } label: {
                 Text("Whisper model")
-                Text("Used for other languages when Whisper is chosen, and for live text and dictation in other languages.")
+                Text("Used for other languages when Whisper is chosen.")
             }
         } header: {
             Text("Which engine is used")
@@ -512,73 +438,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Dictation
-
-    @ViewBuilder
-    private var dictationPane: some View {
-        Section {
-            Toggle(isOn: Binding(
-                get: { settings.dictationEnabled },
-                set: { settings.dictationEnabled = $0; dictation.refresh() })) {
-                Text("Hold \(settings.dictationKey.name) to dictate")
-                Text("Hold the key anywhere, speak, let go — the text is typed where your cursor is.")
-            }
-            if settings.dictationEnabled {
-                Picker(selection: Binding(
-                    get: { settings.dictationKey },
-                    set: { settings.dictationKey = $0; dictation.refresh() })) {
-                    ForEach(DictationKey.allCases) { key in
-                        Text(verbatim: key.name.prefix(1).uppercased() + key.name.dropFirst()).tag(key)
-                    }
-                } label: {
-                    Text("Key to hold")
-                    if let note = settings.dictationKey.note { Text(verbatim: note) }
-                }
-                permissionRow("Accessibility", granted: dictation.accessibilityGranted) {
-                    dictation.requestAccessibility()
-                    dictation.openAccessibilitySettings()
-                }
-                Picker("Language", selection: Binding(
-                    get: { settings.dictationLanguage },
-                    set: { settings.dictationLanguage = $0; dictation.refresh() })) {
-                    ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
-                        Text(verbatim: lang.name).tag(lang.code)
-                    }
-                }
-                if (settings.dictationLanguage == "sv" || settings.dictationLanguage == "auto"),
-                   !transcriptionManager.isModelDownloaded(.pianissimo) {
-                    ModelRow(model: .pianissimo)
-                }
-            }
-            LabeledContent("Engine") {
-                Text(verbatim: dictationEngine)
-            }
-        } header: {
-            Text("Dictation")
-        } footer: {
-            Text("Swedish uses Pianissimo, other languages the Whisper model — on your Mac, no AI rewriting. Accessibility lets MindExtract notice the key and type into other apps; it never reads what you type. Audio is discarded right after.")
-        }
-
-        if !dictation.recent.isEmpty {
-            Section {
-                ForEach(dictation.recent) { entry in
-                    LabeledContent {
-                        Button { dictation.copy(entry) } label: { Image(systemName: "doc.on.doc") }
-                            .buttonStyle(.borderless)
-                            .help("Copy")
-                            .accessibilityLabel("Copy")
-                    } label: {
-                        Text(verbatim: entry.text).textSelection(.enabled)
-                    }
-                }
-            } header: {
-                Text("Recent dictations")
-            } footer: {
-                Text("Kept until you quit, in case the text landed where there was no text field.")
-            }
-        }
-    }
-
     // MARK: - AI
 
     @ViewBuilder
@@ -619,20 +478,11 @@ struct SettingsView: View {
             Text("AI engine")
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Used for: notes and titles after a recording, Ask anything and follow-up emails. Not used for transcribing — that's Settings → Transcription.")
+                Text("Used for: summaries and titles, Ask anything and translation. Not used for transcribing — that's Settings → Transcription.")
                 Label(settings.aiBackend.detail,
                       systemImage: [.apple, .ollama].contains(settings.aiBackend) ? "lock.fill" : "icloud.and.arrow.up")
                     .foregroundStyle([.apple, .ollama].contains(settings.aiBackend) ? .green : .orange)
             }
-        }
-
-        Section {
-            Toggle(isOn: $settings.autoGenerateMeetingNotes) {
-                Text("Write notes after every recording")
-                Text("Notes, decisions and tasks — and a title — are ready when the transcript is.")
-            }
-        } header: {
-            Text("After a recording")
         }
     }
 
@@ -855,8 +705,6 @@ struct SettingsView: View {
 
     private func resetSettingsToDefaults() {
         settings.resetToDefaults()
-        // Re-sync the live services with the restored defaults.
-        dictation.refresh()
         AppDelegate.applyAppearance(settings.appAppearance)
         category = .overview
     }

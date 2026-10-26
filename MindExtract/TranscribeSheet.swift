@@ -2,38 +2,23 @@ import SwiftUI
 
 // MARK: - The one "transcribe this" sheet
 //
-// Used for imported files/links and (when "Ask before transcribing" is on, or no
-// engine is ready yet) for a finished recording. It only asks what matters for
-// this one item — name, spoken language, translation — and downloads a speech
-// model inline when one is needed. It never changes the app's settings.
+// Used for imported files and links. It only asks what matters for this one
+// item — spoken language, translation — and downloads a speech model inline
+// when one is needed. It never changes the app's settings.
 
 struct TranscribeSheet: View {
-    enum Mode {
-        case importMedia
-        case recording(MeetingRecorder.PendingRecording)
-    }
-
-    let mode: Mode
     var initialLanguage: String = AppSettings.shared.defaultTranscriptionLanguage
-    /// name (recordings only), spoken language, model.
-    let onStart: (_ name: String?, _ language: String, _ model: WhisperModel) -> Void
-    /// Import: cancel. Recording: discard (after confirmation).
+    /// Spoken language and model.
+    let onStart: (_ language: String, _ model: WhisperModel) -> Void
     let onCancel: () -> Void
 
     @ObservedObject private var tm = TranscriptionManager.shared
-    @State private var name = ""
     @State private var language = "auto"
     @State private var translate = false
     @State private var chosenModel: WhisperModel = .small
     @State private var modelTouched = false
     @State private var appleSupportsLanguage = false
     @State private var awaitingDownload: WhisperModel?
-    @State private var confirmingDiscard = false
-
-    private var isRecording: Bool {
-        if case .recording = mode { return true }
-        return false
-    }
 
     /// Will a downloadable model (not Apple's built-in speech) run this?
     private var needsSpeechModel: Bool {
@@ -49,13 +34,6 @@ struct TranscribeSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             Form {
-                if case .recording(let pending) = mode {
-                    Section {
-                        TextField("Name", text: $name)
-                    } header: {
-                        Text("Recording finished · \(AppUtil.formatElapsed(pending.duration))")
-                    }
-                }
                 Section {
                     Picker("Spoken language", selection: $language) {
                         ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
@@ -98,14 +76,9 @@ struct TranscribeSheet: View {
             .scrollDisabled(true)
 
             HStack {
-                if isRecording {
-                    Button("Discard…", role: .destructive) { confirmingDiscard = true }
-                }
                 Spacer()
-                if !isRecording {
-                    Button("Cancel", action: cancel)
-                        .keyboardShortcut(.cancelAction)
-                }
+                Button("Cancel", action: cancel)
+                    .keyboardShortcut(.cancelAction)
                 Button(needsDownload ? "Download and Transcribe" : "Transcribe", action: start)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
@@ -118,7 +91,6 @@ struct TranscribeSheet: View {
         .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             language = initialLanguage
-            if case .recording(let pending) = mode { name = pending.title }
             chosenModel = defaultModel(for: language)
             refreshAppleSupport()
         }
@@ -134,11 +106,6 @@ struct TranscribeSheet: View {
                 awaitingDownload = nil
                 finish(with: waiting)
             }
-        }
-        .confirmationDialog("Discard this recording?", isPresented: $confirmingDiscard, titleVisibility: .visible) {
-            Button("Discard Recording", role: .destructive, action: onCancel)
-        } message: {
-            Text("The audio is deleted. This can't be undone.")
         }
     }
 
@@ -184,8 +151,7 @@ struct TranscribeSheet: View {
     private func finish(with model: WhisperModel) {
         // Translation is a one-off for this item; the pipeline resets it afterwards.
         UserDefaults.standard.set(translate, forKey: "translateToEnglish")
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        onStart(isRecording ? trimmed : nil, language, model)
+        onStart(language, model)
     }
 
     private func cancel() {

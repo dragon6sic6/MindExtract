@@ -33,59 +33,8 @@ struct TemplateOutput: Codable, Equatable {
 }
 
 enum PromptTemplateLibrary {
-    /// Special action (not in the picker) — merges the user's live meeting notes
-    /// with the transcript. The input passed to it is "notes + transcript".
-    static let polishNotes = PromptTemplate(
-        id: UUID(uuidString: "11111111-0000-0000-0000-0000000000FF")!,
-        name: "Polished Notes", icon: "wand.and.stars",
-        instructions: "You turn a person's rough live meeting notes into polished, well-structured notes, using the transcript to fill gaps, correct names/terms and add missed details. Keep the user's intent and structure; never invent facts not supported by the transcript. Answer in the same language as the notes/transcript.",
-        task: "Below are the user's rough notes followed by the full transcript. Produce clean, well-structured meeting notes that expand and correct the user's notes using the transcript.")
-
-    /// Stable IDs for the templates auto-generated after a meeting.
-    static let meetingMinutesID = UUID(uuidString: "11111111-0000-0000-0000-000000000001")!
-    static let actionItemsID    = UUID(uuidString: "11111111-0000-0000-0000-000000000002")!
-    static let meetingBriefID   = UUID(uuidString: "11111111-0000-0000-0000-0000000000B1")!
-
-    /// The Meeting Brief — the one beautiful after-meeting output. Strict section
-    /// markers so the UI can split TL;DR / Decisions / Action items reliably.
-    static let meetingBrief = PromptTemplate(
-        id: meetingBriefID,
-        name: "Meeting Brief", icon: "sparkles.rectangle.stack",
-        instructions: "You produce a concise, decision-focused brief of a meeting transcript. Be factual, never invent content, and write the CONTENT in the same language as the transcript. Use EXACTLY these markdown section headers, in this order, and nothing before the first one: \"## TL;DR\", \"## Decisions\", \"## Action items\". Keep these three header strings in English EXACTLY as written even when the rest of the brief is in another language. Under TL;DR write 2–3 sentences. Under Decisions, a bullet per decision (or \"- None\" if none). Under Action items, one bullet per task as \"- Owner — task (due if stated)\".",
-        task: "Write the meeting brief for this transcript.")
-
     /// Fixed UUIDs so persisted outputs keep matching their template across launches.
     static let builtIns: [PromptTemplate] = [
-        PromptTemplate(
-            id: UUID(uuidString: "11111111-0000-0000-0000-000000000001")!,
-            name: "Meeting Minutes", icon: "list.clipboard",
-            instructions: "You write clear, professional meeting minutes from transcripts. Be factual, never invent content, and answer in the same language as the transcript.",
-            task: "Write structured meeting minutes from this transcript. Include: attendees (if identifiable), key discussion points, decisions made, and action items with owners where stated."
-        ),
-        PromptTemplate(
-            id: UUID(uuidString: "11111111-0000-0000-0000-000000000002")!,
-            name: "Action Items", icon: "checklist",
-            instructions: "You extract concrete action items from transcripts. Be precise and never invent tasks. Answer in the same language as the transcript.",
-            task: "List every action item, task, or commitment mentioned in this transcript as a checklist. For each, note the owner and any deadline if stated."
-        ),
-        PromptTemplate(
-            id: UUID(uuidString: "11111111-0000-0000-0000-000000000003")!,
-            name: "SOAP Note", icon: "stethoscope",
-            instructions: "You are a clinical documentation assistant. Produce a SOAP note from a clinician–patient conversation. Use only information present in the transcript; never fabricate findings. Answer in the same language as the transcript. This is a drafting aid, not medical advice.",
-            task: "Write a SOAP note (Subjective, Objective, Assessment, Plan) from this clinical conversation transcript."
-        ),
-        PromptTemplate(
-            id: UUID(uuidString: "11111111-0000-0000-0000-000000000004")!,
-            name: "Session Notes (DAP)", icon: "brain.head.profile",
-            instructions: "You are a behavioral-health documentation assistant. Produce concise therapy session notes in DAP format (Data, Assessment, Plan). Use only what is in the transcript; never fabricate. Answer in the same language as the transcript. This is a drafting aid, not clinical advice.",
-            task: "Write therapy session notes in DAP format (Data, Assessment, Plan) from this session transcript."
-        ),
-        PromptTemplate(
-            id: UUID(uuidString: "11111111-0000-0000-0000-000000000005")!,
-            name: "Legal Summary", icon: "building.columns",
-            instructions: "You summarize legal conversations (intake, depositions, consultations) factually and precisely. Quote key statements verbatim where important. Never invent facts. Answer in the same language as the transcript.",
-            task: "Summarize this legal conversation: the parties, the key facts and claims stated, important verbatim quotes, and any next steps or commitments."
-        ),
         PromptTemplate(
             id: UUID(uuidString: "11111111-0000-0000-0000-000000000006")!,
             name: "Key Quotes", icon: "quote.bubble",
@@ -103,12 +52,6 @@ enum PromptTemplateLibrary {
             name: "Blog Draft", icon: "doc.text",
             instructions: "You turn spoken content into a well-structured written blog article while preserving the speaker's meaning. Never invent facts beyond the transcript. Answer in the same language as the transcript.",
             task: "Turn this transcript into a clear, readable blog article draft with a title, short intro, sectioned body with headings, and a brief conclusion."
-        ),
-        PromptTemplate(
-            id: UUID(uuidString: "11111111-0000-0000-0000-000000000009")!,
-            name: "Email Follow-up", icon: "envelope",
-            instructions: "You draft concise, professional follow-up emails from meeting transcripts. Never invent commitments. Answer in the same language as the transcript.",
-            task: "Draft a concise follow-up email recapping this conversation: what was discussed, decisions, and clear next steps with owners."
         ),
         PromptTemplate(
             id: UUID(uuidString: "11111111-0000-0000-0000-000000000010")!,

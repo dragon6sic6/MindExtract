@@ -96,14 +96,14 @@ enum SpeakerColors {
 
 // MARK: - Tab Selection
 
-/// Three places for everything about one transcript: what it means (Notes), what
-/// was said (Transcript), and questions about it (Ask).
+/// Three places for everything about one transcript: what it means (Summary),
+/// what was said (Transcript), and questions about it (Ask).
 enum TranscriptionTab: String, CaseIterable {
     case notes, transcript, ask
 
     var title: LocalizedStringKey {
         switch self {
-        case .notes: return "Notes"
+        case .notes: return "Summary"
         case .transcript: return "Transcript"
         case .ask: return "Ask"
         }
@@ -206,18 +206,10 @@ struct TranscriptionResultView: View {
     @State private var editingSpeaker: String?
     @State private var editingName: String = ""
     @State private var isEditingTranscript = false
-    // Reminders export feedback, keyed per template-output toolbar.
-    @State private var remindersStatus: String?
-    @State private var remindersExporting = false
     // Per-transcript speaker-name suggestions (You + calendar attendees).
     @State private var speakerSuggestions: [String] = []
-    // Meeting Brief support: bookmarked moments + attendee emails for the recap.
+    // Bookmarked moments, kept from older meeting transcripts.
     @State private var markedMoments: [Double] = []
-    @State private var attendeeEmails: [String] = []
-    // Auto-generate meeting notes once, after a fresh meeting finishes.
-    // Memoized talk-time insights — recomputed only when segments or names change,
-    // not on every render (the audio timer redraws this view ~10×/s).
-    @State private var cachedInsights: MeetingInsights?
     @ObservedObject private var summarizer = TranscriptSummarizer.shared
     @ObservedObject private var translator = TranscriptTranslator.shared
     @ObservedObject private var templateRunner = TemplateRunner.shared
@@ -266,9 +258,9 @@ struct TranscriptionResultView: View {
     private var aiPrivacyNote: String {
         switch aiBackend {
         case .apple, .ollama:
-            return "With Apple Intelligence or Ollama it runs entirely on your Mac."
+            return String(localized: "With Apple Intelligence or Ollama it runs entirely on your Mac.")
         default:
-            return "Your selected provider (\(AIBackends.current().badge)) processes the text in the cloud."
+            return String(localized: "Your selected provider (\(AIBackends.current().badge)) processes the text in the cloud.")
         }
     }
 
@@ -281,27 +273,11 @@ struct TranscriptionResultView: View {
         }
     }
 
-    /// Meetings (and anything with live notes) open on the Notes tab.
-    private var isMeetingTranscript: Bool {
-        transcriptionManager.currentTranscriptSource == .meeting || !(userNotes ?? "").isEmpty
-    }
-
     private func commitRename(for speaker: String) {
         let trimmed = editingName.trimmingCharacters(in: .whitespaces)
         transcriptionManager.speakerNameOverrides[speaker] = trimmed.isEmpty ? nil : trimmed
         editingSpeaker = nil
         persistAISidecar()   // remember the name across reopen
-    }
-
-    /// Recompute the memoized talk-time insights (cheap to call; O(n) over segments).
-    private func refreshInsights() {
-        cachedInsights = MeetingInsights.compute(from: transcriptionManager.segments,
-                                                 displayName: transcriptionManager.speakerDisplayName)
-    }
-
-    /// Whether a template's output is a task list worth pushing to Reminders.
-    private func isActionItemsTemplate(_ template: PromptTemplate) -> Bool {
-        template.id == PromptTemplateLibrary.actionItemsID
     }
 
     /// Transcript as (speaker, timestamp, text) rows, optionally PII-redacted.
@@ -351,141 +327,6 @@ struct TranscriptionResultView: View {
             (p.speaker.map { "\($0): " } ?? "") + p.text
         }.joined(separator: "\n\n")
         transcriptionManager.exportPlainText(body, filenameSuffix: " (Redacted)")
-    }
-
-    // MARK: - Meeting Brief
-
-    @ViewBuilder
-    private func meetingBriefCard(_ text: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles.rectangle.stack").foregroundStyle(DS.Colors.accent)
-                Text("Meeting Brief").font(.system(size: 15, weight: .semibold))
-                Spacer()
-                Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(text, forType: .string)
-                } label: { Image(systemName: "doc.on.doc") }
-                .buttonStyle(.plain).help("Copy brief")
-            }
-            ForEach(Array(text.components(separatedBy: "\n").enumerated()), id: \.offset) { _, line in
-                if line.hasPrefix("## ") {
-                    Text(line.dropFirst(3))
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
-                        .padding(.top, 4)
-                } else if !line.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Text(line).font(DS.Typography.readingBody).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            if !markedMoments.isEmpty {
-                Divider().opacity(0.4)
-                Text("Key moments").font(.caption2).foregroundColor(.secondary)
-                FlowChips(items: markedMoments.map(Self.timeLabel)) { label in
-                    if let i = markedMoments.firstIndex(where: { Self.timeLabel($0) == label }) {
-                        audioPlayer.seek(to: markedMoments[i])
-                        if !audioPlayer.isPlaying { audioPlayer.togglePlayPause() }
-                    }
-                }
-            }
-            Divider().opacity(0.4)
-            HStack(spacing: 8) {
-                Button {
-                    exportToReminders(Self.briefSection(text, "Action items"),
-                                      meetingTitle: transcriptionManager.currentTranscriptionTitle)
-                } label: {
-                    if remindersExporting {
-                        HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Adding…") }
-                    } else {
-                        Label(remindersStatus ?? "Add to Reminders", systemImage: remindersStatus != nil ? "checkmark" : "checklist")
-                    }
-                }
-                .secondaryGlassButton().controlSize(.small).disabled(remindersExporting)
-                Button { sendRecapEmail(brief: text) } label: {
-                    Label("Email recap", systemImage: "envelope").font(.caption)
-                }
-                .secondaryGlassButton().controlSize(.small)
-                Spacer()
-            }
-        }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(DS.Colors.accent.opacity(0.25), lineWidth: 1))
-    }
-
-    private static func timeLabel(_ seconds: Double) -> String {
-        let s = Int(seconds.rounded())
-        return String(format: "%d:%02d", s / 60, s % 60)
-    }
-
-    // Fallback header aliases in case a smaller model translates the section
-    // header despite the English-header instruction.
-    private static let actionItemsAliases: Set<String> = [
-        "action items", "åtgärdspunkter", "aktionspunkter", "att göra",
-        "action points", "maßnahmen", "aufgaben", "tâches", "points d'action",
-        "acciones", "tareas", "azioni", "punti d'azione"
-    ]
-
-    /// Lines under a "## <header>" section of the brief, up to the next header.
-    private static func briefSection(_ text: String, _ header: String) -> String {
-        var out: [String] = []
-        var inSection = false
-        for line in text.components(separatedBy: "\n") {
-            if line.hasPrefix("## ") {
-                let h = line.dropFirst(3).trimmingCharacters(in: .whitespaces)
-                let isMatch = h.caseInsensitiveCompare(header) == .orderedSame
-                    || (header == "Action items" && actionItemsAliases.contains(h.lowercased()))
-                inSection = isMatch
-                continue
-            }
-            if inSection { out.append(line) }
-        }
-        return out.joined(separator: "\n")
-    }
-
-    /// Open a Mail compose with the recap pre-filled, addressed to attendees.
-    private func sendRecapEmail(brief: String) {
-        let title = transcriptionManager.currentTranscriptionTitle
-        let subject = "Recap: \(title.isEmpty ? "Meeting" : title)"
-        let body = "Hi,\n\nHere's a quick recap of \(title.isEmpty ? "our meeting" : title):\n\n\(brief)\n\n— Sent from MindExtract"
-        if let service = NSSharingService(named: .composeEmail), service.canPerform(withItems: [body]) {
-            service.subject = subject
-            service.recipients = attendeeEmails
-            service.perform(withItems: [body])
-        } else {
-            // No NSSharingService mail compose — fall back to a mailto: with the
-            // recap in the body (also on the clipboard in case a client truncates it).
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(body, forType: .string)
-            let to = attendeeEmails.joined(separator: ",")
-            let encSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-            let encBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-            if let url = URL(string: "mailto:\(to)?subject=\(encSubject)&body=\(encBody)") {
-                NSWorkspace.shared.open(url)
-            }
-        }
-    }
-
-    /// Parse action items from the output and create one reminder each.
-    private func exportToReminders(_ output: String, meetingTitle: String) {
-        let items = RemindersExporter.parseActionItems(output)
-        guard !items.isEmpty else {
-            remindersStatus = "Nothing to add"
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { remindersStatus = nil }
-            return
-        }
-        remindersExporting = true
-        Task {
-            do {
-                let n = try await RemindersExporter.shared.export(items: items, meetingTitle: meetingTitle)
-                remindersStatus = "Added \(n)"
-            } catch {
-                remindersStatus = "Failed"
-                appLog("[MindExtract] Reminders export failed: \(error.localizedDescription)")
-            }
-            remindersExporting = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { remindersStatus = nil }
-        }
     }
 
     /// Name suggestions for the rename popover: calendar attendees from the
@@ -732,7 +573,6 @@ struct TranscriptionResultView: View {
             // Chat lifecycle lives at the root so it works regardless of tab.
             chat.prepare(transcript: transcriptionManager.liveTranscriptionText)
             restoreAISidecar()
-            refreshInsights()
         }
         .onChange(of: summarizer.state) { _, _ in persistAISidecar() }
         .onChange(of: translator.state) { _, _ in persistAISidecar() }
@@ -746,9 +586,6 @@ struct TranscriptionResultView: View {
                 persistAISidecar()
             }
         }
-        // Recompute talk-time insights only when the underlying data changes.
-        .onChange(of: transcriptionManager.segments.count) { _, _ in refreshInsights() }
-        .onChange(of: transcriptionManager.speakerNameOverrides) { _, _ in refreshInsights() }
         .onChange(of: chat.messages) { _, _ in persistAISidecar() }
         .onChange(of: aiBackend) { _, newValue in
             // Switching to Ollama is only useful if a model is selected — grab
@@ -767,30 +604,9 @@ struct TranscriptionResultView: View {
         }
     }
 
-    // MARK: - Notes tab
+    // MARK: - Summary tab
 
-    /// Meetings: your enhanced notes, with the summary one click away. Everything
-    /// else (imports): the summary and note styles.
-    @ViewBuilder
-    private var notesTab: some View {
-        if isMeetingTranscript {
-            MeetingNotesPanel(
-                path: transcriptionManager.lastSavedPath,
-                userNotes: userNotes,
-                segments: transcriptionManager.segments,
-                isTranscribing: !isCompleted,
-                hasAudio: transcriptionManager.audioFilePath != nil,
-                onSeek: { time in
-                    audioPlayer.seek(to: time)
-                    if !audioPlayer.isPlaying { audioPlayer.togglePlayPause() }
-                },
-                summary: { summaryView }
-            )
-            .id(transcriptionManager.lastSavedPath)
-        } else {
-            summaryView
-        }
-    }
+    private var notesTab: some View { summaryView }
 
     // MARK: - Header
 
@@ -1167,14 +983,6 @@ struct TranscriptionResultView: View {
                         }
                         .padding(.horizontal, 16).padding(.top, 10)
                     }
-                    // Talk-time insights (shown when 2+ speakers are present and
-                    // we're not mid-search), from the memoized computation.
-                    if searchText.isEmpty, !isTranscribing, !isEditingTranscript, let insights = cachedInsights {
-                        MeetingInsightsCard(insights: insights)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 12)
-                            .padding(.bottom, 4)
-                    }
                     LazyVStack(alignment: .leading, spacing: 1) {
                         ForEach(Array(filteredSegments.enumerated()), id: \.element.id) { index, segment in
                             SegmentRow(
@@ -1233,23 +1041,12 @@ struct TranscriptionResultView: View {
     private var summaryView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // One canonical output. The format picker ("Summarize as…") chooses
-                // how it's shaped; the Brief is the default. We NEVER show the Brief
-                // next to an empty "Generate Summary" — that double-message was the mess.
+                // One output at a time: the summary by default, or the format
+                // picked in the bar above.
                 templatePickerBar
-                if let notes = userNotes, !notes.isEmpty {
-                    meetingNotesCard(notes)
-                }
-                if selectedTemplateID == PromptTemplateLibrary.polishNotes.id {
-                    templateSection(PromptTemplateLibrary.polishNotes, inputText: combinedNotesInput(userNotes ?? ""))
-                } else if let id = selectedTemplateID, let template = templateStore.template(id: id) {
+                if let id = selectedTemplateID, let template = templateStore.template(id: id) {
                     templateSection(template, inputText: transcriptionManager.liveTranscriptionText)
-                } else if let brief = templateOutputs[PromptTemplateLibrary.meetingBriefID.uuidString] {
-                    // Default format: the Brief (canonical).
-                    meetingBriefCard(brief.text)
                 } else {
-                    // No brief yet (e.g. a non-meeting transcript, or AI not configured):
-                    // a single, calm generate path — not a second competing surface.
                     summarySection
                 }
             }
@@ -1286,7 +1083,7 @@ struct TranscriptionResultView: View {
                 .foregroundStyle(DS.Colors.accent)
             Menu {
                 Button { selectedTemplateID = nil } label: {
-                    Label("Brief", systemImage: "sparkles")
+                    Label("Summary", systemImage: "sparkles")
                 }
                 Section("Summarize as") {
                     ForEach(PromptTemplateLibrary.builtIns) { t in
@@ -1342,8 +1139,8 @@ struct TranscriptionResultView: View {
     }
 
     private var selectedTemplateName: String {
-        guard let id = selectedTemplateID else { return "Brief" }
-        return templateStore.template(id: id)?.name ?? "Brief"
+        guard let id = selectedTemplateID else { return String(localized: "Summary") }
+        return templateStore.template(id: id)?.name ?? String(localized: "Summary")
     }
 
     private func blankTemplate() -> PromptTemplate {
@@ -1355,35 +1152,6 @@ struct TranscriptionResultView: View {
     private func duplicate(of t: PromptTemplate) -> PromptTemplate {
         PromptTemplate(id: UUID(), name: "\(t.name) copy", icon: t.icon,
                        instructions: t.instructions, task: t.task, builtIn: false)
-    }
-
-    /// Card shown atop the Notes tab when the user jotted notes during recording.
-    private func meetingNotesCard(_ notes: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("Your meeting notes", systemImage: "pencil.line")
-                    .font(.caption).foregroundColor(.secondary)
-                Spacer()
-                Button {
-                    selectedTemplateID = PromptTemplateLibrary.polishNotes.id
-                } label: {
-                    Label("Polish with transcript", systemImage: "wand.and.stars")
-                }
-                .secondaryGlassButton().controlSize(.small)
-            }
-            Text(notes)
-                .font(.system(size: 13)).foregroundColor(.secondary)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(DS.Colors.hairline, lineWidth: 1))
-    }
-
-    /// Feeds the polish action both the user's notes and the transcript.
-    private func combinedNotesInput(_ notes: String) -> String {
-        "MY ROUGH NOTES:\n\(notes)\n\nFULL TRANSCRIPT:\n\(transcriptionManager.liveTranscriptionText)"
     }
 
     // MARK: - Translate Tab
@@ -1743,11 +1511,7 @@ struct TranscriptionResultView: View {
     /// singletons to it (they're shared across transcripts).
     private func restoreAISidecar() {
         let saved = transcriptionManager.lastSavedPath.flatMap { TranscriptAIStore.load(for: $0) }
-        defer {
-            // Meetings open on their notes; everything else on the text.
-            // Meetings open on their notes; everything else on what was said.
-            selectedTab = isMeetingTranscript ? .notes : .transcript
-        }
+        defer { selectedTab = .transcript }
         summarizer.bind(toText: transcriptionManager.liveTranscriptionText,
                         restoredSummary: saved?.summary)
         translator.bind(toText: transcriptionManager.liveTranscriptionText)
@@ -1762,35 +1526,12 @@ struct TranscriptionResultView: View {
         templateOutputs = saved?.templateOutputs ?? [:]
         selectedTemplateID = nil
         templateRunner.reset()
-        // Live meeting notes: consume the just-recorded ones, else restore saved.
-        if let pending = transcriptionManager.pendingMeetingNotes {
-            userNotes = pending
-            transcriptionManager.pendingMeetingNotes = nil
-        } else {
-            userNotes = saved?.userNotes
-        }
+        userNotes = saved?.userNotes
         if let chatMessages = saved?.chat { chat.restore(messages: chatMessages) }
         // Restore custom speaker names assigned in a previous session.
         transcriptionManager.speakerNameOverrides = saved?.speakerNames ?? [:]
-        // Consume just-recorded suggestions (You + attendees); else restore saved.
-        if !transcriptionManager.pendingSpeakerSuggestions.isEmpty {
-            speakerSuggestions = transcriptionManager.pendingSpeakerSuggestions
-            transcriptionManager.pendingSpeakerSuggestions = []
-        } else {
-            speakerSuggestions = saved?.speakerSuggestions ?? []
-        }
-        // Marked moments + attendee emails: consume just-recorded, else restore.
-        if !transcriptionManager.pendingMarkedMoments.isEmpty {
-            markedMoments = transcriptionManager.pendingMarkedMoments
-            transcriptionManager.pendingMarkedMoments = []
-        } else {
-            markedMoments = saved?.markedMoments ?? []
-        }
-        if !transcriptionManager.pendingAttendeeEmails.isEmpty {
-            attendeeEmails = transcriptionManager.pendingAttendeeEmails
-            transcriptionManager.pendingAttendeeEmails = []
-        }
-        _ = transcriptionManager.consumePendingIsMeeting()
+        speakerSuggestions = saved?.speakerSuggestions ?? []
+        markedMoments = saved?.markedMoments ?? []
     }
 
     /// Persist the current summary + chat + translation next to the transcript file.
@@ -1925,7 +1666,7 @@ struct TranscriptionResultView: View {
                 Text("Summarize this transcript")
                     .font(.title3)
                     .fontWeight(.semibold)
-                Text("Overview, key points and action items — generated with your selected AI model. \(aiPrivacyNote)")
+                Text("An overview and the key points — generated with your selected AI model. \(aiPrivacyNote)")
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -1938,7 +1679,7 @@ struct TranscriptionResultView: View {
                 .primaryGlassButton()
                 .disabled(transcriptionManager.liveTranscriptionText.isEmpty || isTranscribing)
                 // Surface the otherwise-hidden template library.
-                Text("Need meeting minutes, a SOAP note, or your own format? Choose a template above ↑")
+                Text("Want show notes, a blog draft or your own format? Choose one above ↑")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -2111,20 +1852,6 @@ struct TranscriptionResultView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
-                    if isActionItemsTemplate(template) {
-                        Button {
-                            exportToReminders(output, meetingTitle: transcriptionManager.currentTranscriptionTitle)
-                        } label: {
-                            if remindersExporting {
-                                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Adding…") }
-                            } else {
-                                Label(remindersStatus ?? "Add to Reminders", systemImage: remindersStatus != nil ? "checkmark" : "checklist")
-                            }
-                        }
-                        .secondaryGlassButton()
-                        .disabled(remindersExporting)
-                        .help("Create a reminder for each action item in your Reminders app")
-                    }
                     Button {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(output, forType: .string)
@@ -2326,11 +2053,6 @@ struct TranscriptionResultView: View {
                                     Button("\(t.name) (Text)") {
                                         transcriptionManager.exportPlainText(output.text, filenameSuffix: " (\(t.name))")
                                     }
-                                }
-                            }
-                            if let polished = templateOutputs[PromptTemplateLibrary.polishNotes.id.uuidString] {
-                                Button("Polished Notes (Text)") {
-                                    transcriptionManager.exportPlainText(polished.text, filenameSuffix: " (Notes)")
                                 }
                             }
                         }

@@ -108,7 +108,7 @@ final class TranscriptSummarizer: ObservableObject {
         progress: @escaping (String) async -> Void
     ) async throws -> String {
         let instructions = """
-        You summarize transcripts of videos, meetings and podcasts. \
+        You summarize transcripts of videos and podcasts. \
         Be concise and factual. Never invent content. \
         Always answer in the same language as the transcript.
         """

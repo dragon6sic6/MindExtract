@@ -505,34 +505,14 @@ class AppSettings: ObservableObject {
     @AppStorage("transcriptionOutputFormat") var transcriptionOutputFormat: TranscriptionOutputFormat = .txt
     @AppStorage("enableSpeakerDiarization") var enableSpeakerDiarization: Bool = true
     @AppStorage("transcriptionEngine") var transcriptionEngine: TranscriptionEngineChoice = .automatic
-    /// After a meeting recording finishes transcribing, auto-generate Meeting
-    /// Minutes + Action Items so the user gets finished notes with no extra click.
-    @AppStorage("autoGenerateMeetingNotes") var autoGenerateMeetingNotes: Bool = true
     /// WhisperKit-only: translate speech directly to English while transcribing
     /// (Whisper's built-in translate task — runs on-device, English target only).
     @AppStorage("translateToEnglish") var translateToEnglish: Bool = false
     /// Custom vocabulary — names and domain terms (one per line or comma-separated)
     /// fed to WhisperKit as a conditioning prompt so it spells them correctly.
     @AppStorage("customVocabulary") var customVocabulary: String = ""
-    /// Push-to-talk dictation: hold the dictation key anywhere, speak, release → text
-    /// is typed at the cursor. Needs Accessibility permission to see the key.
-    @AppStorage("dictationEnabled") var dictationEnabled: Bool = true
-    /// The key you hold to dictate.
-    @AppStorage("dictationKey") var dictationKey: DictationKey = .rightOption
     /// "system" (default), "light" or "dark".
     @AppStorage("appAppearance") var appAppearance: String = "system"
-    /// Show the "Recording finished" sheet (name, language, model) instead of
-    /// transcribing straight away.
-    @AppStorage("confirmBeforeTranscribing") var confirmBeforeTranscribing: Bool = false
-    /// "sv" → Pianissimo; other codes → Whisper; "auto" detects per dictation.
-    @AppStorage("dictationLanguage") var dictationLanguage: String = "sv"
-
-    // MARK: Recording
-    /// Automatically show the floating live-caption window when a recording starts.
-    @AppStorage("autoShowCaptions") var autoShowCaptions: Bool = false
-    /// Preferred microphone uniqueID for meeting recording. Empty = follow the
-    /// macOS system default (auto-switches to AirPods etc.).
-    @AppStorage("preferredMicrophoneID") var preferredMicrophoneID: String = ""
 
     // MARK: Downloads (quality + automation)
     /// Preferred quality for the "best" download path. Explicit format picks in
@@ -588,11 +568,8 @@ class AppSettings: ObservableObject {
     static let resettableKeys = [
         "downloadSubtitles", "subtitleLanguage", "parallelDownloads", "playSoundOnComplete", "showNotifications",
         "downloadPath", "cookieBrowser", "cookiesFilePath", "defaultWhisperModel", "transcriptionOutputFormat",
-        "enableSpeakerDiarization", "transcriptionEngine", "autoGenerateMeetingNotes", "translateToEnglish",
-        "customVocabulary", "dictationEnabled", "appAppearance", "confirmBeforeTranscribing",
-        "dictationLanguage", "dictationKey",
-        "autoShowCaptions",
-        "preferredMicrophoneID", "downloadQuality", "autoTranscribeOnDownload", "notifyOnTranscriptionComplete",
+        "enableSpeakerDiarization", "transcriptionEngine", "translateToEnglish",
+        "customVocabulary", "appAppearance", "downloadQuality", "autoTranscribeOnDownload", "notifyOnTranscriptionComplete",
         "brandName", "brandLogoPath", "appLockEnabled", "aiBackend",
         "ollamaModel", "openAIModel", "anthropicModel", "geminiModel", "grokModel", "mistralModel", "groqModel",
         "openRouterModel", "customBaseURL", "customModel", "defaultTranscriptionLanguage",
@@ -611,6 +588,8 @@ class AppSettings: ObservableObject {
 // MARK: - Transcription History Item
 
 /// Where a transcript came from — drives the type badge + filter in the list.
+/// `meeting` is kept only so older history still decodes; meeting recordings
+/// aren't shown anymore.
 enum TranscriptSource: String, Codable, CaseIterable {
     case meeting, download, file
 
@@ -760,6 +739,9 @@ class TranscriptionHistoryManager: ObservableObject {
     static let shared = TranscriptionHistoryManager()
 
     @Published var history: [TranscriptionHistoryItem] = []
+    /// Meeting recordings from older versions. Not shown, but written back on
+    /// save so the history file never loses them.
+    private var hiddenMeetings: [TranscriptionHistoryItem] = []
 
     private let fileURL = historyFileURL(named: "transcriptionHistory.json")
     private let legacyKey = "transcriptionHistory"
@@ -838,7 +820,7 @@ class TranscriptionHistoryManager: ObservableObject {
     }
 
     private func saveHistory() {
-        let snapshot = history
+        let snapshot = history + hiddenMeetings
         ioQueue.async { [fileURL] in
             if let encoded = try? JSONEncoder().encode(snapshot) {
                 try? encoded.write(to: fileURL, options: .atomic)
@@ -846,15 +828,24 @@ class TranscriptionHistoryManager: ObservableObject {
         }
     }
 
+    private func setLoaded(_ items: [TranscriptionHistoryItem]) {
+        // Older meetings may have no source; they live in the Recordings folder.
+        func isMeeting(_ i: TranscriptionHistoryItem) -> Bool {
+            i.sourceType == .meeting || i.filePath.contains("/com.mindact.mindextract/Recordings/")
+        }
+        hiddenMeetings = items.filter(isMeeting)
+        history = items.filter { !isMeeting($0) }
+    }
+
     private func loadHistory() {
         if let data = try? Data(contentsOf: fileURL),
            let decoded = try? JSONDecoder().decode([TranscriptionHistoryItem].self, from: data) {
-            history = decoded
+            setLoaded(decoded)
             return
         }
         if let data = UserDefaults.standard.data(forKey: legacyKey),
            let decoded = try? JSONDecoder().decode([TranscriptionHistoryItem].self, from: data) {
-            history = decoded
+            setLoaded(decoded)
             saveHistory()
             UserDefaults.standard.removeObject(forKey: legacyKey)
         }

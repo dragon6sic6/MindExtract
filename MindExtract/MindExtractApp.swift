@@ -1,14 +1,12 @@
 import SwiftUI
 import Sparkle
 import AppKit
-import Combine
 import UserNotifications
 
-// MARK: - App Delegate (Sparkle + menu bar)
+// MARK: - App Delegate (Sparkle)
 
 final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UNUserNotificationCenterDelegate {
     let updaterController: SPUStandardUpdaterController
-    private var menuBar: MenuBarController?
 
     override init() {
         updaterController = SPUStandardUpdaterController(
@@ -31,16 +29,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
     func applicationDidFinishLaunching(_ notification: Notification) {
         updaterController.startUpdater()
         UNUserNotificationCenter.current().delegate = self
-        // Menu-bar control so you can start/stop a note from any app.
-        if MeetingRecorder.isSupported {
-            menuBar = MenuBarController()
-        }
-        // Push-to-talk dictation (hold the chosen key).
-        DictationController.shared.refresh()
-        // Floating pill while recording in another app.
-        RecordingPillController.shared.activate()
-        // Live captions while recording (if turned on).
-        MeetingAutomation.shared.activate()
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -49,105 +37,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         completionHandler([.banner, .sound])
     }
 
-    // Clicking the Dock icon with every window closed brings the notes back.
+    // Clicking the Dock icon with every window closed brings the main window back.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { MainWindow.show() }
         return true
     }
-
-    // Don't let a recording die silently on quit — offer to stop & transcribe.
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // Also wait through .finishing so a quit during finalization can't truncate the file.
-        if MeetingRecorder.shared.state == .finishing { return .terminateCancel }
-        guard MeetingRecorder.shared.isRecording else { return .terminateNow }
-        let alert = NSAlert()
-        alert.messageText = "You're still recording"
-        alert.informativeText = "Stop and transcribe the recording before quitting, or discard it?"
-        alert.addButton(withTitle: "Stop & Transcribe")
-        alert.addButton(withTitle: "Cancel")
-        alert.addButton(withTitle: "Discard & Quit")
-        switch alert.runModal() {
-        case .alertFirstButtonReturn:
-            MeetingRecorder.shared.stop()   // finalizes; user gets the confirm sheet
-            return .terminateCancel
-        case .alertThirdButtonReturn:
-            MeetingRecorder.shared.discardActiveRecording()   // delete the audio, don't leave it for recovery
-            return .terminateNow
-        default:
-            return .terminateCancel
-        }
-    }
-}
-
-// MARK: - Menu bar recorder control
-
-/// A status-bar item that starts/stops a note from anywhere and shows elapsed
-/// time while recording, plus a way to download from a link.
-@MainActor
-final class MenuBarController {
-    private let item: NSStatusItem
-    private var cancellables = Set<AnyCancellable>()
-
-    init() {
-        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "MindExtract")
-        let recorder = MeetingRecorder.shared
-        recorder.$state.sink { [weak self] _ in self?.refresh() }.store(in: &cancellables)
-        recorder.$elapsed.sink { [weak self] _ in self?.refresh() }.store(in: &cancellables)
-        refresh()
-    }
-
-    private func refresh() {
-        let recorder = MeetingRecorder.shared
-        guard let button = item.button else { return }
-
-        if recorder.isRecording {
-            let img = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")
-            img?.isTemplate = true   // so the tint actually applies
-            button.image = img
-            // White icon + white timer text, readable on any menu-bar tint;
-            // monospaced digits keep it from jittering.
-            button.attributedTitle = NSAttributedString(
-                string: " " + AppUtil.formatElapsed(recorder.elapsed),
-                attributes: [
-                    .foregroundColor: NSColor.white,
-                    .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .medium)
-                ])
-            button.contentTintColor = .white
-        } else {
-            button.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "MindExtract")
-            button.attributedTitle = NSAttributedString(string: "")
-            button.contentTintColor = nil
-        }
-
-        let menu = NSMenu()
-        if recorder.isRecording {
-            menu.addItem(withTitle: String(localized: "Stop & Transcribe"), action: #selector(stopTapped), keyEquivalent: "").target = self
-        } else if recorder.isBusy {
-            let starting = NSMenuItem(title: String(localized: "Starting…"), action: nil, keyEquivalent: "")
-            starting.isEnabled = false
-            menu.addItem(starting)
-        } else {
-            menu.addItem(withTitle: String(localized: "New Note"), action: #selector(startTapped), keyEquivalent: "").target = self
-        }
-        menu.addItem(withTitle: String(localized: "Download from Link…"), action: #selector(downloadTapped), keyEquivalent: "").target = self
-        menu.addItem(.separator())
-        menu.addItem(withTitle: String(localized: "Open MindExtract"), action: #selector(openTapped), keyEquivalent: "").target = self
-        item.menu = menu
-    }
-
-    @objc private func startTapped() {
-        openTapped()
-        MeetingRecorder.shared.startNote()
-    }
-    @objc private func stopTapped() {
-        // Bring the app forward now (user-initiated, so macOS honors the activate);
-        // the note fills in once finalization completes.
-        openTapped()
-        MeetingRecorder.shared.stop()
-    }
-    @objc private func downloadTapped() { MainWindow.show(.downloads) }
-    @objc private func openTapped() { MainWindow.show() }
 }
 
 // MARK: - Main App
@@ -184,7 +78,7 @@ struct MindExtractApp: App {
                 }
                 .keyboardShortcut("?", modifiers: .command)
             }
-            NotesCommands()
+            AppCommands()
         }
 
         // Native Settings window (⌘,).
@@ -196,39 +90,28 @@ struct MindExtractApp: App {
 
 // MARK: - Menu commands
 
-struct NotesCommands: Commands {
+struct AppCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
-        // Lets AppKit code reopen the notes window once it has been closed.
+        // Lets AppKit code reopen the main window once it has been closed.
         let _ = { MainWindow.opener = openWindow }()
         CommandGroup(replacing: .newItem) {
-            Button("New Note") {
-                MainWindow.show(.notes)
-                MeetingRecorder.shared.startNote()
-            }
-            .keyboardShortcut("n", modifiers: .command)
-            Button("Download from Link…") { MainWindow.show(.downloads) }
-                .keyboardShortcut("d", modifiers: [.command, .shift])
+            Button("Download or Transcribe…") { MainWindow.show(.downloads) }
+                .keyboardShortcut("n", modifiers: .command)
         }
-        CommandMenu("Note") {
+        CommandMenu("Transcript") {
             Button("Search & Ask…") {
                 MainWindow.show()
                 NotificationCenter.default.post(name: .openSearch, object: nil)
             }
             .keyboardShortcut("k", modifiers: .command)
-            // No .disabled — SwiftUI Commands aren't re-evaluated on @Published
-            // changes. markMoment() itself no-ops unless recording.
-            Button("Mark Moment") { MeetingRecorder.shared.markMoment() }
-                .keyboardShortcut("m", modifiers: .command)
         }
         CommandGroup(before: .windowList) {
-            Button("Notes") { MainWindow.show(.notes) }
+            Button("Download") { MainWindow.show(.downloads) }
                 .keyboardShortcut("1", modifiers: .command)
-            Button("Downloads") { MainWindow.show(.downloads) }
+            Button("Transcripts") { MainWindow.show(.transcripts) }
                 .keyboardShortcut("2", modifiers: .command)
-            Button("Dictation") { MainWindow.show(.dictation) }
-                .keyboardShortcut("3", modifiers: .command)
             Divider()
         }
     }

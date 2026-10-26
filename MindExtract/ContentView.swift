@@ -2,29 +2,27 @@ import SwiftUI
 
 // MARK: - Main window
 //
-// MindExtract does three things, and each has its place in the sidebar:
-//   • Notes — record a meeting or a thought, live text, speakers, AI notes
-//   • Downloads — paste any link, download the video or audio, transcribe it
-//   • Dictation — hold a key anywhere and speak
+// MindExtract does one thing: get the words out of any video or audio.
+//   • Download — paste a link (YouTube and ~1,000 other sites) or drop a file;
+//     download it, transcribe it, or both
+//   • Transcripts — read, search, play, summarize, ask, translate and export
 
 enum AppSection: String, CaseIterable, Identifiable {
-    case notes, downloads, dictation
+    case downloads, transcripts
 
     var id: String { rawValue }
 
     var title: LocalizedStringKey {
         switch self {
-        case .notes: return "Notes"
-        case .downloads: return "Downloads"
-        case .dictation: return "Dictation"
+        case .downloads: return "Download"
+        case .transcripts: return "Transcripts"
         }
     }
 
     var icon: String {
         switch self {
-        case .notes: return "note.text"
         case .downloads: return "arrow.down.circle"
-        case .dictation: return "mic"
+        case .transcripts: return "text.quote"
         }
     }
 }
@@ -41,13 +39,12 @@ struct ContentView: View {
     @ObservedObject private var tm = TranscriptionManager.shared
     @ObservedObject private var history = TranscriptionHistoryManager.shared
     @ObservedObject private var downloads = HistoryManager.shared
-    @ObservedObject private var recorder = MeetingRecorder.shared
     @ObservedObject private var appLock = AppLock.shared
 
-    @AppStorage("appSection") private var section: AppSection = .notes
+    @AppStorage("appSection") private var section: AppSection = .downloads
 
-    /// File paths of the selected notes; `liveTag` stands for the one in progress
-    /// (recording, or being transcribed before it has a file).
+    /// File paths of the selected transcripts; `liveTag` stands for the one being
+    /// transcribed before it has a file.
     @State private var selection: Set<String> = []
     private static let liveTag = "live-recording"
     private var single: String? { selection.count == 1 ? selection.first : nil }
@@ -58,18 +55,14 @@ struct ContentView: View {
     @State private var draftTitle = ""
     @State private var pendingDelete: [TranscriptionHistoryItem] = []
 
-    @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
-    @State private var showWelcome = false
-
     // ⌘K search/ask overlay — one stable sheet whose content swaps between the
     // palette and the chat (swapping sheet *identity* would flicker/dismiss).
     enum AppOverlay { case palette, chat }
     @State private var showOverlay = false
     @State private var overlayContent: AppOverlay = .palette
 
-    private var isLive: Bool { recorder.isRecording || recorder.state == .finishing }
     /// A new transcript is being made and has no file yet.
-    private var isInProgress: Bool { isLive || (tm.isTranscribing && tm.lastSavedPath == nil) }
+    private var isInProgress: Bool { tm.isTranscribing && tm.lastSavedPath == nil }
 
     var body: some View {
         NavigationSplitView {
@@ -83,15 +76,6 @@ struct ContentView: View {
         }
         .navigationTitle("")
         .frame(minWidth: 860, minHeight: 540)
-        // "Recording finished" confirm sheet — shown wherever you stopped from.
-        .sheet(item: $recorder.pendingRecording) { pending in
-            TranscribeSheet(
-                mode: .recording(pending),
-                onStart: { name, lang, model in recorder.confirmPending(title: name ?? pending.title, language: lang, model: model) },
-                onCancel: { recorder.discardPending() }
-            )
-            .interactiveDismissDisabled()
-        }
         // App-lock gate: cover everything until the user authenticates.
         .overlay {
             if appLock.isLocked { LockView() }
@@ -110,10 +94,6 @@ struct ContentView: View {
             appLock.lockIfEnabled()
             if appLock.isLocked { appLock.authenticate() }
             if MainWindow.opener == nil { MainWindow.opener = openWindow }
-            recorder.recoverInterruptedSessions()
-            recorder.refreshPermissions()
-            if !hasSeenWelcome && !showWelcome { showWelcome = true }
-            if isLive { show(.notes, select: Self.liveTag) }
             // A link handed over at launch goes straight to Downloads.
             if UserDefaults.standard.string(forKey: "pendingURL")?.isEmpty == false {
                 section = .downloads
@@ -129,15 +109,12 @@ struct ContentView: View {
         .onChange(of: selection) { _, sel in
             if sel.count == 1 { open(sel.first) }
         }
-        // A transcript opened or started anywhere (e.g. from Downloads) shows in Notes.
+        // A transcript opened or started anywhere (e.g. from Download) shows under Transcripts.
         .onChange(of: tm.showTranscriptionView) { _, show in
-            if show { self.show(.notes, select: tm.lastSavedPath ?? Self.liveTag) }
+            if show { self.show(.transcripts, select: tm.lastSavedPath ?? Self.liveTag) }
         }
         .onChange(of: tm.lastSavedPath) { _, p in
-            if tm.showTranscriptionView, let p, single != Self.liveTag || !isLive { selection = [p] }
-        }
-        .onChange(of: recorder.isRecording) { _, recording in
-            if recording { show(.notes, select: Self.liveTag) }
+            if tm.showTranscriptionView, let p { selection = [p] }
         }
         .confirmationDialog(deleteTitle, isPresented: Binding(
             get: { !pendingDelete.isEmpty },
@@ -151,16 +128,7 @@ struct ContentView: View {
             }
             Button("Cancel", role: .cancel) { pendingDelete = [] }
         } message: {
-            Text("The transcript and its recording go to the Trash. You can put them back from there.")
-        }
-        .sheet(isPresented: $showWelcome) {
-            PermissionsOnboardingView(onDone: {
-                hasSeenWelcome = true
-                showWelcome = false
-            })
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .showPermissions)) { _ in
-            showWelcome = true
+            Text("The transcript goes to the Trash. You can put it back from there. A downloaded video stays where it is.")
         }
         .onReceive(NotificationCenter.default.publisher(for: .openSearch)) { _ in
             overlayContent = .palette
@@ -172,7 +140,7 @@ struct ContentView: View {
                 CommandPaletteView(
                     onOpenTranscript: { item in
                         showOverlay = false
-                        if item.fileExists { show(.notes, select: item.filePath) }
+                        if item.fileExists { show(.transcripts, select: item.filePath) }
                     },
                     onAsk: { query in
                         CorpusChat.shared.reset()
@@ -213,34 +181,31 @@ struct ContentView: View {
 
     private func badge(for s: AppSection) -> Int {
         switch s {
-        case .notes: return history.history.count
         case .downloads: return downloads.history.count
-        case .dictation: return 0
+        case .transcripts: return history.history.count
         }
     }
 
     @ViewBuilder
     private var sectionDetail: some View {
-        switch section {
-        case .notes:
-            VStack(spacing: 0) {
-                PianissimoBanner()
+        VStack(spacing: 0) {
+            PianissimoBanner()
+            switch section {
+            case .downloads:
+                DownloaderView()
+            case .transcripts:
                 HStack(spacing: 0) {
-                    notesColumn
+                    transcriptsColumn
                         .frame(width: 280)
                     Divider()
-                    noteDetail
+                    transcriptDetail
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
             }
-        case .downloads:
-            DownloaderView()
-        case .dictation:
-            DictationPage()
         }
     }
 
-    // MARK: - Notes list
+    // MARK: - Transcripts list
 
     /// Favorites pinned on top, the rest grouped by date.
     private var groups: [(label: String, items: [TranscriptionHistoryItem])] {
@@ -251,7 +216,7 @@ struct ContentView: View {
         return favs.isEmpty ? dated : [(String(localized: "Favorites"), favs)] + dated
     }
 
-    /// Title matches first, then notes whose text matches.
+    /// Title matches first, then transcripts whose text matches.
     private var results: [TranscriptionHistoryItem] {
         let q = searchText.lowercased()
         let byTitle = history.history.filter { $0.title.lowercased().contains(q) }
@@ -259,9 +224,9 @@ struct ContentView: View {
         return byTitle + searchHits.map(\.item).filter { !seen.contains($0.id) }
     }
 
-    private var notesColumn: some View {
+    private var transcriptsColumn: some View {
         VStack(spacing: 0) {
-            SearchField(text: $searchText, placeholder: String(localized: "Search notes"))
+            SearchField(text: $searchText, placeholder: String(localized: "Search transcripts"))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
             List(selection: $selection) {
@@ -287,9 +252,9 @@ struct ContentView: View {
                 contextMenu(for: paths)
             }
             .overlay {
-                if history.history.isEmpty && !isLive {
-                    ContentUnavailableView("No notes yet", systemImage: "note.text",
-                                           description: Text("Press New Note to record a meeting or a thought."))
+                if history.history.isEmpty && !isInProgress {
+                    ContentUnavailableView("No transcripts yet", systemImage: "text.quote",
+                                           description: Text("Paste a link or drop a file under Download."))
                 } else if !searchText.isEmpty && results.isEmpty {
                     ContentUnavailableView.search(text: searchText)
                 }
@@ -335,7 +300,7 @@ struct ContentView: View {
         }
         if !items.isEmpty {
             Button(items.count == 1 ? String(localized: "Move to Trash…")
-                                    : String(localized: "Move \(items.count) Notes to Trash…"),
+                                    : String(localized: "Move \(items.count) Transcripts to Trash…"),
                    role: .destructive) {
                 pendingDelete = items
             }
@@ -344,26 +309,16 @@ struct ContentView: View {
 
     private var liveRow: some View {
         HStack(spacing: 8) {
-            Image(systemName: recorder.isRecording ? "record.circle.fill" : "hourglass")
-                .foregroundStyle(DS.Colors.recording)
-                .symbolEffect(.pulse, options: .repeating, isActive: recorder.isRecording)
+            ProgressView().controlSize(.small)
             VStack(alignment: .leading, spacing: 2) {
-                Text(liveRowTitle)
+                Text(tm.currentTranscriptionTitle.isEmpty ? String(localized: "Transcribing…") : tm.currentTranscriptionTitle)
                     .lineLimit(1)
-                Text(recorder.isRecording ? AppUtil.formatElapsed(recorder.elapsed)
-                     : (isLive ? String(localized: "Saving…") : String(localized: "Transcribing…")))
+                Text("Transcribing…")
                     .font(.caption)
-                    .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 3)
-    }
-
-    private var liveRowTitle: String {
-        if isLive, !recorder.liveTitle.isEmpty { return recorder.liveTitle }
-        if !isLive, !tm.currentTranscriptionTitle.isEmpty { return tm.currentTranscriptionTitle }
-        return String(localized: "New note")
     }
 
     private func noteRow(_ item: TranscriptionHistoryItem) -> some View {
@@ -386,24 +341,16 @@ struct ContentView: View {
         }
         .padding(.vertical, 3)
         .tag(item.filePath)
-        // While recording, the live note stays open.
-        .disabled(isLive)
     }
 
-    // MARK: - Note detail
+    // MARK: - Transcript detail
 
     @ViewBuilder
-    private var noteDetail: some View {
+    private var transcriptDetail: some View {
         if selection.count > 1 {
             multipleSelected
-        } else if single == Self.liveTag, isLive || (tm.showTranscriptionView && tm.currentTranscriptSource == .meeting) {
-            MeetingPage(onBack: { selection = [] })
         } else if single != nil, tm.showTranscriptionView {
-            if tm.currentTranscriptSource == .meeting {
-                MeetingPage(onBack: { selection = [] })
-            } else {
-                TranscriptionResultView(transcriptionManager: tm)
-            }
+            TranscriptionResultView(transcriptionManager: tm)
         } else {
             emptyState
         }
@@ -414,7 +361,7 @@ struct ContentView: View {
             Image(systemName: "square.stack")
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(.secondary)
-            Text("\(selection.count) notes selected")
+            Text("\(selection.count) transcripts selected")
                 .font(.title2.weight(.semibold))
             Button(role: .destructive) {
                 requestDelete(paths: selection)
@@ -428,81 +375,44 @@ struct ContentView: View {
 
     private var emptyState: some View {
         VStack(spacing: 22) {
-            if case .error(let message, let kind) = recorder.state {
-                errorBanner(message, kind)
-            }
-            Image(systemName: "waveform")
+            Image(systemName: "text.quote")
                 .font(.system(size: 44, weight: .light))
                 .foregroundStyle(.secondary)
             VStack(spacing: 8) {
-                Text("Take a note by talking")
+                Text(history.history.isEmpty ? "Get the words out of any video" : "Pick a transcript")
                     .font(.system(size: 28, weight: .semibold, design: .serif))
-                Text("Write while MindExtract listens — you see the words as they're spoken, and it tells who's speaking when you're more than one.")
+                Text("Paste a link from YouTube or 1,000 other sites, or drop a video or audio file. MindExtract downloads it, transcribes it, or both — on your Mac.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: 460)
+                    .frame(maxWidth: 480)
             }
             Button {
-                startNote()
+                section = .downloads
             } label: {
-                Label("New Note", systemImage: "record.circle")
+                Label("Download or Transcribe…", systemImage: "arrow.down.circle")
             }
             .buttonStyle(.glassProminent)
-            .tint(DS.Colors.recording)
             .controlSize(.extraLarge)
-            .disabled(recorder.isBusy)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func errorBanner(_ message: String, _ kind: MeetingRecorder.ErrorKind) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            Text(message).frame(maxWidth: .infinity, alignment: .leading)
-            switch kind {
-            case .screenPermission:
-                Button("Open Settings") { recorder.openScreenRecordingSettings() }
-            case .micPermission:
-                Button("Open Settings") { recorder.openMicSettings() }
-            case .capture:
-                EmptyView()
-            }
-            Button("Dismiss") { recorder.dismissError() }
-        }
-        .frame(maxWidth: 520)
-        .contentCard(tint: .orange)
     }
 
     // MARK: - Toolbar
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
-            if recorder.isRecording {
+        if section == .transcripts {
+            ToolbarItem(placement: .primaryAction) {
                 Button {
-                    recorder.stop()
+                    section = .downloads
                 } label: {
-                    Label("Finish · \(AppUtil.formatElapsed(recorder.elapsed))", systemImage: "stop.fill")
-                        .labelStyle(.titleAndIcon)
-                        .monospacedDigit()
-                }
-                .buttonStyle(.glassProminent)
-                .tint(DS.Colors.recording)
-                .keyboardShortcut(".", modifiers: .command)
-                .help("Finish: the whole conversation is transcribed and your notes are written (⌘.)")
-            } else {
-                Button {
-                    startNote()
-                } label: {
-                    Label("New Note", systemImage: "record.circle")
+                    Label("Download or Transcribe…", systemImage: "plus")
                         .labelStyle(.titleAndIcon)
                 }
                 .buttonStyle(.glassProminent)
-                .tint(DS.Colors.recording)
-                .disabled(recorder.isBusy)
-                .help("Start a note: records your voice and, in a call, the others (⌘N)")
+                .help("Paste a link or drop a file (⌘N)")
             }
         }
     }
@@ -512,7 +422,7 @@ struct ContentView: View {
     private var deleteTitle: String {
         pendingDelete.count == 1
             ? String(localized: "Move “\(pendingDelete[0].title)” to the Trash?")
-            : String(localized: "Move \(pendingDelete.count) notes to the Trash?")
+            : String(localized: "Move \(pendingDelete.count) transcripts to the Trash?")
     }
 
     private func requestDelete(paths: Set<String>) {
@@ -523,12 +433,6 @@ struct ContentView: View {
     private func show(_ s: AppSection, select path: String) {
         section = s
         selection = [path]
-    }
-
-    private func startNote() {
-        guard !recorder.isBusy else { return }
-        section = .notes
-        recorder.startNote()
     }
 
     private func open(_ path: String?) {
@@ -546,7 +450,7 @@ enum MainWindow {
     static let id = "main"
 
     /// Captured from the app's commands at launch, so AppKit code (menu bar,
-    /// recording pill, Dock) can reopen the main window after it was closed.
+    /// Dock) can reopen the main window after it was closed.
     @MainActor static var opener: OpenWindowAction?
 
     /// Brings the main window forward, opening it if it was closed.
