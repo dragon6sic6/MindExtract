@@ -319,7 +319,8 @@ final class NotchController {
         }
 
         let typing = model.isEditing && !model.input.isEmpty
-        if (stickyOpen && !mouseWasInside) || inside || typing || model.isMenuOpen || model.dragKind != nil {
+        let onboarding = model.onboardingStep != nil   // the introduction stays until it's finished
+        if (stickyOpen && !mouseWasInside) || inside || typing || model.isMenuOpen || model.dragKind != nil || onboarding {
             closeWork?.cancel(); closeWork = nil
         } else if closeWork == nil {
             let delay = openedByDrag ? 0.5 : 0.35
@@ -327,7 +328,8 @@ final class NotchController {
                 guard let self else { return }
                 self.closeWork = nil
                 let typing = self.model.isEditing && !self.model.input.isEmpty
-                if !self.openRect.contains(NSEvent.mouseLocation), !typing, !self.model.isMenuOpen, self.model.dragKind == nil {
+                if !self.openRect.contains(NSEvent.mouseLocation), !typing, !self.model.isMenuOpen, self.model.dragKind == nil,
+                   self.model.onboardingStep == nil {
                     self.close()
                 }
             }

@@ -19,7 +19,7 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
     func has(_ needles: String...) -> Bool { needles.contains { s.contains($0) } }
 
     if has("http error 403", "403: forbidden") {
-        return DownloadErrorInfo(message: String(localized: "The site blocked the download. Try again in a moment — if it keeps happening, update MindExtract."), needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "The site blocked the download. Try again in a moment, and if it keeps happening, update MindExtract."), needsYouTubeAuth: false)
     }
     if has("ffmpeg not found", "ffmpeg is not installed", "ffprobe and ffmpeg not found", "bad cpu type") {
         return DownloadErrorInfo(message: String(localized: "A conversion tool is missing, so this download can't be finished. Reinstall MindExtract."), needsYouTubeAuth: false)
@@ -47,7 +47,7 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
         return DownloadErrorInfo(message: String(localized: "This video isn't available in your region."), needsYouTubeAuth: false)
     }
     if has("failed to resolve", "temporary failure in name resolution", "could not resolve host", "connection refused", "network is unreachable", "timed out", "connection timed out") {
-        return DownloadErrorInfo(message: String(localized: "Network problem — check your internet connection and try again."), needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "Network problem. Check your internet connection and try again."), needsYouTubeAuth: false)
     }
     if has("http error 404", "unable to download webpage", "404: not found") {
         return DownloadErrorInfo(message: String(localized: "Couldn't reach that page. Check the link and try again."), needsYouTubeAuth: false)
@@ -738,7 +738,7 @@ class YTDLPWrapper: ObservableObject {
     private func handleFetchTimeout() {
         fetchTask?.terminate()
         fetchTask = nil
-        state = .timeout(String(localized: "This is taking unusually long. The site may be slow — try again in a moment."))
+        state = .timeout(String(localized: "This is taking unusually long. The site may be slow, so try again in a moment."))
         outputLog += "\n⚠️ TIMEOUT: Operation exceeded \(Int(fetchTimeout)) seconds.\n"
         outputLog += "You can try again or check if the URL is correct.\n"
     }

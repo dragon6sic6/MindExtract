@@ -26,7 +26,7 @@ struct VideoFormat: Identifiable, Hashable {
 
     var displayName: String {
         if isAudioOnly {
-            return "\(ext.uppercased()) — \(note) \(filesize)"
+            return "\(ext.uppercased()) · \(note) \(filesize)"
         } else if isVideoOnly {
             return "\(resolution) \(ext.uppercased()) (video only) \(filesize)"
         } else {
@@ -330,7 +330,7 @@ enum WhisperModel: String, CaseIterable, Codable, Identifiable {
         case .medium: return String(localized: "High accuracy, slower")
         case .largev3: return String(localized: "Best accuracy, requires more RAM")
         case .largev3turbo: return String(localized: "Near-best accuracy, optimized speed")
-        case .pianissimo: return String(localized: "Best Swedish — trained by Klang AI, fast and punctuated")
+        case .pianissimo: return String(localized: "Best Swedish. Trained by Klang AI, fast and punctuated")
         }
     }
 

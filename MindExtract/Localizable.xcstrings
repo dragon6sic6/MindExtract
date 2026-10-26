@@ -10087,6 +10087,296 @@
           }
         }
       }
+    },
+    "(Automatic transcript. May contain errors.)": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(Automatisk transkribering. Kan innehålla fel.)"
+          }
+        }
+      }
+    },
+    "690 MB, downloaded once. Keep working meanwhile.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "690 MB som laddas ned en gång. Du kan jobba vidare under tiden."
+          }
+        }
+      }
+    },
+    "Best Swedish. Trained by Klang AI, fast and punctuated": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bäst på svenska. Tränad av Klang AI, snabb och med skiljetecken"
+          }
+        }
+      }
+    },
+    "Copied automatically. Paste with ⌘V anywhere.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopierat automatiskt. Klistra in med ⌘V var du vill."
+          }
+        }
+      }
+    },
+    "Most videos download without signing in. Sign in only if YouTube blocks one, for example an age-restricted or members-only video.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De flesta videor går att hämta utan inloggning. Logga bara in om YouTube stoppar en, till exempel en åldersbegränsad video eller en video för medlemmar."
+          }
+        }
+      }
+    },
+    "Network problem. Check your internet connection and try again.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingen internetanslutning. Kontrollera nätverket och försök igen."
+          }
+        }
+      }
+    },
+    "People, places, companies and jargon to spell correctly. One per line. Only Whisper reads this list.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personer, platser, företag och fackord som ska stavas rätt. Ett per rad. Bara Whisper läser listan."
+          }
+        }
+      }
+    },
+    "Preparing the model for your Mac. It takes a few minutes the first time.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Förbereder modellen för din Mac. Det tar några minuter första gången."
+          }
+        }
+      }
+    },
+    "Rest the pointer on the notch or click it. It works from any app.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Håll muspekaren över notchen eller klicka på den. Det fungerar i alla appar."
+          }
+        }
+      }
+    },
+    "The site blocked the download. Try again in a moment, and if it keeps happening, update MindExtract.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Webbplatsen blockerade nedladdningen. Försök igen om en stund. Händer det igen kan du uppdatera MindExtract."
+          }
+        }
+      }
+    },
+    "This is taking unusually long. The site may be slow, so try again in a moment.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Det tar ovanligt lång tid. Sidan kan vara långsam, så försök igen om en stund."
+          }
+        }
+      }
+    },
+    "Transcribing happens on this Mac and nothing is uploaded. Only the video itself is fetched from the site.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkriberingen sker på den här Macen och inget laddas upp. Bara själva videon hämtas från webbplatsen."
+          }
+        }
+      }
+    },
+    "Rest the pointer on the notch or click it. You can also press %@ from any app.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Håll muspekaren över notchen eller klicka på den. Du kan också trycka %@ var du än är."
+          }
+        }
+      }
+    },
+    "Everything stays on your Mac": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allt stannar på din Mac"
+          }
+        }
+      }
+    },
+    "Get Started": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kom igång"
+          }
+        }
+      }
+    },
+    "Introduction": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduktion"
+          }
+        }
+      }
+    },
+    "MindExtract lives in the notch": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MindExtract bor i notchen"
+          }
+        }
+      }
+    },
+    "Next": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nästa"
+          }
+        }
+      }
+    },
+    "Ready.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klar."
+          }
+        }
+      }
+    },
+    "Show Again": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa igen"
+          }
+        }
+      }
+    },
+    "Skip": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoppa över"
+          }
+        }
+      }
+    },
+    "So the notch is there after a restart.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Så att notchen finns kvar efter en omstart."
+          }
+        }
+      }
+    },
+    "Step %lld of %lld": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steg %lld av %lld"
+          }
+        }
+      }
+    },
+    "Swedish speech model": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svensk talmodell"
+          }
+        }
+      }
+    },
+    "The short tour the notch gives the first time.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Den korta rundturen som notchen visar första gången."
+          }
+        }
+      }
+    },
+    "The text lands on your clipboard": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texten hamnar i urklipp"
+          }
+        }
+      }
+    },
+    "When the transcript is done it's copied automatically. Paste it with ⌘V in Claude, ChatGPT or anywhere you like.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "När transkriptet är klart kopieras det automatiskt. Klistra in med ⌘V i Claude, ChatGPT eller var du vill."
+          }
+        }
+      }
+    },
+    "YouTube and over a thousand other sites. If you've already copied a link, one click is enough. Save the video too, if you want it.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube och över tusen andra webbplatser. Har du redan kopierat en länk räcker ett klick. Du kan spara videon också om du vill."
+          }
+        }
+      }
+    },
+    "or": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "eller"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

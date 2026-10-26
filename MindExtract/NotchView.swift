@@ -313,12 +313,20 @@ struct OpenNotch: View {
         VStack(spacing: 0) {
             header
             VStack(alignment: .leading, spacing: 12) {
-                if let kind = model.dragKind {
-                    DropZone(kind: kind, busy: model.isBusy, highlighted: dropHover)
-                } else {
-                    content
+                // One screen at a time: the next one fades in, the old one leaves at
+                // once, so text never shows through text.
+                Group {
+                    if let step = model.onboardingStep {
+                        OnboardingView(step: step)
+                    } else if let kind = model.dragKind {
+                        DropZone(kind: kind, busy: model.isBusy, highlighted: dropHover)
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) { content }
+                            .id(model.stage.screen)
+                    }
                 }
-                if let downloading = tm.downloadingModel, !model.isBusy {
+                .transition(.asymmetric(insertion: .opacity, removal: .identity))
+                if let downloading = tm.downloadingModel, !model.isBusy, model.onboardingStep == nil {
                     ModelDownloadLine(name: downloading.displayName, progress: tm.modelDownloadProgress)
                 }
             }
@@ -707,7 +715,7 @@ struct TranscribedActions: View {
             HStack(alignment: .center, spacing: 8) {
                 Group {
                     if copied {
-                        Text(model.autoCopiedPath == path ? "Copied automatically — paste with ⌘V anywhere."
+                        Text(model.autoCopiedPath == path ? "Copied automatically. Paste with ⌘V anywhere."
                                                           : "Paste with ⌘V anywhere.")
                     } else if words > 0 {
                         Text("≈ \(words) words")

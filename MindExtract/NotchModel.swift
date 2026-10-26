@@ -72,6 +72,8 @@ final class NotchModel: ObservableObject {
     /// Bumped to move keyboard focus to the link field.
     @Published private(set) var focusCount = 0
     @Published var isEditing = false
+    /// The first-run introduction's page, while it's showing.
+    @Published var onboardingStep: Int?
     @Published var openSize: CGSize = .zero
     @Published var geometry = NotchGeometry.current()
     /// A menu from the notch is showing.
@@ -311,7 +313,7 @@ final class NotchModel: ObservableObject {
         if !item.channel.isEmpty { facts.append(String(localized: "Channel: \(item.channel)")) }
         if !item.duration.isEmpty { facts.append(String(localized: "Length: \(item.duration)")) }
         if !facts.isEmpty { lines.append(facts.joined(separator: " · ")) }
-        lines.append(String(localized: "(Automatic transcript — may contain errors.)"))
+        lines.append(String(localized: "(Automatic transcript. May contain errors.)"))
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(lines.joined(separator: "\n") + "\n\n" + body, forType: .string)
         lastPasteboardCount = NSPasteboard.general.changeCount   // don't offer our own copy back

@@ -31,6 +31,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, UN
         UNUserNotificationCenter.current().delegate = self
         NotchController.shared.start()
         LoginItem.enableOnFirstRun()
+        // First run: the notch introduces itself.
+        if !Onboarding.hasBeenSeen {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { Onboarding.start() }
+        }
         NotificationCenter.default.addObserver(forName: .checkForUpdates, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.updaterController.checkForUpdates(nil) }
         }

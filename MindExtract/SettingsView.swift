@@ -207,7 +207,7 @@ struct SettingsView: View {
         }
 
         SettingsSection("Names and terms",
-                        footer: "People, places, companies and jargon to spell correctly — one per line. Only Whisper reads this list.") {
+                        footer: "People, places, companies and jargon to spell correctly. One per line. Only Whisper reads this list.") {
             TextEditor(text: $settings.customVocabulary)
                 .font(.system(size: 13, design: .monospaced))
                 .scrollContentBackground(.hidden)
@@ -245,7 +245,7 @@ struct SettingsView: View {
         }
 
         SettingsSection("YouTube",
-                        footer: "Most videos download without signing in. Sign in only if YouTube blocks one — age-restricted or members-only videos, for example.") {
+                        footer: "Most videos download without signing in. Sign in only if YouTube blocks one, for example an age-restricted or members-only video.") {
             youtubeRows
             DisclosureRow(title: "Other ways to sign in", isOpen: $showAdvancedSignIn)
             if showAdvancedSignIn {
@@ -326,6 +326,12 @@ struct SettingsView: View {
                         support.appendingPathComponent("MindExtract")])
                 }
             }
+            SettingsRow("Introduction", detail: "The short tour the notch gives the first time.") {
+                SmallButton("Show Again") {
+                    NSApp.keyWindow?.close()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { Onboarding.start() }
+                }
+            }
             SettingsRow("Reset all settings", detail: "Transcripts and downloads are kept.") {
                 SmallButton("Reset…") { showResetConfirmation = true }
             }
@@ -358,8 +364,8 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
         return "\(short) (\(build))"
     }
 
@@ -564,7 +570,7 @@ struct MonoMenu<Value: Hashable>: View {
             .pickerStyle(.inline)
             .labelsHidden()
         } label: {
-            Text(verbatim: options.first { $0.0 == selection }?.1 ?? "—")
+            Text(verbatim: options.first { $0.0 == selection }?.1 ?? "")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(NotchStyle.text)
         }
@@ -664,7 +670,7 @@ struct SpeechModelRow: View {
             return LocalizedStringKey(failure.message)
         }
         if tm.isModelDownloaded(model), tm.prewarmingModel == model {
-            return "Preparing the model for your Mac — a few minutes the first time."
+            return "Preparing the model for your Mac. It takes a few minutes the first time."
         }
         return LocalizedStringKey(model.description)
     }
