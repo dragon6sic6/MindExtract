@@ -180,9 +180,16 @@ final class NotchController {
         }
         if wantsKeyboard {
             // Hover never takes the keyboard from the app you're typing in.
-            panel?.makeKey()
+            takeKeyboard()
             model.requestFocus()
         }
+    }
+
+    /// Typing needs MindExtract to be the active app: a panel above the menu bar
+    /// doesn't reliably get key presses otherwise. close() gives them back.
+    private func takeKeyboard() {
+        if !NSApp.isActive { NSApp.activate() }
+        panel?.makeKey()
     }
 
     func close() {
@@ -292,6 +299,9 @@ final class NotchController {
 
         let inside = openRect.contains(p)
         if inside { mouseWasInside = true }
+
+        // A click in the notch: it gets the keyboard, before SwiftUI handles the click.
+        if type == .leftMouseDown, ownWindow, inside { takeKeyboard() }
 
         // A click somewhere else closes it. (The global monitor only sees other
         // apps' clicks; our own windows report through the local one.)
