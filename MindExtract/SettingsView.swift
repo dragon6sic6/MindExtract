@@ -1,40 +1,22 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Settings window's panes. An overview of what does what, then one pane per
-/// area — so a setting has exactly one home and every pane looks the same.
+// MARK: - Settings
+//
+// The same look as the notch: black, white, cards, one accent — white. Four
+// tabs, each setting in exactly one place.
+
 enum SettingsCategory: String, CaseIterable, Identifiable {
-    case overview
-    case general
-    case transcription
-    case imports
+    case general, transcription, downloads, about
 
     var id: String { rawValue }
 
     var title: LocalizedStringKey {
         switch self {
-        case .overview: return "Overview"
         case .general: return "General"
         case .transcription: return "Transcription"
-        case .imports: return "Import"
-        }
-    }
-
-    var windowTitle: String {
-        switch self {
-        case .overview: return String(localized: "Overview")
-        case .general: return String(localized: "General")
-        case .transcription: return String(localized: "Transcription")
-        case .imports: return String(localized: "Import")
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .overview: return "square.grid.2x2"
-        case .general: return "gearshape"
-        case .transcription: return "text.bubble"
-        case .imports: return "square.and.arrow.down"
+        case .downloads: return "Downloads"
+        case .about: return "About"
         }
     }
 }
@@ -43,35 +25,53 @@ struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var downloader: YTDLPWrapper
     @ObservedObject var transcriptionManager = TranscriptionManager.shared
-    /// Persisted so other parts of the app can deep-link a pane before opening Settings.
-    @AppStorage("settingsCategory") private var category: SettingsCategory = .overview
+    /// Persisted so the notch can open a tab directly (e.g. YouTube sign-in).
+    @AppStorage("settingsCategory") private var category: SettingsCategory = .general
     @State private var showResetConfirmation = false
     @State private var confirmRemoveLegacyKB = false
     @State private var showYouTubeSignOutConfirm = false
     @State private var loginItemOn = LoginItem.isEnabled
+    @State private var showMoreModels = false
+    @State private var showAdvancedSignIn = false
+    @State private var showAcknowledgements = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            List(SettingsCategory.allCases, selection: Binding(
-                get: { Optional(category) },
-                set: { if let c = $0 { category = c } })) { c in
-                Label(c.title, systemImage: c.icon).tag(c)
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    switch category {
+                    case .general: generalTab
+                    case .transcription: transcriptionTab
+                    case .downloads: downloadsTab
+                    case .about: aboutTab
+                    }
+                }
+                .padding(.horizontal, NotchStyle.side)
+                .padding(.top, 8)
+                .padding(.bottom, 28)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .listStyle(.sidebar)
-            .frame(width: 200)
-            Divider()
-            Form {
-                categoryContent
-            }
-            .formStyle(.grouped)
+            .scrollIndicators(.automatic)
         }
-        .navigationTitle(category.windowTitle)
-        .frame(minWidth: 760, idealWidth: 820, minHeight: 540, idealHeight: 640)
+        .frame(minWidth: 560, idealWidth: 600, minHeight: 480, idealHeight: 660)
+        .background(NotchStyle.surface)
+        .foregroundStyle(NotchStyle.text)
+        .preferredColorScheme(.dark)
+        .tint(.white)
         .onAppear {
             transcriptionManager.loadDownloadedModels()
+            if settings.downloadQuality == .audioOnly { settings.downloadQuality = .best }   // the notch chooses audio now
+            if !SettingsCategory.allCases.map(\.rawValue).contains(UserDefaults.standard.string(forKey: "settingsCategory") ?? "") {
+                category = .general
+            }
         }
         .confirmationDialog("Reset all settings?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
-            Button("Reset Settings", role: .destructive) { resetSettingsToDefaults() }
+            Button("Reset Settings", role: .destructive) {
+                settings.resetToDefaults()
+                GlobalHotKey.shared.set(.standard)
+                NotchController.shared.place()
+            }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Every preference goes back to its default. Your transcripts and downloads are not touched.")
@@ -84,282 +84,114 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
-    private var categoryContent: some View {
-        switch category {
-        case .overview: overviewPane
-        case .general: generalPane
-        case .transcription: transcriptionPane
-        case .imports: importPane
-        }
-    }
+    // MARK: Header
 
-    // MARK: - Shared rows
-
-    /// A permission's status with a Grant button when missing.
-    private func permissionRow(_ title: LocalizedStringKey, granted: Bool, action: @escaping () -> Void) -> some View {
-        LabeledContent(title) {
-            if granted {
-                Label("Allowed", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-            } else {
-                Button("Allow…", action: action)
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "waveform").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.5))
+                Text("Settings").font(.system(size: 20, weight: .semibold))
+            }
+            HStack(spacing: 4) {
+                ForEach(SettingsCategory.allCases) { c in
+                    TabChip(title: c.title, selected: category == c) { category = c }
+                }
             }
         }
+        .padding(.horizontal, NotchStyle.side)
+        .padding(.top, 38)   // below the transparent title bar
+        .padding(.bottom, 14)
     }
 
-    /// A one-line warning inside a section.
-    private func warningRow(_ text: LocalizedStringKey) -> some View {
-        Label(text, systemImage: "exclamationmark.triangle.fill")
-            .foregroundStyle(.orange)
-    }
+    // MARK: General
 
-    // MARK: - Overview
-
-    /// Where a job runs — the one thing people ask about most.
-    private enum Where { case onMac, internet }
-
-    /// Every job MindExtract does, the engine doing it right now, and where it runs.
-    @ViewBuilder
-    private var overviewPane: some View {
-        Section {
-            engineRow("Transcribing Swedish", icon: "text.bubble",
-                      engine: swedishEngine, where: .onMac, pane: .transcription,
-                      warning: transcriptionManager.isModelDownloaded(.pianissimo) ? nil : "Download Pianissimo for the best Swedish.")
-            engineRow("Transcribing other languages", icon: "globe",
-                      engine: otherLanguagesEngine, where: .onMac, pane: .transcription)
-            engineRow("Telling speakers apart", icon: "person.2",
-                      engine: settings.enableSpeakerDiarization ? "SpeakerKit" : String(localized: "Off"),
-                      where: .onMac, pane: .transcription)
-        } header: {
-            Text("Speech to text")
-        } footer: {
-            Text("Turning speech into text always happens on your Mac.")
-        }
-
-
-        Section {
-            engineRow("Downloading from a link", icon: "arrow.down.circle",
-                      engine: "yt-dlp", where: .internet, pane: .imports)
-        } header: {
-            Text("Downloads")
-        }
-    }
-
-    private func engineRow(_ job: LocalizedStringKey, icon: String, engine: String, where place: Where,
-                           pane: SettingsCategory, warning: LocalizedStringKey? = nil) -> some View {
-        LabeledContent {
-            HStack(spacing: 10) {
-                VStack(alignment: .trailing, spacing: 3) {
-                    Text(verbatim: engine).fontWeight(.medium)
-                    whereBadge(place)
-                }
-                Button {
-                    category = pane
-                } label: {
-                    Image(systemName: "chevron.right")
-                }
-                .buttonStyle(.borderless)
-                .help("Change")
-                .accessibilityLabel("Change")
-            }
-        } label: {
-            Label {
-                Text(job)
-                if let warning {
-                    Text(warning).foregroundStyle(.orange)
-                }
-            } icon: {
-                Image(systemName: icon)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func whereBadge(_ place: Where) -> some View {
-        switch place {
-        case .onMac:
-            Label("On your Mac", systemImage: "lock.fill")
-                .font(.caption).foregroundStyle(.green)
-        case .internet:
-            Label("Fetches from the website", systemImage: "network")
-                .font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    private var swedishEngine: String {
-        transcriptionManager.isModelDownloaded(.pianissimo) ? "Pianissimo" : otherLanguagesEngine
-    }
-
-    private var otherLanguagesEngine: String {
-        if transcriptionManager.useAppleSpeech() { return String(localized: "Apple speech recognition") }
-        return "Whisper · \(settings.defaultWhisperModel.displayName)"
-    }
-
-    // MARK: - General
-
-    @ViewBuilder
-    private var generalPane: some View {
-        Section {
-            LabeledContent {
+    @ViewBuilder private var generalTab: some View {
+        SettingsSection("Notch") {
+            SettingsRow("Open the notch", detail: "Works in any app. Hovering or clicking the notch always works too.") {
                 HotKeyRecorder()
-            } label: {
-                Text("Open the notch")
-                Text("Works in any app. Hovering or clicking the notch always works too.")
             }
-            Toggle("Open MindExtract when you log in", isOn: Binding(
-                get: { loginItemOn },
-                set: { loginItemOn = $0; LoginItem.set($0) }))
-        } header: {
-            Text("Notch")
+            SettingsRow("Show on", detail: "Which screen the notch lives on when you use more than one.") {
+                MonoMenu(selection: Binding(
+                    get: { settings.notchScreen },
+                    set: { settings.notchScreen = $0; NotchController.shared.place() }),
+                         options: [("notch", String(localized: "The screen with the notch")),
+                                   ("main", String(localized: "The main screen"))])
+            }
+            SettingsRow("Open at login", detail: "Without a Dock icon, this keeps the notch there after a restart.") {
+                Toggle("", isOn: Binding(get: { loginItemOn }, set: { loginItemOn = $0; LoginItem.set($0) }))
+                    .toggleStyle(MonoToggleStyle())
+            }
         }
 
-        Section {
-            Toggle(isOn: $settings.autoCopyWhenDone) {
-                Text("Copy the transcript when it's done")
-                Text("Only if you haven't copied anything else in the meantime.")
+        SettingsSection("When it's done") {
+            SettingsRow("Copy the transcript automatically", detail: "Only if you haven't copied anything else in the meantime.") {
+                Toggle("", isOn: $settings.autoCopyWhenDone).toggleStyle(MonoToggleStyle())
             }
-            Picker(selection: Binding(
-                get: { Assistant.preferred },
-                set: { settings.preferredAssistant = $0.rawValue })) {
-                ForEach(Assistant.allCases) { a in Text(verbatim: a.name).tag(a) }
-            } label: {
-                Text("Open in")
-                Text("A button next to Copy that opens the app — or its website if it isn't installed.")
+            SettingsRow("Include timestamps", detail: "Puts [12:04] before each passage. Without them it reads like an article.") {
+                Toggle("", isOn: $settings.copyWithTimestamps).toggleStyle(MonoToggleStyle())
             }
-            Toggle("Notify me when it's done", isOn: Binding(
-                get: { settings.notifyOnTranscriptionComplete },
-                set: { settings.notifyOnTranscriptionComplete = $0; settings.showNotifications = $0 }))
-        } header: {
-            Text("When it's done")
-        }
-
-        Section("About MindExtract") {
-            LabeledContent("Version") {
-                HStack {
-                    Text(appVersion).foregroundStyle(.secondary)
-                    Button("Check for Updates…") {
-                        NotificationCenter.default.post(name: .checkForUpdates, object: nil)
-                    }
-                }
+            SettingsRow("Notify me", detail: "A notification when a transcript or a download is ready.") {
+                Toggle("", isOn: Binding(
+                    get: { settings.notifyOnTranscriptionComplete },
+                    set: { settings.notifyOnTranscriptionComplete = $0; settings.showNotifications = $0 }))
+                    .toggleStyle(MonoToggleStyle())
             }
-            LabeledContent("Your data") {
-                Button("Show in Finder") {
-                    // Recordings and models live in one folder, the notes list in another.
-                    let notesList = appDataFolder.deletingLastPathComponent().appendingPathComponent("MindExtract")
-                    NSWorkspace.shared.activateFileViewerSelecting([appDataFolder, notesList])
-                }
-            }
-            DisclosureGroup("Acknowledgements") {
-                acknowledgementRow("Klang Pianissimo (Klang AI AB)", "CC BY 4.0", "https://huggingface.co/KlangAI/pianissimo-sv")
-                acknowledgementRow("FluidAudio", "Apache 2.0", "https://github.com/FluidInference/FluidAudio")
-                acknowledgementRow("WhisperKit & SpeakerKit (Argmax)", "MIT", "https://github.com/argmaxinc/argmax-oss-swift")
-                acknowledgementRow("yt-dlp", "Unlicense", "https://github.com/yt-dlp/yt-dlp")
-                acknowledgementRow("FFmpeg", "LGPL 2.1+", "https://ffmpeg.org/legal.html")
-                acknowledgementRow("Sparkle", "MIT", "https://github.com/sparkle-project/Sparkle")
-            }
-            Text("Download and transcribe only content you have the right to use.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-
-        Section {
-            LabeledContent("Reset all settings") {
-                Button("Reset…", role: .destructive) { showResetConfirmation = true }
-            }
-        } footer: {
-            Text("Transcripts and downloads are kept.")
         }
     }
 
-    private var appVersion: String {
-        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-        return "\(short) (\(build))"
-    }
+    // MARK: Transcription
 
-    private func acknowledgementRow(_ name: String, _ license: String, _ url: String) -> some View {
-        LabeledContent {
-            Link(license, destination: URL(string: url)!)
-        } label: {
-            Text(verbatim: name)
-        }
-    }
-
-    // MARK: - Transcription
-
-    @ViewBuilder
-    private var transcriptionPane: some View {
+    @ViewBuilder private var transcriptionTab: some View {
         if !transcriptionManager.isFfmpegAvailable {
-            Section {
-                warningRow("Audio tools are missing, so transcription is unavailable. Reinstall MindExtract to fix it.")
+            WarningCard(text: "Audio tools are missing, so transcription is unavailable. Reinstall MindExtract to fix it.")
+        }
+
+        SettingsSection("Language and speakers",
+                        footer: "Automatic detects the language of each video. You can pick another one in the notch before transcribing.") {
+            SettingsRow("Spoken language") {
+                MonoMenu(selection: $settings.defaultTranscriptionLanguage,
+                         options: AppSettings.transcriptionLanguages.map { ($0.code, $0.name) })
+            }
+            SettingsRow("Tell speakers apart", detail: "Marks who said what when there's more than one voice.") {
+                Toggle("", isOn: $settings.enableSpeakerDiarization).toggleStyle(MonoToggleStyle())
             }
         }
 
-        Section {
-            Picker("Spoken language", selection: $settings.defaultTranscriptionLanguage) {
-                ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
-                    Text(verbatim: lang.name).tag(lang.code)
+        SettingsSection("Engine", footer: "Everything here runs on your Mac. Nothing is uploaded.") {
+            SettingsRow("Swedish", detail: "Pianissimo is the best at Swedish and is always used when it's downloaded.") {
+                if transcriptionManager.isModelDownloaded(.pianissimo) {
+                    ValueLabel(text: "Pianissimo")
+                } else {
+                    ModelAction(model: .pianissimo)
                 }
             }
-            Toggle(isOn: $settings.enableSpeakerDiarization) {
-                Text("Tell speakers apart")
-                Text("Marks who said what when there's more than one voice.")
+            SettingsRow("Other languages",
+                        detail: settings.transcriptionEngine == .whisperKit
+                            ? "Whisper: downloadable models that handle the most languages."
+                            : "Apple: built into macOS, no download. Whisper takes over for languages Apple can't do.") {
+                MonoMenu(selection: Binding(
+                    get: { settings.transcriptionEngine == .whisperKit ? TranscriptionEngineChoice.whisperKit : .appleSpeech },
+                    set: { settings.transcriptionEngine = $0 }),
+                         options: [(.appleSpeech, String(localized: "Apple speech recognition")), (.whisperKit, "Whisper")])
             }
-        } header: {
-            Text("Transcripts")
-        } footer: {
-            Text("Automatic detects the language of each video. You can always transcribe again in another language.")
+            SettingsRow("Whisper model", detail: "Bigger is more accurate but slower.") {
+                MonoMenu(selection: $settings.defaultWhisperModel,
+                         options: WhisperModel.allCases.filter { !$0.isSwedishOnly }.map { ($0, $0.displayName) })
+            }
         }
 
-        Section {
-            LabeledContent {
-                Text(verbatim: transcriptionManager.isModelDownloaded(.pianissimo) ? "Pianissimo" : String(localized: "Not downloaded"))
-            } label: {
-                Text("Swedish")
-                Text("Always Pianissimo when it's downloaded — the best at Swedish.")
-            }
-            Picker(selection: Binding(
-                get: { settings.transcriptionEngine == .whisperKit ? TranscriptionEngineChoice.whisperKit : .appleSpeech },
-                set: { settings.transcriptionEngine = $0 })) {
-                Text("Apple speech recognition").tag(TranscriptionEngineChoice.appleSpeech)
-                Text("Whisper").tag(TranscriptionEngineChoice.whisperKit)
-            } label: {
-                Text("Other languages")
-                Text(settings.transcriptionEngine == .whisperKit
-                     ? "Whisper: downloadable models, handles the most languages."
-                     : "Apple: built into macOS, no download. Falls back to Whisper for languages Apple can't do.")
-            }
-            Picker(selection: $settings.defaultWhisperModel) {
-                ForEach(WhisperModel.allCases.filter { !$0.isSwedishOnly }) { model in
-                    Text(model.displayName).tag(model)
-                }
-            } label: {
-                Text("Whisper model")
-                Text("Used for other languages when Whisper is chosen.")
-            }
-        } header: {
-            Text("Which engine is used")
-        } footer: {
-            Text("Everything here runs on your Mac.")
-        }
-
-        Section {
-            ForEach(WhisperModel.allCases.filter { $0.isSwedishOnly }) { model in
-                ModelRow(model: model)
-            }
-            ModelRow(model: .small)
-            DisclosureGroup("More models") {
-                ForEach(WhisperModel.allCases.filter { !$0.isSwedishOnly && $0 != .small }) { model in
-                    ModelRow(model: model)
-                }
+        SettingsSection("Speech models",
+                        footer: "Downloaded once, then they work offline. Pianissimo by Klang AI AB, CC BY 4.0.") {
+            ForEach(WhisperModel.allCases.filter { $0.isSwedishOnly }) { SpeechModelRow(model: $0) }
+            SpeechModelRow(model: .small)
+            DisclosureRow(title: "More Whisper models", isOpen: $showMoreModels)
+            if showMoreModels {
+                ForEach(WhisperModel.allCases.filter { !$0.isSwedishOnly && $0 != .small }) { SpeechModelRow(model: $0) }
             }
             if let legacy = transcriptionManager.legacyKBModelsSize() {
-                LabeledContent {
-                    Button("Remove", role: .destructive) { confirmRemoveLegacyKB = true }
-                } label: {
-                    Text("Old KB-Whisper models")
-                    Text("No longer used. \(transcriptionManager.formatBytes(legacy)) on disk.")
+                SettingsRow("Old KB-Whisper models", detail: "No longer used. \(transcriptionManager.formatBytes(legacy)) on disk.") {
+                    SmallButton("Remove") { confirmRemoveLegacyKB = true }
                 }
                 .confirmationDialog("Remove the old KB-Whisper models?", isPresented: $confirmRemoveLegacyKB) {
                     Button("Remove \(transcriptionManager.formatBytes(legacy))", role: .destructive) {
@@ -369,133 +201,169 @@ struct SettingsView: View {
                     Text("They aren't used anymore. Your transcripts aren't affected.")
                 }
             }
-            LabeledContent("Space used", value: transcriptionManager.formatBytes(transcriptionManager.totalStorageUsed()))
-        } header: {
-            Text("Speech models")
-        } footer: {
-            Text("Downloaded once, then they work offline. Pianissimo by Klang AI AB, CC BY 4.0.")
+            SettingsRow("Space used") {
+                ValueLabel(text: transcriptionManager.formatBytes(transcriptionManager.totalStorageUsed()))
+            }
         }
 
-        Section {
+        SettingsSection("Names and terms",
+                        footer: "People, places, companies and jargon to spell correctly — one per line. Only Whisper reads this list.") {
             TextEditor(text: $settings.customVocabulary)
-                .font(.body.monospaced())
-                .frame(minHeight: 80)
+                .font(.system(size: 13, design: .monospaced))
+                .scrollContentBackground(.hidden)
+                .padding(10)
+                .frame(minHeight: 90)
+                .background(RoundedRectangle(cornerRadius: NotchStyle.radius, style: .continuous).fill(NotchStyle.field))
+                .padding(12)
                 .accessibilityLabel("Names and terms")
-        } header: {
-            Text("Names and terms")
-        } footer: {
-            Text("People, places, companies and jargon to spell correctly — one per line. Only the Whisper models read this list; Pianissimo and Apple don't.")
         }
     }
 
-    // MARK: - Import
+    // MARK: Downloads
 
-    @ViewBuilder
-    private var importPane: some View {
-        Section {
-            LabeledContent("Save to") {
-                HStack {
-                    Text(verbatim: (settings.downloadPath as NSString).abbreviatingWithTildeInPath)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button("Change…") { selectDownloadFolder() }
+    @ViewBuilder private var downloadsTab: some View {
+        SettingsSection("Saving", footer: "Transcripts of links are saved in the same folder; a file's transcript is saved next to the file.") {
+            SettingsRow("Save to") {
+                HStack(spacing: 8) {
+                    ValueLabel(text: (settings.downloadPath as NSString).abbreviatingWithTildeInPath)
+                    SmallButton("Change…") { selectDownloadFolder() }
                 }
             }
-            Picker("Video quality", selection: $settings.downloadQuality) {
-                ForEach(DownloadQuality.allCases) { q in
-                    Text(q.displayName).tag(q)
-                }
+            SettingsRow("Video quality", detail: "Choose video or audio only in the notch.") {
+                MonoMenu(selection: $settings.downloadQuality,
+                         options: DownloadQuality.allCases.filter { $0 != .audioOnly }.map { ($0, $0.displayName) })
             }
-            Toggle("Save subtitles when available", isOn: $settings.downloadSubtitles)
+            SettingsRow("Save subtitles when available") {
+                Toggle("", isOn: $settings.downloadSubtitles).toggleStyle(MonoToggleStyle())
+            }
             if settings.downloadSubtitles {
-                Picker("Subtitle language", selection: $settings.subtitleLanguage) {
-                    ForEach(AppSettings.transcriptionLanguages, id: \.code) { lang in
-                        Text(verbatim: lang.name).tag(lang.code)
+                SettingsRow("Subtitle language") {
+                    MonoMenu(selection: $settings.subtitleLanguage,
+                             options: AppSettings.transcriptionLanguages.map { ($0.code, $0.name) })
+                }
+            }
+        }
+
+        SettingsSection("YouTube",
+                        footer: "Most videos download without signing in. Sign in only if YouTube blocks one — age-restricted or members-only videos, for example.") {
+            youtubeRows
+            DisclosureRow(title: "Other ways to sign in", isOpen: $showAdvancedSignIn)
+            if showAdvancedSignIn {
+                SettingsRow("Use a browser's sign-in", detail: "Borrows the sign-in from a browser on this Mac.") {
+                    MonoMenu(selection: $settings.cookieBrowser,
+                             options: CookieBrowser.allCases.map { ($0, $0.displayName) })
+                }
+                SettingsRow("Cookies file", detail: settings.cookiesFilePath.isEmpty
+                                ? "A cookies.txt exported from your browser."
+                                : LocalizedStringKey(URL(fileURLWithPath: settings.cookiesFilePath).lastPathComponent)) {
+                    HStack(spacing: 8) {
+                        if !settings.cookiesFilePath.isEmpty { SmallButton("Remove") { settings.cookiesFilePath = "" } }
+                        SmallButton(settings.cookiesFilePath.isEmpty ? "Choose…" : "Change…") { selectCookiesFile() }
                     }
                 }
             }
-        } header: {
-            Text("Links and videos")
-        }
-
-        Section {
-            youtubeAuthContent
-        } header: {
-            Text("YouTube")
-        } footer: {
-            Text("Most videos download without signing in. Sign in only if YouTube blocks a download, for example age-restricted or members-only videos.")
         }
     }
 
-    @ViewBuilder
-    private var youtubeAuthContent: some View {
+    @ViewBuilder private var youtubeRows: some View {
         switch downloader.youtubeSignInState {
         case .idle, .signedIn:
             if settings.youtubeSignedIn || downloader.youtubeSignInState == .signedIn {
-                LabeledContent("Signed in") {
-                    Button("Sign Out…") { showYouTubeSignOutConfirm = true }
-                }
+                SettingsRow("Signed in") { SmallButton("Sign Out…") { showYouTubeSignOutConfirm = true } }
             } else {
-                LabeledContent("Not signed in") {
-                    Button("Sign In…") { downloader.startYouTubeSignIn() }
-                }
+                SettingsRow("Not signed in") { SmallButton("Sign In…") { downloader.startYouTubeSignIn() } }
             }
         case .signingIn:
-            LabeledContent("Waiting for sign-in…") {
-                Button("Cancel") { downloader.cancelSignIn() }
+            SettingsRow("Waiting for sign-in…", detail: "Finish signing in in your browser.") {
+                SmallButton("Cancel") { downloader.cancelSignIn() }
             }
             if !downloader.youtubeDeviceCode.isEmpty {
-                LabeledContent("Code to enter") {
-                    HStack {
+                SettingsRow("Code to enter") {
+                    HStack(spacing: 8) {
                         Text(verbatim: downloader.youtubeDeviceCode)
-                            .font(.body.monospaced().weight(.bold))
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
                             .textSelection(.enabled)
-                        Button("Copy") {
+                        SmallButton("Copy") {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(downloader.youtubeDeviceCode, forType: .string)
                         }
                     }
                 }
                 if let url = URL(string: downloader.youtubeVerificationURL), !downloader.youtubeVerificationURL.isEmpty {
-                    Link("Open the sign-in page again", destination: url)
+                    SettingsRow("Sign-in page") { SmallButton("Open Again") { NSWorkspace.shared.open(url) } }
                 }
             }
         case .error(let message):
-            warningRow(LocalizedStringKey(message))
-            Button("Try Again") { downloader.startYouTubeSignIn() }
-        }
-        DisclosureGroup("Advanced") {
-            LabeledContent("Cookies file") {
-                HStack {
-                    if !settings.cookiesFilePath.isEmpty {
-                        Text(verbatim: URL(fileURLWithPath: settings.cookiesFilePath).lastPathComponent)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        Button("Remove") { settings.cookiesFilePath = "" }
-                    }
-                    Button(settings.cookiesFilePath.isEmpty ? "Choose…" : "Change…") { selectCookiesFile() }
-                }
-            }
-            Picker("Use a browser's sign-in", selection: $settings.cookieBrowser) {
-                ForEach(CookieBrowser.allCases, id: \.self) { browser in
-                    Text(browser.displayName).tag(browser)
-                }
-            }
+            SettingsRow(LocalizedStringKey(message)) { SmallButton("Try Again") { downloader.startYouTubeSignIn() } }
         }
     }
 
-    // MARK: - Actions
+    // MARK: About
 
-    private var appDataFolder: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.mindact.mindextract")
+    @ViewBuilder private var aboutTab: some View {
+        SettingsSection(nil) {
+            HStack(spacing: 14) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 52, height: 52)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verbatim: "MindExtract").font(.system(size: 15, weight: .semibold))
+                    Text("Version \(appVersion)").font(NotchStyle.small).foregroundStyle(NotchStyle.secondary)
+                }
+                Spacer()
+                SmallButton("Check for Updates…") { NotificationCenter.default.post(name: .checkForUpdates, object: nil) }
+            }
+            .padding(16)
+        }
+
+        SettingsSection("Your data", footer: "Download and transcribe only content you have the right to use.") {
+            SettingsRow("Speech models and history", detail: "Stored on this Mac only.") {
+                SmallButton("Show in Finder") {
+                    let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                    NSWorkspace.shared.activateFileViewerSelecting([
+                        support.appendingPathComponent("com.mindact.mindextract"),
+                        support.appendingPathComponent("MindExtract")])
+                }
+            }
+            SettingsRow("Reset all settings", detail: "Transcripts and downloads are kept.") {
+                SmallButton("Reset…") { showResetConfirmation = true }
+            }
+        }
+
+        SettingsSection("Acknowledgements") {
+            DisclosureRow(title: "Open-source software MindExtract builds on", isOpen: $showAcknowledgements)
+            if showAcknowledgements {
+                acknowledgement("Klang Pianissimo (Klang AI AB)", "CC BY 4.0", "https://huggingface.co/KlangAI/pianissimo-sv")
+                acknowledgement("FluidAudio", "Apache 2.0", "https://github.com/FluidInference/FluidAudio")
+                acknowledgement("WhisperKit & SpeakerKit (Argmax)", "MIT", "https://github.com/argmaxinc/argmax-oss-swift")
+                acknowledgement("yt-dlp", "Unlicense", "https://github.com/yt-dlp/yt-dlp")
+                acknowledgement("FFmpeg", "LGPL 2.1+", "https://ffmpeg.org/legal.html")
+                acknowledgement("Sparkle", "MIT", "https://github.com/sparkle-project/Sparkle")
+            }
+        }
     }
 
-    private func resetSettingsToDefaults() {
-        settings.resetToDefaults()
-        category = .overview
+    private func acknowledgement(_ name: String, _ license: String, _ url: String) -> some View {
+        SettingsRow(LocalizedStringKey(name)) {
+            Link(destination: URL(string: url)!) {
+                HStack(spacing: 4) {
+                    Text(verbatim: license)
+                    Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold))
+                }
+                .font(NotchStyle.small)
+                .foregroundStyle(NotchStyle.secondary)
+            }
+        }
     }
+
+    private var appVersion: String {
+        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        return "\(short) (\(build))"
+    }
+
+    // MARK: Actions
 
     private func selectCookiesFile() {
         let panel = NSOpenPanel()
@@ -504,9 +372,7 @@ struct SettingsView: View {
         panel.allowsMultipleSelection = false
         panel.allowedContentTypes = [.plainText, .data]
         panel.title = String(localized: "Choose a cookies file")
-        if panel.runModal() == .OK, let url = panel.url {
-            settings.cookiesFilePath = url.path
-        }
+        if panel.runModal() == .OK, let url = panel.url { settings.cookiesFilePath = url.path }
     }
 
     private func selectDownloadFolder() {
@@ -516,65 +382,292 @@ struct SettingsView: View {
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
         panel.prompt = String(localized: "Choose")
-        if panel.runModal() == .OK, let url = panel.url {
-            settings.downloadPath = url.path
-        }
+        if panel.runModal() == .OK, let url = panel.url { settings.downloadPath = url.path }
     }
 }
 
-// MARK: - Speech model row
+// MARK: - Building blocks (same tokens as the notch)
 
-struct ModelRow: View {
-    let model: WhisperModel
-    @ObservedObject var transcriptionManager = TranscriptionManager.shared
-
-    private var isDownloaded: Bool { transcriptionManager.isModelDownloaded(model) }
-    private var isDownloading: Bool { transcriptionManager.downloadingModel == model }
-    private var isPrewarming: Bool { transcriptionManager.prewarmingModel == model }
+struct TabChip: View {
+    let title: LocalizedStringKey
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
-        LabeledContent {
-            HStack(spacing: 10) {
-                Text(model.sizeDescription)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                if isDownloading {
-                    ProgressView(value: transcriptionManager.modelDownloadProgress)
-                        .frame(width: 70)
-                    Button("Cancel") { transcriptionManager.cancelModelDownload() }
-                } else if isDownloaded {
-                    if isPrewarming {
-                        ProgressView().controlSize(.small).help("Preparing the model for your Mac…")
-                    } else {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                            .accessibilityLabel("Downloaded")
-                    }
-                    Button(role: .destructive) { transcriptionManager.deleteModel(model) } label: {
-                        Image(systemName: "trash")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Delete model")
-                    .accessibilityLabel("Delete model")
-                } else {
-                    Button("Download") { transcriptionManager.downloadModel(model) }
-                        .disabled(transcriptionManager.downloadingModel != nil)
-                }
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                .foregroundStyle(selected ? NotchStyle.text : (hovering ? NotchStyle.text : NotchStyle.secondary))
+                .padding(.horizontal, 12)
+                .frame(height: 30)
+                .background(RoundedRectangle(cornerRadius: NotchStyle.radiusSmall, style: .continuous)
+                    .fill(selected ? Color.white.opacity(0.14) : (hovering ? Color.white.opacity(0.06) : .clear)))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+struct SettingsSection<Content: View>: View {
+    let title: LocalizedStringKey?
+    let footer: LocalizedStringKey?
+    @ViewBuilder let content: () -> Content
+
+    init(_ title: LocalizedStringKey?, footer: LocalizedStringKey? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.footer = footer
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let title {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(NotchStyle.tertiary)
+                    .padding(.leading, 4)
             }
-        } label: {
-            Text(model.displayName)
-            if let failure = transcriptionManager.modelDownloadError, failure.model == model, !isDownloading, !isDownloaded {
-                Text(verbatim: failure.message).foregroundStyle(.orange)
-            } else if isDownloaded && isPrewarming {
-                Text("Preparing the model for your Mac — a few minutes the first time.")
-            } else {
-                Text(model.description)
+            VStack(spacing: 0) {
+                content()
+            }
+            .padding(.top, -1)   // hides the first row's divider
+            .clipShape(RoundedRectangle(cornerRadius: NotchStyle.radiusLarge, style: .continuous))
+            .background(RoundedRectangle(cornerRadius: NotchStyle.radiusLarge, style: .continuous).fill(Color.white.opacity(0.05)))
+            .overlay(RoundedRectangle(cornerRadius: NotchStyle.radiusLarge, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
+            if let footer {
+                Text(footer)
+                    .font(NotchStyle.small)
+                    .foregroundStyle(NotchStyle.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
             }
         }
     }
 }
 
-#Preview {
-    SettingsView(downloader: YTDLPWrapper())
+struct SettingsRow<Control: View>: View {
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey?
+    @ViewBuilder let control: () -> Control
+
+    init(_ title: LocalizedStringKey, detail: LocalizedStringKey? = nil, @ViewBuilder control: @escaping () -> Control) {
+        self.title = title
+        self.detail = detail
+        self.control = control
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.system(size: 13, weight: .medium))
+                if let detail {
+                    Text(detail)
+                        .font(NotchStyle.small)
+                        .foregroundStyle(NotchStyle.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 12)
+            control()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1).padding(.leading, 16)
+        }
+    }
+}
+
+/// Opens or closes a group of rows inside a card.
+struct DisclosureRow: View {
+    let title: LocalizedStringKey
+    @Binding var isOpen: Bool
+
+    var body: some View {
+        Button { withAnimation(NotchStyle.snappy) { isOpen.toggle() } } label: {
+            HStack {
+                Text(title).font(.system(size: 13, weight: .medium)).foregroundStyle(NotchStyle.secondary)
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(NotchStyle.tertiary)
+                    .rotationEffect(.degrees(isOpen ? 180 : 0))
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 40)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1).padding(.leading, 16)
+        }
+    }
+}
+
+struct WarningCard: View {
+    let text: LocalizedStringKey
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 13, weight: .semibold))
+            Text(text).font(NotchStyle.small).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NotchStyle.radius, style: .continuous).fill(Color.white.opacity(0.08)))
+    }
+}
+
+struct ValueLabel: View {
+    let text: String
+
+    var body: some View {
+        Text(verbatim: text)
+            .font(NotchStyle.small)
+            .foregroundStyle(NotchStyle.secondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+    }
+}
+
+/// A 28 pt secondary button.
+struct SmallButton: View {
+    let title: LocalizedStringKey
+    let action: () -> Void
+
+    init(_ title: LocalizedStringKey, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) { Text(title) }
+            .buttonStyle(NotchButtonStyle(kind: .secondary, height: 28))
+            .font(.system(size: 12, weight: .semibold))
+    }
+}
+
+/// A choice shown as its current value; opens a menu.
+struct MonoMenu<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [(Value, String)]
+    @State private var hovering = false
+
+    var body: some View {
+        Menu {
+            Picker("", selection: $selection) {
+                ForEach(options, id: \.0) { value, name in Text(verbatim: name).tag(value) }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            Text(verbatim: options.first { $0.0 == selection }?.1 ?? "—")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(NotchStyle.text)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .padding(.leading, 10)
+        .padding(.trailing, 24)
+        .frame(height: 28)
+        .overlay(alignment: .trailing) {
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(NotchStyle.tertiary)
+                .padding(.trailing, 9)
+                .allowsHitTesting(false)
+        }
+        .background(RoundedRectangle(cornerRadius: NotchStyle.radiusSmall, style: .continuous)
+            .fill(hovering ? NotchStyle.fieldHover : NotchStyle.field))
+        .onHover { hovering = $0 }
+    }
+}
+
+/// A black-and-white switch: a white track with a black knob when on.
+struct MonoToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button { configuration.isOn.toggle() } label: {
+            ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                Capsule().fill(configuration.isOn ? Color.white : Color.white.opacity(0.16))
+                Circle()
+                    .fill(configuration.isOn ? Color.black : Color.white.opacity(0.9))
+                    .padding(2)
+            }
+            .frame(width: 36, height: 20)
+            .animation(NotchStyle.snappy, value: configuration.isOn)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement()
+        .accessibilityAddTraits(.isButton)
+        .accessibilityValue(configuration.isOn ? String(localized: "On") : String(localized: "Off"))
+    }
+}
+
+/// Download / progress / ready for one speech model.
+struct ModelAction: View {
+    let model: WhisperModel
+    @ObservedObject private var tm = TranscriptionManager.shared
+
+    var body: some View {
+        if tm.downloadingModel == model {
+            HStack(spacing: 8) {
+                ProgressRing(progress: tm.modelDownloadProgress > 0 ? tm.modelDownloadProgress : nil).frame(width: 14, height: 14)
+                if tm.modelDownloadProgress > 0 {
+                    Text(tm.modelDownloadProgress, format: .percent.precision(.fractionLength(0)))
+                        .font(NotchStyle.small).monospacedDigit().foregroundStyle(NotchStyle.secondary)
+                }
+                SmallButton("Cancel") { tm.cancelModelDownload() }
+            }
+        } else if tm.isModelDownloaded(model) {
+            HStack(spacing: 8) {
+                if tm.prewarmingModel == model {
+                    ProgressRing(progress: nil).frame(width: 14, height: 14)
+                } else {
+                    Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).accessibilityLabel("Downloaded")
+                }
+                Button { tm.deleteModel(model) } label: {
+                    Image(systemName: "trash").font(.system(size: 12, weight: .semibold)).foregroundStyle(NotchStyle.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Delete model")
+                .accessibilityLabel("Delete model")
+            }
+        } else {
+            SmallButton("Download") { tm.downloadModel(model) }
+                .disabled(tm.downloadingModel != nil)
+        }
+    }
+}
+
+struct SpeechModelRow: View {
+    let model: WhisperModel
+    @ObservedObject private var tm = TranscriptionManager.shared
+
+    var body: some View {
+        SettingsRow(LocalizedStringKey(model.displayName), detail: detail) {
+            HStack(spacing: 10) {
+                Text(verbatim: model.sizeDescription)
+                    .font(NotchStyle.small)
+                    .monospacedDigit()
+                    .foregroundStyle(NotchStyle.tertiary)
+                ModelAction(model: model)
+            }
+        }
+    }
+
+    private var detail: LocalizedStringKey {
+        if let failure = tm.modelDownloadError, failure.model == model, tm.downloadingModel != model, !tm.isModelDownloaded(model) {
+            return LocalizedStringKey(failure.message)
+        }
+        if tm.isModelDownloaded(model), tm.prewarmingModel == model {
+            return "Preparing the model for your Mac — a few minutes the first time."
+        }
+        return LocalizedStringKey(model.description)
+    }
 }
 
 // MARK: - Shortcut recorder
@@ -585,19 +678,21 @@ struct HotKeyRecorder: View {
     @State private var monitor: Any?
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Button {
                 recording ? stop() : start()
             } label: {
                 Text(recording ? String(localized: "Press the shortcut…") : (hotKey.combo?.display ?? String(localized: "Off")))
                     .monospacedDigit()
-                    .frame(minWidth: 120)
+                    .frame(minWidth: 96)
             }
+            .buttonStyle(NotchButtonStyle(kind: recording ? .done : .secondary, height: 28))
+            .font(.system(size: 12, weight: .semibold))
             if !recording, hotKey.combo != .standard {
-                Button("Reset") { hotKey.set(.standard) }
+                SmallButton("Reset") { hotKey.set(.standard) }
             }
             if !recording, hotKey.combo != nil {
-                Button("Turn Off") { hotKey.set(nil) }
+                SmallButton("Turn Off") { hotKey.set(nil) }
             }
         }
         .onDisappear(perform: stop)

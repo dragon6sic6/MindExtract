@@ -22,7 +22,10 @@ struct NotchGeometry: Equatable {
     var hasNotch: Bool
 
     static func current() -> NotchGeometry {
-        let screen = NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens[0]
+        let menuBarScreen = NSScreen.screens.first ?? NSScreen.main!
+        let screen = UserDefaults.standard.string(forKey: "notchScreen") == "main"
+            ? menuBarScreen
+            : (NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? menuBarScreen)
         let top = screen.safeAreaInsets.top
         if top > 0, let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
             let width = screen.frame.width - left.width - right.width
@@ -143,7 +146,7 @@ final class NotchController {
         GlobalHotKey.shared.install()
     }
 
-    private func place() {
+    func place() {
         model.geometry = NotchGeometry.current()
         guard let panel else { return }
         let size = Self.panelSize

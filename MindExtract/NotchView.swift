@@ -663,34 +663,12 @@ struct TranscribedActions: View {
     @EnvironmentObject var model: NotchModel
     let item: NotchModel.Item
     let path: String
-    @State private var preview: String?
     @State private var words = 0
     @State private var refresh = 0   // re-reads whether our copy is still on the clipboard
 
     var body: some View {
         let copied = { _ = refresh; return model.isOnClipboard(path) }()
-        let assistant = Assistant.preferred
         VStack(alignment: .leading, spacing: 10) {
-            if let preview {
-                Text(verbatim: preview)
-                    .font(NotchStyle.small)
-                    .foregroundStyle(NotchStyle.secondary)
-                    .lineLimit(3)
-                    .lineSpacing(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .mask(LinearGradient(stops: [.init(color: .black, location: 0.6), .init(color: .clear, location: 1)],
-                                         startPoint: .top, endPoint: .bottom))
-                    .padding(12)
-                    .background(RoundedRectangle(cornerRadius: NotchStyle.radius, style: .continuous).fill(NotchStyle.field))
-                    .overlay(alignment: .bottomTrailing) {
-                        if words > 0 {
-                            Text("≈ \(words) words")
-                                .font(NotchStyle.small)
-                                .foregroundStyle(NotchStyle.tertiary)
-                                .padding(8)
-                        }
-                    }
-            }
             HStack(spacing: 8) {
                 Button {
                     model.copyTranscript(path: path, item: item)
@@ -701,20 +679,9 @@ struct TranscribedActions: View {
                 }
                 .buttonStyle(NotchButtonStyle(kind: copied ? .done : .primary, expand: true, height: NotchStyle.mainHeight))
                 .keyboardShortcut("c", modifiers: .command)
-                if assistant != .none {
-                    Button {
-                        if !copied { model.copyTranscript(path: path, item: item) }
-                        assistant.open()
-                        NotchController.shared.closeAfterHandOff()
-                    } label: {
-                        Text("Open \(assistant.name)")
-                    }
-                    .buttonStyle(NotchButtonStyle(kind: .secondary, height: NotchStyle.mainHeight))
-                    .help("Copies the transcript and opens \(assistant.name) — paste with ⌘V")
-                }
                 Menu {
-                    Button("Copy with Timestamps") {
-                        model.copyTranscript(path: path, item: item, timestamps: true)
+                    Button(AppSettings.shared.copyWithTimestamps ? "Copy without Timestamps" : "Copy with Timestamps") {
+                        model.copyTranscript(path: path, item: item, timestamps: !AppSettings.shared.copyWithTimestamps)
                         refresh += 1
                     }
                     Divider()
@@ -738,30 +705,28 @@ struct TranscribedActions: View {
                 .modifier(SquareBackground(size: NotchStyle.mainHeight, filled: true))
             }
             HStack(alignment: .center, spacing: 8) {
-                if copied {
-                    Text(model.autoCopiedPath == path ? "Copied automatically — paste with ⌘V in Claude, ChatGPT or anywhere."
-                                                      : "Paste with ⌘V in Claude, ChatGPT or anywhere.")
-                        .font(NotchStyle.small)
-                        .foregroundStyle(NotchStyle.tertiary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .transition(.opacity)
+                Group {
+                    if copied {
+                        Text(model.autoCopiedPath == path ? "Copied automatically — paste with ⌘V anywhere."
+                                                          : "Paste with ⌘V anywhere.")
+                    } else if words > 0 {
+                        Text("≈ \(words) words")
+                    }
                 }
+                .font(NotchStyle.small)
+                .foregroundStyle(NotchStyle.tertiary)
+                .lineLimit(1)
+                .transition(.opacity)
                 Spacer(minLength: 8)
                 ChipButton(icon: "plus", title: String(localized: "New Link")) { model.clear() }
             }
         }
         .animation(NotchStyle.snappy, value: copied)
-        .onAppear(perform: load)
-        .onChange(of: path) { _, _ in load() }
+        .onAppear(perform: countWords)
+        .onChange(of: path) { _, _ in countWords() }
     }
 
-    private func load() {
-        guard let raw = try? String(contentsOfFile: path, encoding: .utf8) else { preview = nil; return }
-        let text = TranscriptCopy.plain(raw)
-        preview = text.isEmpty ? nil : String(text.prefix(600))
-        words = text.split(whereSeparator: { $0.isWhitespace }).count
-    }
+    private func countWords() { words = NotchModel.wordCount(ofTranscriptAt: path) }
 }
 
 struct DownloadedActions: View {
@@ -989,7 +954,10 @@ struct RecentRow: View {
             Button("Open") { model.openRecent(entry) }
             if entry.kind == .transcript, let path = entry.path {
                 Button("Copy Transcript") { model.copyTranscript(path: path, item: entry.item); refresh += 1 }
-                Button("Copy with Timestamps") { model.copyTranscript(path: path, item: entry.item, timestamps: true); refresh += 1 }
+                Button(AppSettings.shared.copyWithTimestamps ? "Copy without Timestamps" : "Copy with Timestamps") {
+                    model.copyTranscript(path: path, item: entry.item, timestamps: !AppSettings.shared.copyWithTimestamps)
+                    refresh += 1
+                }
             }
             if let path = entry.path {
                 Divider()

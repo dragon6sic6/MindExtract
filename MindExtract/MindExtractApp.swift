@@ -58,10 +58,16 @@ struct MindExtractApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Everything happens in the notch; this is only here for ⌘, when a
-        // MindExtract window is in front.
+        // Everything happens in the notch. Settings is its own black window;
+        // ⌘, opens that one rather than a system settings window.
         Settings {
-            SettingsView(downloader: .shared)
+            EmptyView()
+        }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { SettingsWindow.show() }
+                    .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 }

@@ -9697,6 +9697,396 @@
           }
         }
       }
+    },
+    "A cookies.txt exported from your browser.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En cookies.txt som du har exporterat från webbläsaren."
+          }
+        }
+      }
+    },
+    "A notification when a transcript or a download is ready.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En notis när ett transkript eller en nedladdning är klar."
+          }
+        }
+      }
+    },
+    "About": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Om"
+          }
+        }
+      }
+    },
+    "Apple: built into macOS, no download. Whisper takes over for languages Apple can't do.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple: inbyggd i macOS, ingen nedladdning. Whisper tar över för språk som Apple inte klarar."
+          }
+        }
+      }
+    },
+    "Automatic detects the language of each video. You can pick another one in the notch before transcribing.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatiskt känner av språket i varje video. Du kan välja ett annat i notchen innan du transkriberar."
+          }
+        }
+      }
+    },
+    "Bigger is more accurate but slower.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Större är noggrannare men långsammare."
+          }
+        }
+      }
+    },
+    "Borrows the sign-in from a browser on this Mac.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lånar inloggningen från en webbläsare på den här Macen."
+          }
+        }
+      }
+    },
+    "Choose video or audio only in the notch.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video eller bara ljud väljer du i notchen."
+          }
+        }
+      }
+    },
+    "Copied automatically — paste with ⌘V anywhere.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopierat automatiskt – klistra in med ⌘V var du vill."
+          }
+        }
+      }
+    },
+    "Copy the transcript automatically": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera transkriptet automatiskt"
+          }
+        }
+      }
+    },
+    "Copy without Timestamps": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera utan tidsstämplar"
+          }
+        }
+      }
+    },
+    "Everything here runs on your Mac. Nothing is uploaded.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allt här körs på din Mac. Inget laddas upp."
+          }
+        }
+      }
+    },
+    "Finish signing in in your browser.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slutför inloggningen i webbläsaren."
+          }
+        }
+      }
+    },
+    "Include timestamps": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ta med tidsstämplar"
+          }
+        }
+      }
+    },
+    "Language and speakers": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Språk och talare"
+          }
+        }
+      }
+    },
+    "More Whisper models": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fler Whisper-modeller"
+          }
+        }
+      }
+    },
+    "Most videos download without signing in. Sign in only if YouTube blocks one — age-restricted or members-only videos, for example.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De flesta videor går att hämta utan inloggning. Logga bara in om YouTube stoppar en, till exempel åldersbegränsade videor eller videor för medlemmar."
+          }
+        }
+      }
+    },
+    "Notify me": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meddela mig"
+          }
+        }
+      }
+    },
+    "On": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "På"
+          }
+        }
+      }
+    },
+    "Open Again": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna igen"
+          }
+        }
+      }
+    },
+    "Open at login": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna vid inloggning"
+          }
+        }
+      }
+    },
+    "Open-source software MindExtract builds on": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppen källkod som MindExtract bygger på"
+          }
+        }
+      }
+    },
+    "Other ways to sign in": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Andra sätt att logga in"
+          }
+        }
+      }
+    },
+    "Paste with ⌘V anywhere.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klistra in med ⌘V var du vill."
+          }
+        }
+      }
+    },
+    "People, places, companies and jargon to spell correctly — one per line. Only Whisper reads this list.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personer, platser, företag och fackord som ska stavas rätt – ett per rad. Bara Whisper läser listan."
+          }
+        }
+      }
+    },
+    "Pianissimo is the best at Swedish and is always used when it's downloaded.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pianissimo är bäst på svenska och används alltid när den är nedladdad."
+          }
+        }
+      }
+    },
+    "Puts [12:04] before each passage. Without them it reads like an article.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sätter [12:04] före varje stycke. Utan dem läses det som en artikel."
+          }
+        }
+      }
+    },
+    "Saving": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spara"
+          }
+        }
+      }
+    },
+    "Show on": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa på"
+          }
+        }
+      }
+    },
+    "Sign-in page": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inloggningssidan"
+          }
+        }
+      }
+    },
+    "Speech models and history": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talmodeller och historik"
+          }
+        }
+      }
+    },
+    "Stored on this Mac only.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sparas bara på den här Macen."
+          }
+        }
+      }
+    },
+    "The main screen": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Huvudskärmen"
+          }
+        }
+      }
+    },
+    "The screen with the notch": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skärmen med notchen"
+          }
+        }
+      }
+    },
+    "Transcripts of links are saved in the same folder; a file's transcript is saved next to the file.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transkript av länkar sparas i samma mapp. Transkriptet av en fil sparas bredvid filen."
+          }
+        }
+      }
+    },
+    "Version %@": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@"
+          }
+        }
+      }
+    },
+    "Which screen the notch lives on when you use more than one.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vilken skärm notchen ska finnas på när du har flera."
+          }
+        }
+      }
+    },
+    "Whisper: downloadable models that handle the most languages.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whisper: nedladdningsbara modeller som klarar flest språk."
+          }
+        }
+      }
+    },
+    "Without a Dock icon, this keeps the notch there after a restart.": {
+      "localizations": {
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utan Dock-ikon ser det till att notchen finns kvar efter en omstart."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

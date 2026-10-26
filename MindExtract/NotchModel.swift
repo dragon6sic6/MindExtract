@@ -296,13 +296,13 @@ final class NotchModel: ObservableObject {
     }
 
     func signInToYouTube() {
-        UserDefaults.standard.set("imports", forKey: "settingsCategory")
+        UserDefaults.standard.set("downloads", forKey: "settingsCategory")
         SettingsWindow.show()
     }
 
     // MARK: Copy
 
-    func copyTranscript(path: String, item: Item, timestamps: Bool = false) {
+    func copyTranscript(path: String, item: Item, timestamps: Bool = AppSettings.shared.copyWithTimestamps) {
         guard let raw = try? String(contentsOfFile: path, encoding: .utf8) else { return }
         let body = timestamps ? TranscriptCopy.withoutHeader(raw) : TranscriptCopy.plain(raw)
         var lines = ["# \(item.title)"]

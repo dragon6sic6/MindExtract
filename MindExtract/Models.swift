@@ -526,8 +526,10 @@ class AppSettings: ObservableObject {
     // MARK: Notch
     /// Copy a finished transcript automatically (only if the clipboard wasn't used meanwhile).
     @AppStorage("autoCopyWhenDone") var autoCopyWhenDone: Bool = true
-    /// Where "Open in…" takes you after copying: "claude", "chatgpt", "none", or "" = pick what's installed.
-    @AppStorage("preferredAssistant") var preferredAssistant: String = ""
+    /// Copy with "[00:12]" before each passage.
+    @AppStorage("copyWithTimestamps") var copyWithTimestamps: Bool = false
+    /// "notch" = the screen with the notch (or the main one), "main" = the screen with the menu bar.
+    @AppStorage("notchScreen") var notchScreen: String = "notch"
 
     // Default language a new transcription starts with (the picker pre-selects it).
     @AppStorage("defaultTranscriptionLanguage") var defaultTranscriptionLanguage: String = "auto"
@@ -551,7 +553,7 @@ class AppSettings: ObservableObject {
         "downloadPath", "cookieBrowser", "cookiesFilePath", "defaultWhisperModel", "transcriptionOutputFormat",
         "enableSpeakerDiarization", "transcriptionEngine", "translateToEnglish",
         "customVocabulary", "appAppearance", "downloadQuality", "notifyOnTranscriptionComplete",
-        "defaultTranscriptionLanguage", "autoCopyWhenDone", "preferredAssistant",
+        "defaultTranscriptionLanguage", "autoCopyWhenDone", "copyWithTimestamps", "notchScreen",
         "settingsCategory",
     ]
 
