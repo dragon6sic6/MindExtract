@@ -7,24 +7,26 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 3.0.1</title>
-      <pubDate>Mon, 26 Oct 2026 10:30:03 +0000</pubDate>
-      <sparkle:version>46</sparkle:version>
-      <sparkle:shortVersionString>3.0.1</sparkle:shortVersionString>
+      <title>Version 3.0.2</title>
+      <pubDate>Wed, 11 Nov 2026 22:31:17 +0000</pubDate>
+      <sparkle:version>47</sparkle:version>
+      <sparkle:shortVersionString>3.0.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>MindExtract 3.0.1</h2>
+<h2>MindExtract 3.0.2</h2>
 <ul>
-  <li><strong>A new introduction you do, not read.</strong> Open the notch yourself, hear a short sample become text, then paste it.</li>
-  <li><strong>Show All in Finder</strong> at the end of Recent.</li>
-  <li><strong>⌘V always lands in the notch,</strong> even with several screens and apps open.</li>
+  <li><strong>Saved videos open in QuickTime,</strong> even 4K and full size Instagram reels. MindExtract converts them on your Mac when needed.</li>
+  <li><strong>Pick the size right on the Save button,</strong> up to 8K, or keep the original file, or just the audio.</li>
+  <li><strong>TikTok transcripts use what people say,</strong> not the background song.</li>
+  <li><strong>Long videos and podcasts save and transcribe reliably,</strong> and your Mac stays awake while they do.</li>
+  <li><strong>Subtitles are built into the video,</strong> and cancelled saves leave nothing behind.</li>
+  <li>Clearer messages for live streams, private posts and sites that need you to sign in.</li>
 </ul>
-<p>Want to see the new introduction? Settings, About, Introduction, Show Again.</p>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v3.0.1/MindExtract-3.0.1-Universal.dmg"
-        sparkle:edSignature="fBZvJzE5CxssH5VC09O+szspCntpnJ+a9AzFURSQwE7qvX3DO29f/ytiOGAlEAwE6scXpr498/fF8agDqATnDw=="
-        length="116255380"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v3.0.2/MindExtract-3.0.2-Universal.dmg"
+        sparkle:edSignature="9K7cdxavUzXJKHsYLuYDx0MC56T6ooe3dVm9F/3nRs4hguDdL+197NU3R/BNgYqQxIZcmb5fXBpgbyWZ7A9GCA=="
+        length="116616434"
         type="application/octet-stream"
       />
     </item>
