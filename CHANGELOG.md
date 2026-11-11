@@ -2,6 +2,32 @@
 
 All notable changes to MindExtract. Versions follow [semantic versioning](https://semver.org). Downloads are on the [Releases](https://github.com/dragon6sic6/MindExtract/releases) page.
 
+## 3.0.2 (2026-11-11)
+
+### Added
+- Save is one split button: it saves the size it names, and its arrow lists the sizes the video comes in (up to 8K), plus Audio only. Sizes only offered in a format the Mac can't play are marked as converted after saving, and can instead be saved as the site's original file, unconverted, as an .mkv for VLC or IINA.
+- Saved videos open in QuickTime. Video in VP9 (4K and 1440p on most sites, full size Instagram reels, some Facebook videos) is converted with the Mac's own encoder after saving, with progress shown: H.264 up to 1080p, HEVC above it and for HDR, which stays 10-bit. On Macs without AV1 hardware, AV1 versions aren't chosen.
+- A copied link from a video site is looked up as the notch opens (without browser cookies), so its card lists the same sizes and starts sooner.
+- A link inside copied text (a chat message, a share sheet) is found and offered.
+- Japanese, Hindi and other languages only Apple's speech recognition covers are picked on Automatic when the site says the video is in that language.
+- Saved files carry their size in the name ("720p", "4K Original", "Audio"), so saving the same video again at another size makes a new file.
+
+### Fixed
+- TikTok transcripts and audio used the post's background song instead of what is said in the video.
+- Transcribing a dubbed video could use a dub instead of the original language.
+- Saving audio or transcribing anything over about an hour stopped with "check your connection" while the audio was being processed. Transcription no longer turns the site's audio into a full size WAV file first.
+- Subtitles made downloads fail with "Too Many Requests" and left loose .vtt files. They are now built into the video, where QuickTime shows them.
+- Phone shaped videos were saved smaller than the chosen quality (a Short on 1080p came out at 480p).
+- Cancelled or failed downloads left partial files in the save folder.
+- Live streams were recorded until the download timed out. They now get a clear message.
+- File names lost letters like å, ä and ö and titles in other scripts. Transcripts are named like the video they come from.
+- Clearer messages for sign in walls (Instagram, Facebook, age restricted videos), removed and private videos, DRM services and unsupported sites, with New Link instead of Try Again when trying again can't help, and Choose Folder when the save folder is missing.
+- The video length was missing on YouTube cards, and the progress bar ran twice for videos with separate sound.
+- The Mac could go to sleep in the middle of a long job.
+- A missing or read only save folder is caught before the job starts instead of after.
+- Tracking parameters are removed from links, so the Source line in a copied transcript stays clean.
+- vimeo.com links, unlisted ones included, work again without signing in (they now open through Vimeo's player page).
+
 ## 3.0.1 (2026-10-26)
 
 ### Added

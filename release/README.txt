@@ -46,7 +46,9 @@ Download and transcribe video from anywhere, right from the notch.
 
   Transcription runs on your Mac. Nothing is
   uploaded. Only the video itself is fetched
-  from the site.
+  from the site. A copied link from a video
+  site is looked up as the notch opens, so
+  its sizes are ready.
 
 
 ──────────────────────────────────────────────

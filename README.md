@@ -39,6 +39,7 @@ Four short tabs, each choice explained.
 |------|--------------|-------|
 | Fetching | [yt-dlp](https://github.com/yt-dlp/yt-dlp), bundled | Your Mac, talking to the video site |
 | Reading the audio | AVFoundation, with a bundled ffmpeg for webm and mkv | Your Mac |
+| Making saved videos play (VP9 and AV1 to H.264 or HEVC) | Bundled ffmpeg with the Mac's own VideoToolbox encoders | Your Mac |
 | Speech to text, 25 European languages | [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) on Core ML, through [FluidAudio](https://github.com/FluidInference/FluidAudio) | Your Mac |
 | Speech to text, Japanese, Chinese, Korean, Hindi and others | Apple's SpeechAnalyzer, built into macOS | Your Mac |
 | Who said what | [pyannote community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) through FluidAudio | Your Mac |
@@ -89,7 +90,7 @@ MindExtract/
   TranscriptionManager.swift  One transcription job: audio, engine, speakers, file
   ParakeetEngine.swift        The speech model: pinned download, Core ML runtime, speakers
   YTDLPWrapper.swift          Looking up links and downloading with yt-dlp
-  AudioConverter.swift        Any media to 16 kHz mono WAV
+  AudioConverter.swift        Any media to 16 kHz mono WAV; saved videos made playable
   AppServices.swift           Global shortcut, open at login
   Models.swift                Settings, history, shared types
   Resources/                  Bundled tools (see Resources/BUNDLING_BINARIES.md)
