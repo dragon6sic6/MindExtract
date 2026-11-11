@@ -22,6 +22,7 @@ final class NotchModel: ObservableObject {
         var thumbnail: URL?
         var url: String?                 // a link
         var filePath: String?            // a file on disk
+        var isLive = false               // a live stream or premiere: nothing to fetch yet
 
         var subtitle: String {
             [channel, duration, detail].filter { !$0.isEmpty }.joined(separator: " · ")
@@ -34,6 +35,10 @@ final class NotchModel: ObservableObject {
         case general
         case needsSpeechModel
         case needsSignIn
+        /// Trying again won't help (removed, private, unsupported site).
+        case permanent
+        /// The save folder is missing or can't be written to.
+        case needsFolder
     }
 
     enum Stage: Equatable {
@@ -91,9 +96,48 @@ final class NotchModel: ObservableObject {
 
     // Content
     @Published var input = ""
-    @Published private(set) var stage: Stage = .idle
+    @Published private(set) var stage: Stage = .idle {
+        didSet { keepAwake(isBusy) }
+    }
     @Published var language: String = AppSettings.shared.defaultTranscriptionLanguage
-    @Published var audioOnly = false
+    /// What Save saves: the Settings quality, a size picked for this link, or just the sound.
+    /// `original`: the site's own file at that size, not converted (VP9 or AV1:
+    /// plays in VLC or IINA, not QuickTime).
+    enum SaveChoice: Hashable {
+        case standard, video(Int), original(Int), audio
+        /// A size picked for one link, which the next link doesn't keep.
+        var isSize: Bool {
+            switch self {
+            case .video, .original: return true
+            default: return false
+            }
+        }
+    }
+    @Published var saveChoice: SaveChoice = .standard
+    var audioOnly: Bool { saveChoice == .audio }
+    /// The sizes the current link comes in, once the full lookup is in.
+    @Published private(set) var qualities: [VideoQuality] = []
+    /// The card showed from the instant preview and the sizes are still on their way.
+    @Published private(set) var findingSizes = false
+    /// The size Save picks on its own (Settings: up to 1080p or 720p), if known.
+    /// Save fetches exactly this one, so the ticked size is what you get.
+    /// "Best available" means the best that plays as is when that's 1080p or more
+    /// (4K on Vimeo, 1080p on YouTube, whose 4K needs converting), else the best there is.
+    var standardHeight: Int? {
+        switch AppSettings.shared.downloadQuality {
+        case .hd720, .hd1080:
+            let cap = AppSettings.shared.downloadQuality == .hd720 ? 720 : 1080
+            return qualities.first { $0.height <= cap }?.height ?? qualities.last?.height
+        default:
+            if let playing = qualities.first(where: { !$0.converts }), playing.height >= 1080 { return playing.height }
+            return qualities.first?.height
+        }
+    }
+    /// What Save saves right now, with "standard" spelled out as its size once known.
+    var effectiveSaveChoice: SaveChoice {
+        if saveChoice == .standard, let usual = standardHeight { return .video(usual) }
+        return saveChoice
+    }
     @Published private(set) var clipboardLink: String?
     /// The transcript path that's on the clipboard right now (for "Copied").
     @Published private(set) var copiedPath: String?
@@ -112,6 +156,10 @@ final class NotchModel: ObservableObject {
     private var awaitedLoad = -1
     /// Bumped by every start and cancel, so audio that arrives after Cancel isn't transcribed.
     private var jobToken = 0
+    /// The copied link being looked up ahead, so its card can offer sizes too.
+    private var prefetchedLink: String?
+    /// Holds off idle sleep while a job runs (a long podcast can take a while).
+    private var activity: NSObjectProtocol?
 
     private init() {
         downloader.$state.combineLatest(downloader.$videoInfo)
@@ -144,11 +192,40 @@ final class NotchModel: ObservableObject {
 
     func refreshClipboard() {
         let pb = NSPasteboard.general
-        guard pb.changeCount != lastPasteboardCount else { return }
-        lastPasteboardCount = pb.changeCount
-        let text = pb.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        clipboardLink = Self.isLink(text) && !isRecent(link: text) ? text : nil
-        if case .idle = stage { language = AppSettings.shared.defaultTranscriptionLanguage }
+        if pb.changeCount != lastPasteboardCount {
+            lastPasteboardCount = pb.changeCount
+            let text = pb.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            // A link on its own, or in a short bit of text (a chat message, a share sheet's text).
+            let link = text.count <= 500 ? Self.link(in: text).map(Self.cleanLink) : nil
+            clipboardLink = link.flatMap { isRecent(link: $0) ? nil : $0 }
+            if case .idle = stage { language = AppSettings.shared.defaultTranscriptionLanguage }
+        }
+        prefetchCopiedLink()
+    }
+
+    /// Looks up the copied link in the background while its card shows, so
+    /// Save lists the same sizes as for a pasted link, and starts sooner.
+    private func prefetchCopiedLink() {
+        // Only video sites: any other copied address (a password reset, a sign-in
+        // link) is never fetched without being asked.
+        guard case .idle = stage else { return }
+        guard let copied = clipboardLink, Self.isVideoSite(copied) else {
+            // Another kind of link now: the previous one's sizes don't belong to it.
+            if prefetchedLink != nil {
+                prefetchedLink = nil
+                qualities = []
+                if saveChoice.isSize { saveChoice = .standard }
+                downloader.cancelLoad()
+            }
+            return
+        }
+        let link = Self.fullLink(copied)
+        guard link != prefetchedLink else { return }
+        prefetchedLink = link
+        qualities = []
+        if saveChoice.isSize { saveChoice = .standard }
+        downloader.loadURL(link, quiet: true)
+        awaitedLoad = downloader.loadGeneration
     }
 
     func requestFocus() { focusCount += 1 }
@@ -175,19 +252,31 @@ final class NotchModel: ObservableObject {
             useFile(URL(fileURLWithPath: path))
             return
         }
-        guard Self.isLink(text) else {
+        guard let link = Self.link(in: text) else {
             fail(nil, work: nil, String(localized: "That isn't a link. Paste a web address or drag a file here."))
             return
         }
-        load(text, then: nil)
+        load(link, then: nil)
     }
 
     private func load(_ link: String, then next: Work?) {
         guard !isBusy else { return }
-        let url = link.hasPrefix("http") ? link : "https://" + link
+        let url = Self.fullLink(link)
         input = url
-        if clipboardLink == url { clipboardLink = nil }
+        // The copied link's lookup, if it's this one and still good: carry on from it.
+        let ahead = url == prefetchedLink && downloader.loadGeneration == awaitedLoad
+            && (downloader.videoInfo?.url == url || downloader.state == .fetchingFormats)
+        prefetchedLink = nil
+        if !ahead {
+            qualities = []
+            if saveChoice.isSize { saveChoice = .standard }   // a size belongs to one link
+        }
+        if let copied = clipboardLink, Self.fullLink(copied) == url { clipboardLink = nil }
         stage = .loadingInfo(url: url, then: next)
+        if ahead {
+            if downloader.videoInfo != nil { downloaderChanged(downloader.state, downloader.videoInfo) }
+            return
+        }
         downloader.loadURL(url)
         awaitedLoad = downloader.loadGeneration
     }
@@ -210,9 +299,13 @@ final class NotchModel: ObservableObject {
     func clear() {
         if isBusy { cancel() } else { downloader.cancelLoad() }   // a lookup may still run behind a preview
         input = ""
+        prefetchedLink = nil
+        qualities = []
+        if saveChoice.isSize { saveChoice = .standard }
         awaitingModel = false
         language = AppSettings.shared.defaultTranscriptionLanguage
         stage = .idle
+        prefetchCopiedLink()        // the copied link's card shows again, with its sizes
     }
 
     /// Video or audio, including formats macOS doesn't know by name.
@@ -227,13 +320,25 @@ final class NotchModel: ObservableObject {
 
     func download() {
         guard case .ready(let item) = stage, let url = item.url else { return }
+        if item.isLive { fail(item, work: .download, classifyDownloadError(DownloadFailure.live).message, problem: .permanent); return }
+        if let reason = Self.saveFolderProblem() { fail(item, work: .download, reason, problem: .needsFolder); return }
         jobPasteboardCount = NSPasteboard.general.changeCount
         stage = .working(item, .download, phase: String(localized: "Saving…"), progress: nil)
         downloader.cancelLoad(keepInfo: true)   // a slower lookup finishing now would reset the download's state
-        if audioOnly {
-            downloader.downloadAudio(url: url, outputPath: AppSettings.shared.downloadPath)
-        } else {
-            downloader.downloadBest(url: url, outputPath: AppSettings.shared.downloadPath)
+        let folder = AppSettings.shared.downloadPath
+        func fetch(_ size: Int?) -> Int? { size.map { s in qualities.first { $0.height == s }?.fetchHeight ?? s } }
+        func name(_ size: Int?) -> String? { size.map { VideoQuality(height: $0, converts: false).name } }
+        switch saveChoice {
+        case .audio: downloader.downloadAudio(url: url, outputPath: folder)
+        case .video(let height):
+            downloader.downloadBest(url: url, outputPath: folder, height: fetch(height), label: name(height))
+        case .original(let height):
+            let size = qualities.first { $0.height == height }?.originalHeight ?? height
+            downloader.downloadBest(url: url, outputPath: folder, height: size,
+                                    label: name(height).map { "\($0) Original" }, keepOriginal: true)
+        case .standard:
+            // Before the sizes are known, yt-dlp applies the same rule from Settings.
+            downloader.downloadBest(url: url, outputPath: folder, height: fetch(standardHeight), label: name(standardHeight))
         }
     }
 
@@ -245,6 +350,11 @@ final class NotchModel: ObservableObject {
                                                        thumbnail: i.thumbnail, url: i.url, filePath: path)
         case .failed(let i?, _, _, _, _): item = i
         default: return
+        }
+        if item.isLive { fail(item, work: .transcribe, classifyDownloadError(DownloadFailure.live).message, problem: .permanent); return }
+        if item.filePath == nil, let reason = Self.saveFolderProblem() {
+            fail(item, work: .transcribe, reason, problem: .needsFolder)
+            return
         }
         // The speech model downloads on first launch; wait for it, or offer it.
         if TranscriptionManager.needsSpeechModel(language), !tm.isModelInstalled {
@@ -269,7 +379,7 @@ final class NotchModel: ObservableObject {
         } else if let url = item.url {
             downloader.cancelLoad(keepInfo: true)
             tm.transcriptionState = .downloadingAudio(progress: 0)
-            downloader.downloadAudioForTranscription(url: url) { [weak self] audioPath, error in
+            downloader.downloadAudioForTranscription(url: url) { [weak self] audioPath, error, spoken in
                 guard let self, token == self.jobToken else {
                     if let audioPath { try? FileManager.default.removeItem(atPath: audioPath) }
                     return
@@ -280,7 +390,8 @@ final class NotchModel: ObservableObject {
                 }
                 let base = TranscriptionManager.safeFileBase(item.title, fallback: "Transcript")
                 let out = TranscriptionManager.uniqueFilePath(dir: AppSettings.shared.downloadPath, base: base, ext: "txt")
-                self.tm.transcribe(mediaPath: audioPath, title: item.title, language: language, source: .download,
+                self.tm.transcribe(mediaPath: audioPath, title: item.title,
+                                   language: Self.language(language, spoken: spoken), source: .download,
                                    outputPath: out, removeMediaAfter: true)
             }
         }
@@ -335,7 +446,7 @@ final class NotchModel: ObservableObject {
         }
     }
 
-    func signInToYouTube() {
+    func signIn() {
         UserDefaults.standard.set("downloads", forKey: "settingsCategory")
         SettingsWindow.show()
     }
@@ -387,14 +498,29 @@ final class NotchModel: ObservableObject {
             state = downloader.state
             info = downloader.videoInfo
         }
+        defer {
+            var finding = false
+            if case .fetchingFormats = downloader.state {
+                if case .ready = stage { finding = true }
+                if case .idle = stage, prefetchedLink != nil { finding = true }
+            }
+            if findingSizes != finding { findingSizes = finding }
+        }
         switch stage {
+        case .idle:
+            // The copied link's lookup: only its sizes matter, never its errors.
+            if let info, prefetchedLink != nil, downloader.loadGeneration == awaitedLoad, !info.formats.isEmpty {
+                qualities = YTDLPWrapper.qualities(in: info.formats)
+            }
         case .loadingInfo(let url, let next):
             if let info {
+                if !info.formats.isEmpty { qualities = YTDLPWrapper.qualities(in: info.formats) }
                 let item = Item(title: info.title,
                                 channel: info.uploader == "Unknown" ? "" : info.uploader,
                                 duration: info.duration == "Unknown" ? "" : info.duration,
                                 thumbnail: info.thumbnail.flatMap(URL.init(string:)),
-                                url: info.url.isEmpty ? url : info.url)
+                                url: info.url.isEmpty ? url : info.url,
+                                isLive: info.isLive)
                 stage = .ready(item)
                 switch next {
                 case .transcribe: transcribe()
@@ -402,16 +528,28 @@ final class NotchModel: ObservableObject {
                 case nil: break
                 }
             } else if case .error(let message) = state {
-                fail(nil, work: nil, message, problem: downloader.lastErrorNeedsAuth ? .needsSignIn : .general, url: url)
+                fail(nil, work: nil, message, problem: downloadProblem, url: url)
             } else if case .timeout(let message) = state {
                 fail(nil, work: nil, message, url: url)
             } else if !downloader.scannedVideos.isEmpty {
-                fail(nil, work: nil, String(localized: "That's a playlist or a page with several videos. Paste the link to one video."))
+                fail(nil, work: nil, String(localized: "That link has several videos (a playlist, channel or post with more than one). Paste the link to one video."),
+                     problem: .permanent)
             }
+        case .ready(let item):
+            // The instant preview showed first; the full lookup adds what it lacked.
+            guard let info, downloader.loadGeneration == awaitedLoad, item.url != nil, item.url == info.url else { break }
+            if !info.formats.isEmpty { qualities = YTDLPWrapper.qualities(in: info.formats) }
+            var full = item
+            if full.duration.isEmpty { full.duration = info.duration }
+            if full.channel.isEmpty, info.uploader != "Unknown" { full.channel = info.uploader }
+            full.isLive = info.isLive
+            if full != item { stage = .ready(full) }
         case .working(let item, .download, _, _):
             switch state {
-            case .downloading(let p, _):
-                stage = .working(item, .download, phase: String(localized: "Saving…"), progress: p > 0 ? p : nil)
+            case .downloading(let p, let detail):
+                let phase = detail == YTDLPWrapper.convertingPhase
+                    ? String(localized: "Converting for your Mac…") : String(localized: "Saving…")
+                stage = .working(item, .download, phase: phase, progress: p > 0 ? p : nil)
             case .completed:
                 if let path = downloader.lastDownloadedFilePath {
                     finish(.downloaded(item, path: path))
@@ -419,7 +557,7 @@ final class NotchModel: ObservableObject {
                     fail(item, work: .download, String(localized: "The download finished but the file wasn't found."))
                 }
             case .error(let message):
-                fail(item, work: .download, message, problem: downloader.lastErrorNeedsAuth ? .needsSignIn : .general)
+                fail(item, work: .download, message, problem: downloadProblem)
             case .timeout(let message):
                 fail(item, work: .download, message)
             default: break
@@ -445,6 +583,12 @@ final class NotchModel: ObservableObject {
             stage = .working(item, .transcribe, phase: String(localized: "Transcribing…"), progress: p > 0 ? p : nil)
         case .completed(let path):
             if path == Self.sampleTranscriptPath { Self.spellSampleNames(at: path) }
+            // The length of what was transcribed, when the link didn't say.
+            var item = item
+            if item.duration.isEmpty,
+               let length = TranscriptionHistoryManager.shared.history.first(where: { $0.filePath == path })?.duration {
+                item.duration = length
+            }
             TranscriptionHistoryManager.shared.setSource(url: item.url, thumbnail: item.thumbnail?.absoluteString,
                                                          channel: item.channel.isEmpty ? nil : item.channel, forPath: path)
             autoCopiedPath = nil
@@ -454,8 +598,7 @@ final class NotchModel: ObservableObject {
             }
             finish(.transcribed(item, path: path))
         case .error(let message):
-            let needsSignIn = item.filePath == nil && downloader.lastErrorNeedsAuth
-            fail(item, work: .transcribe, message, problem: needsSignIn ? .needsSignIn : .general)
+            fail(item, work: .transcribe, message, problem: item.filePath == nil ? downloadProblem : .general)
         case .modelNotDownloaded:
             waitForModel(item)
         case .idle:
@@ -545,6 +688,87 @@ final class NotchModel: ObservableObject {
     }
 
     // MARK: Helpers
+
+    /// What the downloader's last error calls for.
+    private var downloadProblem: Problem {
+        downloader.lastErrorNeedsAuth ? .needsSignIn : downloader.lastErrorIsPermanent ? .permanent : .general
+    }
+
+    private func keepAwake(_ busy: Bool) {
+        if busy, activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled],
+                                                             reason: "Saving or transcribing")
+        } else if !busy, let current = activity {
+            ProcessInfo.processInfo.endActivity(current)
+            activity = nil
+        }
+    }
+
+    /// Why the save folder can't take a file right now, or nil when it can. A
+    /// missing folder is made, if what it lives in is there.
+    static func saveFolderProblem() -> String? {
+        let dir = AppSettings.shared.downloadPath
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        if !fm.fileExists(atPath: dir, isDirectory: &isDir) {
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: false)
+        }
+        guard fm.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else {
+            return String(localized: "The save folder isn't there. Choose another one in Settings.")
+        }
+        guard fm.isWritableFile(atPath: dir) else {
+            return String(localized: "MindExtract can't save to that folder. Choose another one in Settings, or allow access in System Settings.")
+        }
+        return nil
+    }
+
+    /// The language to transcribe in. On Automatic, a language only Apple's
+    /// speech recognition knows (Japanese, Hindi…) goes to it, when the site
+    /// says the video is in that language; Parakeet would guess at it.
+    static func language(_ chosen: String, spoken: String?) -> String {
+        guard chosen == "auto", let spoken else { return chosen }
+        let code = String(spoken.lowercased().split(separator: "-").first ?? "")
+        return TranscriptionManager.appleOnlyLanguages.contains(code) ? code : chosen
+    }
+
+    /// The first web link in `text`: all of it when it's a link, else one inside it.
+    static func link(in text: String) -> String? {
+        if isLink(text) { return text }
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        // Only a written-out web address: "notes in notion.so" isn't a link to paste.
+        for match in detector.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let range = Range(match.range, in: text), let url = match.url else { continue }
+            let written = text[range].lowercased()
+            if written.hasPrefix("https://") || written.hasPrefix("http://") { return url.absoluteString }
+        }
+        return nil
+    }
+
+    /// A link as it's fetched: with https:// when it was written without, and clean.
+    static func fullLink(_ link: String) -> String {
+        cleanLink(link.lowercased().hasPrefix("http") ? link : "https://" + link)
+    }
+
+    /// Sites whose links are videos, so a copied one may be looked up ahead.
+    static func isVideoSite(_ link: String) -> Bool {
+        guard let host = URLComponents(string: fullLink(link))?.host?.lowercased() else { return false }
+        let sites = ["youtube.com", "youtu.be", "vimeo.com", "tiktok.com", "instagram.com", "x.com", "twitter.com",
+                     "facebook.com", "fb.watch", "dailymotion.com", "twitch.tv", "reddit.com", "redd.it",
+                     "linkedin.com", "soundcloud.com", "bilibili.com", "rumble.com", "streamable.com"]
+        return sites.contains { host == $0 || host.hasSuffix("." + $0) }
+    }
+
+    /// The link without tracking parameters ("?si=…", "&igsh=…", "utm_…"), so it
+    /// reads cleanly in the transcript's Source line.
+    static func cleanLink(_ link: String) -> String {
+        // The query as written (percent-encoded), so values like "a%2Bb" stay exactly as they were.
+        guard var comps = URLComponents(string: link), let items = comps.percentEncodedQueryItems, !items.isEmpty else { return link }
+        let tracking: Set<String> = ["si", "igsh", "igshid", "srtk", "fbclid", "gclid", "mibextid", "feature", "pp", "ref_src", "ref_url", "_r", "_t"]
+        let kept = items.filter { !tracking.contains($0.name.lowercased()) && !$0.name.lowercased().hasPrefix("utm_") }
+        guard kept.count != items.count else { return link }
+        comps.percentEncodedQueryItems = kept.isEmpty ? nil : kept
+        return comps.string ?? link
+    }
 
     private func isRecent(link: String) -> Bool {
         if case .transcribed(let item, _) = stage, item.url == link { return true }

@@ -480,15 +480,13 @@ struct CopiedLinkCard: View {
             .font(NotchStyle.caption)
             .foregroundStyle(NotchStyle.secondary)
             HStack(spacing: 8) {
+                // Same order as the card a link opens: Save, then Transcribe.
+                SaveButton(height: NotchStyle.mainHeight) { model.saveCopiedLink() }
                 Button { model.transcribeCopiedLink() } label: {
                     Label("Transcribe", systemImage: "text.quote")
                 }
                 .buttonStyle(NotchButtonStyle(kind: .primary, expand: true, height: NotchStyle.mainHeight))
                 .keyboardShortcut(.defaultAction)
-                Button { model.saveCopiedLink() } label: {
-                    Label("Save Video", systemImage: "arrow.down")
-                }
-                .buttonStyle(NotchButtonStyle(kind: .secondary, height: NotchStyle.mainHeight))
             }
         }
         .padding(12)
@@ -633,12 +631,7 @@ struct ReadyActions: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                if item.url != nil {
-                    Button { model.download() } label: {
-                        Label(model.audioOnly ? "Save Audio" : "Save Video", systemImage: "arrow.down")
-                    }
-                    .buttonStyle(NotchButtonStyle(kind: .secondary))
-                }
+                if item.url != nil { SaveButton() }
                 Button { model.transcribe() } label: {
                     Label("Transcribe", systemImage: "text.quote")
                 }
@@ -659,21 +652,6 @@ struct ReadyActions: View {
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
-                if item.url != nil {
-                    Menu {
-                        Picker("Save as", selection: $model.audioOnly) {
-                            Text("Video").tag(false)
-                            Text("Audio only").tag(true)
-                        }
-                        .pickerStyle(.inline)
-                    } label: {
-                        ChipLabel(icon: model.audioOnly ? "waveform" : "film",
-                                  title: model.audioOnly ? String(localized: "Save: Audio only") : String(localized: "Save: Video"))
-                    }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
-                }
                 Spacer()
                 ChipButton(icon: "plus", title: String(localized: "New Link")) { model.clear() }
             }
@@ -682,6 +660,115 @@ struct ReadyActions: View {
 
     private var languageName: String {
         AppSettings.transcriptionLanguages.first { $0.code == model.language }?.name ?? model.language
+    }
+}
+
+/// Save and what it saves, in one control: the button saves the size it names,
+/// the chevron lists every size (the one Save uses ticked) and saves the one
+/// you pick at once. Picking Audio only also sticks for the next link.
+struct SaveButton: View {
+    @EnvironmentObject var model: NotchModel
+    var height: CGFloat = NotchStyle.controlHeight
+    /// What saving does here: the open card's download, or the copied link's.
+    var save: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Button { saveNow() } label: {
+                Label(title, systemImage: model.audioOnly ? "waveform" : "arrow.down")
+                    .contentTransition(.numericText())
+            }
+            .buttonStyle(NotchButtonStyle(kind: .secondary, height: height, joinsTrailing: true))
+            .keyboardShortcut("s", modifiers: .command)
+            .accessibilityLabel(accessibilityTitle)
+            .help(String(localized: "Save to your save folder (⌘S)"))
+            Menu { choices } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(NotchStyle.text)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("Save Options")
+            .help(String(localized: "Choose a size, or only the audio"))
+            .modifier(TrailingSegment(height: height))
+        }
+        .fixedSize()
+        .animation(NotchStyle.snappy, value: title)
+    }
+
+    @ViewBuilder private var choices: some View {
+        Section("Save as") {
+            if !model.qualities.isEmpty {
+                ForEach(model.qualities) { quality in
+                    Toggle(itemTitle(quality), isOn: picks(.video(quality.height)))
+                }
+            } else if model.findingSizes {
+                Button("Finding sizes…") {}.disabled(true)
+            } else {
+                Toggle("Video", isOn: picks(.standard))
+            }
+        }
+        // The site's own file where converting would change it: exact, but for VLC or IINA.
+        let convertible = model.qualities.filter(\.converts)
+        if !convertible.isEmpty {
+            Section("Original file (not converted)") {
+                ForEach(convertible) { quality in
+                    Toggle(String(localized: "\(quality.name) (plays in VLC or IINA)"), isOn: picks(.original(quality.height)))
+                }
+            }
+        }
+        Divider()
+        Toggle("Audio only", isOn: picks(.audio))
+    }
+
+    /// Ticked when it's what Save saves now; picking it saves straight away.
+    private func picks(_ choice: NotchModel.SaveChoice) -> Binding<Bool> {
+        Binding {
+            model.effectiveSaveChoice == choice
+        } set: { _ in
+            model.saveChoice = choice == .video(model.standardHeight ?? -1) ? .standard : choice
+            saveNow()
+        }
+    }
+
+    private func saveNow() {
+        if let save { save() } else { model.download() }
+    }
+
+    private func itemTitle(_ quality: VideoQuality) -> String {
+        guard quality.converts else { return quality.name }
+        // Converting a 4K file takes minutes, not seconds; say so before you pick it.
+        return quality.height >= 2160
+            ? String(localized: "\(quality.name) (converted after saving, takes a while)")
+            : String(localized: "\(quality.name) (converted after saving)")
+    }
+
+    private var size: String? {
+        switch model.effectiveSaveChoice {
+        case .video(let height), .original(let height): return VideoQuality(height: height, converts: false).name
+        default: return nil
+        }
+    }
+
+    private var isOriginal: Bool {
+        if case .original = model.saveChoice { return true }
+        return false
+    }
+
+    private var title: String {
+        if model.audioOnly { return String(localized: "Save Audio") }
+        if let size, isOriginal { return String(localized: "Save \(size) Original") }
+        if let size { return String(localized: "Save \(size)") }
+        return String(localized: "Save Video")
+    }
+
+    private var accessibilityTitle: String {
+        if model.audioOnly { return String(localized: "Save Audio") }
+        if let size, isOriginal { return String(localized: "Save Video, \(size), original file") }
+        if let size { return String(localized: "Save Video, \(size)") }
+        return String(localized: "Save Video")
     }
 }
 
@@ -858,7 +945,7 @@ struct FailedCard: View {
                     .padding(.top, 1)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(problem == .general ? "That didn't work" : "One more step")
+                    Text(problem == .general || problem == .permanent ? "That didn't work" : "One more step")
                         .font(.system(size: 13, weight: .semibold))
                     Text(verbatim: message)
                         .font(NotchStyle.small)
@@ -876,8 +963,19 @@ struct FailedCard: View {
                     .buttonStyle(NotchButtonStyle(kind: .primary))
                     .disabled(tm.isDownloadingModel)
                 case .needsSignIn:
-                    Button { model.signInToYouTube() } label: {
+                    Button { model.signIn() } label: {
                         Label("Sign In…", systemImage: "person.crop.circle")
+                    }
+                    .buttonStyle(NotchButtonStyle(kind: .primary))
+                case .needsFolder:
+                    Button { model.signIn() } label: {
+                        Label("Choose Folder…", systemImage: "folder")
+                    }
+                    .buttonStyle(NotchButtonStyle(kind: .primary))
+                case .permanent:
+                    // Nothing to retry: the next link is the way on.
+                    Button { model.clear() } label: {
+                        Label("New Link", systemImage: "plus")
                     }
                     .buttonStyle(NotchButtonStyle(kind: .primary))
                 case .general:
@@ -889,7 +987,9 @@ struct FailedCard: View {
                     }
                 }
                 Spacer()
-                ChipButton(icon: "plus", title: String(localized: "New Link")) { model.clear() }
+                if problem != .permanent {
+                    ChipButton(icon: "plus", title: String(localized: "New Link")) { model.clear() }
+                }
             }
         }
         .padding(12)
@@ -1178,14 +1278,46 @@ struct HoverSquare<Content: View>: View {
     }
 }
 
+/// A control's rounded box; one half of a split control keeps its inner corners tight.
+struct SplitShape: Shape {
+    var joinsLeading = false
+    var joinsTrailing = false
+
+    func path(in rect: CGRect) -> Path {
+        let outer = NotchStyle.radius, inner: CGFloat = 4
+        return UnevenRoundedRectangle(cornerRadii: .init(topLeading: joinsLeading ? inner : outer,
+                                                         bottomLeading: joinsLeading ? inner : outer,
+                                                         bottomTrailing: joinsTrailing ? inner : outer,
+                                                         topTrailing: joinsTrailing ? inner : outer),
+                                      style: .continuous).path(in: rect)
+    }
+}
+
+/// The right half of a split control, drawn around a menu (menus drop a
+/// label's background, like SquareBackground).
+struct TrailingSegment: ViewModifier {
+    var height: CGFloat
+    @State private var hovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .frame(width: 30, height: height)
+            .background(SplitShape(joinsLeading: true).fill(hovering ? NotchStyle.fieldHover : NotchStyle.field))
+            .contentShape(Rectangle())
+            .onHover { h in withAnimation(.easeOut(duration: 0.15)) { hovering = h } }
+    }
+}
+
 struct NotchButtonStyle: ButtonStyle {
     enum Kind { case primary, secondary, done }
     var kind: Kind
     var expand = false
     var height: CGFloat = NotchStyle.controlHeight
+    /// The left half of a split control: the right corners are tight.
+    var joinsTrailing = false
 
     func makeBody(configuration: Configuration) -> some View {
-        NotchButtonBody(configuration: configuration, kind: kind, expand: expand, height: height)
+        NotchButtonBody(configuration: configuration, kind: kind, expand: expand, height: height, joinsTrailing: joinsTrailing)
     }
 }
 
@@ -1195,6 +1327,7 @@ private struct NotchButtonBody: View {
     let kind: NotchButtonStyle.Kind
     let expand: Bool
     let height: CGFloat
+    let joinsTrailing: Bool
     @Environment(\.isEnabled) private var isEnabled
     @State private var hovering = false
 
@@ -1207,7 +1340,7 @@ private struct NotchButtonBody: View {
             .padding(.horizontal, 14)
             .frame(maxWidth: expand ? .infinity : nil)
             .frame(height: height)
-            .background(RoundedRectangle(cornerRadius: NotchStyle.radius, style: .continuous).fill(fill))
+            .background(SplitShape(joinsTrailing: joinsTrailing).fill(fill))
             .scaleEffect(configuration.isPressed && !NotchStyle.reduceMotion ? 0.97 : 1)
             .animation(NotchStyle.snappy, value: configuration.isPressed)
             .animation(.easeOut(duration: 0.15), value: hovering)

@@ -1,9 +1,11 @@
 # Bundled tools
 
 MindExtract ships two command line tools in `Resources/`. They aren't kept in
-git; `scripts/setup-tools.sh` puts them here. Transcription itself needs
-neither: audio is converted with AVFoundation (`AudioConverter.swift`), and
-ffmpeg is only the fallback for formats Apple can't open.
+git; `scripts/setup-tools.sh` puts them here. For transcription, audio is
+read with AVFoundation (`AudioConverter.swift`) and ffmpeg is only the
+fallback for formats Apple can't open. Saved videos in a codec QuickTime
+can't play (VP9, AV1 before M3) are re-encoded by ffmpeg with the Mac's
+VideoToolbox encoders, and ffprobe reads their size and bit depth first.
 
 ```bash
 scripts/setup-tools.sh            # both

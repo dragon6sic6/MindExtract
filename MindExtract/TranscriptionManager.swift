@@ -281,7 +281,11 @@ final class TranscriptionManager: ObservableObject {
     }
 
     private func saveToHistory(title: String, path: String, duration: Double, source: TranscriptSource, engine: String) {
-        let length = duration > 0 ? String(format: "%d:%02d", Int(duration) / 60, Int(duration) % 60) : nil
+        let t = Int(duration)
+        let length = duration > 0
+            ? (t >= 3600 ? String(format: "%d:%02d:%02d", t / 3600, (t % 3600) / 60, t % 60)
+                         : String(format: "%d:%02d", t / 60, t % 60))
+            : nil
         var item = TranscriptionHistoryItem(
             title: title.isEmpty ? URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent : title,
             filePath: path, duration: length, modelUsed: engine)
@@ -333,11 +337,12 @@ final class TranscriptionManager: ObservableObject {
             : String(format: "[%02d:%02d]", t / 60, t % 60)
     }
 
-    /// Next to the media file, or in the save folder when that folder is read-only.
+    /// Next to the media file and named like it, so the two sort together in
+    /// Finder; in the save folder when the file's folder is read-only.
     static func transcriptPath(nextTo media: URL, title: String) -> String {
         let folder = media.deletingLastPathComponent().path
         let dir = FileManager.default.isWritableFile(atPath: folder) ? folder : AppSettings.shared.downloadPath
-        let base = safeFileBase(title, fallback: media.deletingPathExtension().lastPathComponent)
+        let base = safeFileBase(media.deletingPathExtension().lastPathComponent, fallback: safeFileBase(title, fallback: "Transcript"))
         return uniqueFilePath(dir: dir, base: base, ext: "txt")
     }
 
@@ -346,6 +351,8 @@ final class TranscriptionManager: ObservableObject {
         let illegal = CharacterSet(charactersIn: "/\\:?%*|\"<>")
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: illegal).joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+            .drop { $0 == "." }     // a leading dot would hide the file
             .trimmingCharacters(in: .whitespaces)
         let bounded = String(cleaned.prefix(80)).trimmingCharacters(in: .whitespaces)
         return bounded.isEmpty ? fallback : bounded

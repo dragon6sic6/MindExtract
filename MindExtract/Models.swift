@@ -23,6 +23,10 @@ struct VideoFormat: Identifiable, Hashable {
     let note: String
     let isAudioOnly: Bool
     let isVideoOnly: Bool
+    /// The picture's short side (1080 for 1920x1080 and for a 1080x1920 phone
+    /// video), 0 when the site doesn't say.
+    var shortSide = 0
+    var vcodec = ""
 
     var displayName: String {
         if isAudioOnly {
@@ -35,6 +39,36 @@ struct VideoFormat: Identifiable, Hashable {
     }
 }
 
+/// A video size a link offers, for choosing what to save.
+struct VideoQuality: Identifiable, Hashable {
+    /// Short side in pixels: 2160, 1440, 1080…
+    let height: Int
+    /// Only in a format the Mac can't play, so it's converted after saving.
+    let converts: Bool
+    /// The largest real short side in this size (1600 for a 3840x1600 film
+    /// listed as 1440p): what's asked of yt-dlp, so it doesn't pick the size below.
+    var fetchHeight = 0
+    /// The largest short side in this size in any format: what "Original file" fetches.
+    var originalHeight = 0
+    var id: Int { height }
+
+    var name: String {
+        switch height {
+        case 4320: return "8K"
+        case 2160: return "4K"
+        default: return "\(height)p"
+        }
+    }
+
+    /// Standard sizes, and which one a format belongs to: the nearest (a 1920x1072
+    /// video is 1080p, YouTube's odd 608x1080 is 720p, a 3840x1600 film 1440p).
+    static let sizes = [4320, 2160, 1440, 1080, 720, 480, 360]
+    static func size(for shortSide: Int) -> Int? {
+        guard shortSide >= 324 else { return nil }      // below 360p isn't worth offering
+        return sizes.min { abs($0 - shortSide) < abs($1 - shortSide) }
+    }
+}
+
 struct VideoInfo: Identifiable, Hashable {
     let id: String
     let title: String
@@ -43,6 +77,10 @@ struct VideoInfo: Identifiable, Hashable {
     let uploader: String
     let url: String
     var formats: [VideoFormat]
+    /// Live now or not started yet: there's nothing to save until it ends.
+    var isLive = false
+    /// The spoken language, when the site says (ISO code, e.g. "en", "ja").
+    var language: String? = nil
 
     static func == (lhs: VideoInfo, rhs: VideoInfo) -> Bool {
         lhs.id == rhs.id

@@ -233,4 +233,95 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertEqual(file.fileFormat.channelCount, 1)
         XCTAssertGreaterThan(file.length, 16_000)
     }
+
+    // MARK: Links and downloads
+
+    func testLinkIsFoundInsideText() {
+        XCTAssertEqual(NotchModel.link(in: "https://youtu.be/abc"), "https://youtu.be/abc")
+        XCTAssertEqual(NotchModel.link(in: "Look at this https://www.instagram.com/reel/XYZ/ so good"),
+                       "https://www.instagram.com/reel/XYZ/")
+        XCTAssertNil(NotchModel.link(in: "no link here"))
+    }
+
+    func testTrackingParametersAreRemoved() {
+        XCTAssertEqual(NotchModel.cleanLink("https://www.instagram.com/reel/DffTwEOgJ8U/?utm_source=ig_web_copy_link&srtk=NTc4MTIwNjQ2YQ=="),
+                       "https://www.instagram.com/reel/DffTwEOgJ8U/")
+        XCTAssertEqual(NotchModel.cleanLink("https://www.youtube.com/watch?v=abc&si=xyz&t=42"),
+                       "https://www.youtube.com/watch?v=abc&t=42")
+        XCTAssertEqual(NotchModel.cleanLink("https://youtu.be/abc"), "https://youtu.be/abc")
+    }
+
+    func testOnlyVideoSitesAreLookedUpAhead() {
+        XCTAssertTrue(NotchModel.isVideoSite("https://youtu.be/abc"))
+        XCTAssertTrue(NotchModel.isVideoSite("www.youtube.com/watch?v=abc"))
+        XCTAssertTrue(NotchModel.isVideoSite("https://m.facebook.com/watch/?v=1"))
+        XCTAssertFalse(NotchModel.isVideoSite("https://accounts.example.com/reset?token=abc"))
+        XCTAssertFalse(NotchModel.isVideoSite("README.md"))
+        XCTAssertEqual(NotchModel.fullLink("youtube.com/watch?v=abc&si=x"), "https://youtube.com/watch?v=abc")
+    }
+
+    func testVimeoPagesAreFetchedThroughThePlayer() {
+        XCTAssertEqual(YTDLPWrapper.fetchableURL("https://vimeo.com/76979871"), "https://player.vimeo.com/video/76979871")
+        XCTAssertEqual(YTDLPWrapper.fetchableURL("https://vimeo.com/channels/staffpicks"), "https://vimeo.com/channels/staffpicks")
+        XCTAssertEqual(YTDLPWrapper.fetchableURL("https://vimeo.com/123456/abcdef12"), "https://player.vimeo.com/video/123456?h=abcdef12")
+        XCTAssertEqual(YTDLPWrapper.fetchableURL("https://youtu.be/abc"), "https://youtu.be/abc")
+    }
+
+    func testAutomaticUsesAppleForLanguagesParakeetLacks() {
+        XCTAssertEqual(NotchModel.language("auto", spoken: "ja"), "ja")
+        XCTAssertEqual(NotchModel.language("auto", spoken: "zh-Hans"), "zh")
+        XCTAssertEqual(NotchModel.language("auto", spoken: "en-US"), "auto")
+        XCTAssertEqual(NotchModel.language("auto", spoken: nil), "auto")
+        XCTAssertEqual(NotchModel.language("sv", spoken: "ja"), "sv")   // the user's choice wins
+    }
+
+    func testDownloadErrorsAreFriendly() {
+        let login = classifyDownloadError("ERROR: [Instagram] DffTwEOgJ8U: Requested content is not available, rate-limit reached or login required. Use --cookies")
+        XCTAssertTrue(login.needsSignIn)
+        let removed = classifyDownloadError("ERROR: [youtube] aaaaaaaaaaa: This video is unavailable")
+        XCTAssertTrue(removed.permanent)
+        XCTAssertFalse(removed.message.contains("[youtube]"))
+        XCTAssertTrue(classifyDownloadError("ERROR: [DRM] The requested site is known to use DRM protection.").permanent)
+        XCTAssertFalse(classifyDownloadError("ERROR: [youtube] aBdRmXyZ123: timed out").permanent)   // "drm" in an id
+        XCTAssertTrue(classifyDownloadError(DownloadFailure.live).permanent)
+        XCTAssertTrue(classifyDownloadError("ERROR: [youtube] x: Sign in to confirm your age. This video may be inappropriate for some users.").message.contains("age-restricted"))
+        XCTAssertTrue(classifyDownloadError(DownloadFailure.stalled).message.contains("stopped moving"))
+        XCTAssertTrue(classifyDownloadError("ERROR: Unable to download video subtitles for 'en-de': HTTP Error 429: Too Many Requests").message.contains("too many requests"))
+        // The fallback drops yt-dlp's "[site] id:" prefix.
+        XCTAssertEqual(classifyDownloadError("ERROR: [generic] abc: Something odd happened").message, "Something odd happened")
+    }
+
+    func testFileNamesKeepLettersAndNeverHide() {
+        XCTAssertEqual(TranscriptionManager.safeFileBase("Björn Skifs hälsning", fallback: "x"), "Björn Skifs hälsning")
+        XCTAssertEqual(TranscriptionManager.safeFileBase("...secret", fallback: "x"), "secret")
+        XCTAssertEqual(TranscriptionManager.safeFileBase("a/b:c", fallback: "x"), "a b c")
+    }
+
+    func testTranscriptIsNamedLikeTheVideo() {
+        let dir = NSTemporaryDirectory()
+        let media = URL(fileURLWithPath: dir + "Video by freddievc [DffTwEOgJ8U].mp4")
+        let path = TranscriptionManager.transcriptPath(nextTo: media, title: "Video by freddievc")
+        XCTAssertEqual((path as NSString).lastPathComponent, "Video by freddievc [DffTwEOgJ8U].txt")
+    }
+
+    func testQualitiesAreSizedByTheShortSideAndMarkConversion() {
+        func f(_ id: String, _ short: Int, _ codec: String) -> VideoFormat {
+            VideoFormat(id: id, ext: "mp4", resolution: "", filesize: "", filesizeBytes: 0, note: "",
+                        isAudioOnly: false, isVideoOnly: true, shortSide: short, vcodec: codec)
+        }
+        let formats = [f("a", 2160, "vp9"), f("b", 1080, "avc1.640028"), f("c", 1072, "vp9"),
+                       f("d", 720, "avc1"), f("e", 480, "av01.0.04M.08")]
+        let q = YTDLPWrapper.qualities(in: formats)
+        XCTAssertEqual(q.map(\.height).prefix(3), [2160, 1080, 720])
+        XCTAssertTrue(q[0].converts)        // 4K only as VP9
+        XCTAssertFalse(q[1].converts)       // 1080p has H.264
+        XCTAssertEqual(q[0].name, "4K")
+        // A wide film's 3840x1600 is listed as 1440p but fetched at its real size.
+        let wide = YTDLPWrapper.qualities(in: [f("w", 1600, "avc1")])
+        XCTAssertEqual(wide.first?.height, 1440)
+        XCTAssertEqual(wide.first?.fetchHeight, 1600)
+        XCTAssertEqual(VideoQuality.size(for: 608), 720)
+        XCTAssertEqual(VideoQuality.size(for: 1072), 1080)
+        XCTAssertNil(VideoQuality.size(for: 240))
+    }
 }

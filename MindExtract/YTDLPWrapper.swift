@@ -8,7 +8,16 @@ import AppKit
 
 struct DownloadErrorInfo {
     let message: String
-    let needsYouTubeAuth: Bool
+    /// Signing in on the site (cookies from a browser) would fix it.
+    var needsSignIn = false
+    /// Trying again won't help (removed, private, DRM, unsupported).
+    var permanent = false
+}
+
+/// Markers the app passes through the classifier for failures it detects itself.
+enum DownloadFailure {
+    static let stalled = "MindExtract: the download stalled"
+    static let live = "MindExtract: live stream"
 }
 
 /// Maps raw yt-dlp stderr to a short, human, actionable message so users never
@@ -18,42 +27,67 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
     let s = raw.lowercased()
     func has(_ needles: String...) -> Bool { needles.contains { s.contains($0) } }
 
+    if raw == DownloadFailure.stalled {
+        return DownloadErrorInfo(message: String(localized: "The download stopped moving. Check your connection and try again."))
+    }
+    // YouTube says this for a stream that's live now and for one that ended unrecorded.
+    if has("live stream recording is not available", "recording is not available") {
+        return DownloadErrorInfo(message: String(localized: "This live stream can't be saved. Try again once the site has a recording of it."), permanent: true)
+    }
+    if raw == DownloadFailure.live || has("live event will begin", "premieres in", "this live event", "is_live") {
+        return DownloadErrorInfo(message: String(localized: "This is a live stream. Paste the link again after it ends."), permanent: true)
+    }
+    if has("http error 429", "too many requests") {
+        return DownloadErrorInfo(message: String(localized: "The site is getting too many requests right now. Wait a few minutes and try again."))
+    }
     if has("http error 403", "403: forbidden") {
-        return DownloadErrorInfo(message: String(localized: "The site blocked the download. Try again in a moment, and if it keeps happening, update MindExtract."), needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "The site blocked the download. Try again in a moment, and if it keeps happening, update MindExtract."))
     }
     if has("ffmpeg not found", "ffmpeg is not installed", "ffprobe and ffmpeg not found", "bad cpu type") {
-        return DownloadErrorInfo(message: String(localized: "A conversion tool is missing, so this download can't be finished. Reinstall MindExtract."), needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "A conversion tool is missing, so this download can't be finished. Reinstall MindExtract."))
     }
 
-    if has("sign in to confirm you're not a bot", "sign in to confirm you’re not a bot", "confirm you're not a bot", "confirm you’re not a bot", "sign in to confirm") {
-        return DownloadErrorInfo(message: String(localized: "YouTube wants to confirm you're not a bot. Sign in to YouTube to continue."), needsYouTubeAuth: true)
-    }
+    // Before the bot check: "Sign in to confirm your age" would match it too.
     if has("confirm your age", "age-restricted", "age restricted", "inappropriate for some users") {
-        return DownloadErrorInfo(message: String(localized: "This video is age-restricted. Sign in to YouTube to download it."), needsYouTubeAuth: true)
+        return DownloadErrorInfo(message: String(localized: "This video is age-restricted. Sign in to YouTube to continue."), needsSignIn: true)
+    }
+    if has("sign in to confirm you're not a bot", "sign in to confirm you’re not a bot", "confirm you're not a bot", "confirm you’re not a bot", "sign in to confirm") {
+        return DownloadErrorInfo(message: String(localized: "YouTube wants to confirm you're not a bot. Sign in to YouTube to continue."), needsSignIn: true)
     }
     if has("members-only", "join this channel", "available to this channel's members") {
-        return DownloadErrorInfo(message: String(localized: "This is members-only content. Sign in with an account that has access."), needsYouTubeAuth: true)
+        return DownloadErrorInfo(message: String(localized: "This is members-only content. Sign in with an account that has access."), needsSignIn: true)
     }
     if has("private video", "this video is private") {
-        return DownloadErrorInfo(message: String(localized: "This video is private and can't be downloaded."), needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "This video is private, so MindExtract can't get it."), permanent: true)
     }
-    if has("video unavailable", "is not available", "no longer available", "has been removed", "this video has been removed") {
-        return DownloadErrorInfo(message: String(localized: "This video is unavailable or has been removed."), needsYouTubeAuth: false)
+    // Instagram, Facebook and others: before "is not available", which their
+    // login message also contains.
+    if has("login required", "log in to", "logged-in", "empty media response", "cookies-from-browser", "--cookies", "requires authentication", "registered users") {
+        return DownloadErrorInfo(message: String(localized: "This post is only shown to people who are signed in. Pick the browser you're signed in with, then try again."), needsSignIn: true)
+    }
+    if has("drm protection", "drm-protected", "drm protected", "[drm]") {
+        return DownloadErrorInfo(message: String(localized: "This service locks its media with DRM, so MindExtract can't get it."), permanent: true)
+    }
+    if has("video unavailable", "video is unavailable", "is not available", "no longer available", "has been removed", "this video has been removed") {
+        return DownloadErrorInfo(message: String(localized: "This video is unavailable or has been removed."), permanent: true)
     }
     if has("requested format is not available", "requested format not available") {
-        return DownloadErrorInfo(message: String(localized: "The selected quality isn't available for this video. Try a different format."), needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "That size isn't available for this video. Pick another one from the arrow next to Save."))
     }
     if has("not available in your country", "not available from your location", "blocked in your country", "geo restrict") {
-        return DownloadErrorInfo(message: String(localized: "This video isn't available in your region."), needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "This video isn't available in your region."), permanent: true)
     }
     if has("failed to resolve", "temporary failure in name resolution", "could not resolve host", "connection refused", "network is unreachable", "timed out", "connection timed out") {
-        return DownloadErrorInfo(message: String(localized: "Network problem. Check your internet connection and try again."), needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "Network problem. Check your internet connection and try again."))
     }
     if has("http error 404", "unable to download webpage", "404: not found") {
-        return DownloadErrorInfo(message: String(localized: "Couldn't reach that page. Check the link and try again."), needsYouTubeAuth: false)
+        return DownloadErrorInfo(message: String(localized: "Couldn't reach that page. Check the link and try again."))
     }
-    if has("unsupported url", "no video formats found", "unable to extract", "unable to find") {
-        return DownloadErrorInfo(message: String(localized: "This link isn't supported, or the site changed. Updating the app may help."), needsYouTubeAuth: false)
+    if has("unsupported url") {
+        return DownloadErrorInfo(message: String(localized: "MindExtract can't get media from this site. Paste the link to the page where the video or episode plays."), permanent: true)
+    }
+    if has("no video formats found", "no video could be found", "there is no video", "unable to extract", "unable to find") {
+        return DownloadErrorInfo(message: String(localized: "Couldn't find a video on that page. If it plays in your browser, updating MindExtract may help."))
     }
 
     // Fallback: surface the last ERROR line (not a WARNING), cleaned.
@@ -68,7 +102,9 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
         .replacingOccurrences(of: "ERROR: ", with: "")
         .replacingOccurrences(of: "\u{001B}[0;31m", with: "")
         .replacingOccurrences(of: "\u{001B}[0m", with: "")
-    return DownloadErrorInfo(message: String(cleaned.prefix(200)), needsYouTubeAuth: false)
+        // "[youtube] abc123: " in front of the message
+        .replacingOccurrences(of: #"^\[[^\]]+\]\s*[^:\s]+:\s*"#, with: "", options: .regularExpression)
+    return DownloadErrorInfo(message: String(cleaned.prefix(200)))
 }
 
 @MainActor
@@ -92,15 +128,18 @@ class YTDLPWrapper: ObservableObject {
     private static let maxOutputLogChars = 200_000
     @Published var lastDownloadedFilePath: String?
 
-    /// Set when the most recent error is one that signing in to YouTube would fix,
-    /// so the UI can offer an inline "Sign in to YouTube" action.
+    /// Set when the most recent error is one that signing in on the site would fix,
+    /// so the UI can offer an inline "Sign In" action.
     @Published var lastErrorNeedsAuth: Bool = false
+    /// The most recent error won't go away by trying again.
+    @Published var lastErrorIsPermanent: Bool = false
 
     /// Centralizes error presentation: classify raw stderr into a friendly message,
     /// flag whether auth would help, and keep the raw text in the log.
     private func setDownloadError(_ raw: String) {
         let info = classifyDownloadError(raw)
-        lastErrorNeedsAuth = info.needsYouTubeAuth
+        lastErrorNeedsAuth = info.needsSignIn
+        lastErrorIsPermanent = info.permanent
         state = .error(info.message)
         outputLog += "\nError: \(raw)\n"
     }
@@ -117,7 +156,22 @@ class YTDLPWrapper: ObservableObject {
     private(set) var loadGeneration = 0
     private var ytdlpPath: String?
     private var timeoutTimer: Timer?
+    /// When yt-dlp last showed progress. nil while it post-processes (merging,
+    /// converting), which shows none and can take minutes for long media.
     private var lastProgressTime: Date?
+    private var sawProgress = false
+    /// The stall check stopped yt-dlp: report that rather than its exit.
+    private var stalled = false
+    /// Streams in this download (video + audio = 2) and which one is running,
+    /// so the progress bar runs once from 0 to 100 instead of once per stream.
+    private var streamCount = 1
+    private var streamIndex = 0
+    /// yt-dlp is fetching a subtitle file: its progress isn't the video's.
+    private var inSubtitle = false
+    /// yt-dlp found the file already saved by an earlier download.
+    private var reusedExisting = false
+    /// The running save's "where did it go" file, removed on cancel.
+    private var pendingSavedPathFile: String?
 
     // Settings and managers
     private let settings = AppSettings.shared
@@ -126,6 +180,8 @@ class YTDLPWrapper: ObservableObject {
     // Timeout settings (in seconds)
     private let fetchTimeout: TimeInterval = 45
     private let downloadStallTimeout: TimeInterval = 30
+    /// Before the first progress: looking up the video can take a while.
+    private let downloadStartTimeout: TimeInterval = 90
 
     // yt-dlp's cache directory
     private var ytdlpCacheDir: String {
@@ -140,6 +196,7 @@ class YTDLPWrapper: ObservableObject {
         var args = ["--cache-dir", ytdlpCacheDir, "--no-update"]
         // Point yt-dlp at an ffmpeg that runs on this Mac (merging video + audio).
         if let dir = BundledTools.ffmpegDirectory { args += ["--ffmpeg-location", dir] }
+        guard !quietLookup else { return args }
 
         // Sign-in comes from a browser's cookies (YouTube ended yt-dlp's own
         // OAuth login). A cookies file, if chosen, wins over the browser.
@@ -258,7 +315,13 @@ class YTDLPWrapper: ObservableObject {
     /// Unified entry point: figures out whether the URL is a single video or a
     /// playlist/channel/page and routes accordingly — so the user never has to
     /// pre-choose "Video" vs "Scan Page". Uses a fast `--flat-playlist` probe.
-    func loadURL(_ url: String) {
+    /// A lookup nobody asked for yet (a copied link): no browser cookies, so
+    /// it can't bring up a Keychain prompt. The real lookup or save uses them.
+    private var quietLookup = false
+
+    func loadURL(_ url: String, quiet: Bool = false) {
+        quietLookup = quiet
+        defer { quietLookup = false }
         guard let ytdlp = ytdlpPath else {
             state = .error("yt-dlp not found. Please install it with: brew install yt-dlp")
             return
@@ -272,9 +335,11 @@ class YTDLPWrapper: ObservableObject {
         scannedVideos = []
         videoInfo = nil
         lastErrorNeedsAuth = false
+        lastErrorIsPermanent = false
         outputLog = "Loading: \(url)\n"
         fetchQuickPreview(for: url, generation: generation)
         startFetchTimeout()
+        let toolArgs = youtubeWorkaroundArgs     // now, while quietLookup applies
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
@@ -283,7 +348,7 @@ class YTDLPWrapper: ObservableObject {
             self.fetchTask = task
             task.executableURL = URL(fileURLWithPath: ytdlp)
             // Fast probe: list entries flat (no per-video metadata) to detect playlists.
-            task.arguments = ["-J", "--flat-playlist", "--no-warnings"] + youtubeWorkaroundArgs + [url]
+            task.arguments = ["-J", "--flat-playlist", "--no-warnings"] + toolArgs + [Self.fetchableURL(url)]
 
             var env = ProcessInfo.processInfo.environment
             env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
@@ -322,7 +387,8 @@ class YTDLPWrapper: ObservableObject {
                         return
                     }
 
-                    if let entries = json["entries"] as? [[String: Any]], entries.count > 1 {
+                    let entries = json["entries"] as? [[String: Any]]
+                    if let entries, entries.count > 1 {
                         // Playlist / channel / multi-video page → show the scan list.
                         let videos = self.parsePageScan(json: json, originalUrl: url)
                         self.scannedVideos = videos
@@ -337,8 +403,11 @@ class YTDLPWrapper: ObservableObject {
                         self.state = .idle
                         self.outputLog += "Loaded: \(info.title)\n"
                     } else {
-                        // Rare: 1-item playlist wrapper without formats → full fetch.
-                        self.fetchFormats(url: url, generation: generation)
+                        // A wrapper around one video (a channel or playlist with a
+                        // single entry): fetch that video, not the wrapper.
+                        let entry = entries?.first
+                        let inner = entry?["webpage_url"] as? String ?? entry?["url"] as? String
+                        self.fetchFormats(url: inner.flatMap { $0.hasPrefix("http") ? $0 : nil } ?? url, generation: generation)
                     }
                 }
             } catch {
@@ -415,7 +484,7 @@ class YTDLPWrapper: ObservableObject {
             let task = Process()
             self.fetchTask = task
             task.executableURL = URL(fileURLWithPath: ytdlp)
-            task.arguments = ["-J", "--no-warnings", "--no-playlist"] + youtubeWorkaroundArgs + [url]
+            task.arguments = ["-J", "--no-warnings", "--no-playlist"] + youtubeWorkaroundArgs + [Self.fetchableURL(url)]
 
             var env = ProcessInfo.processInfo.environment
             env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
@@ -495,6 +564,12 @@ class YTDLPWrapper: ObservableObject {
 
     private func startDownloadStallDetection() {
         lastProgressTime = Date()
+        sawProgress = false
+        stalled = false
+        streamCount = 1
+        streamIndex = 0
+        inSubtitle = false
+        reusedExisting = false
         cancelTimeoutTimer()
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -522,13 +597,12 @@ class YTDLPWrapper: ObservableObject {
               let lastProgress = lastProgressTime else { return }
 
         let stallTime = Date().timeIntervalSince(lastProgress)
-        if stallTime > downloadStallTimeout {
+        if stallTime > (sawProgress ? downloadStallTimeout : downloadStartTimeout) {
+            // The run's own completion reports it, so the job's caller hears about it too.
+            stalled = true
             downloadTask?.terminate()
-            downloadTask = nil
             cancelTimeoutTimer()
-            state = .timeout(String(localized: "The download stopped moving. Check your connection and try again."))
             outputLog += "\n⚠️ STALL DETECTED: No download progress for \(Int(stallTime)) seconds.\n"
-            outputLog += "The connection may have been lost. You can try again.\n"
         }
     }
 
@@ -549,6 +623,9 @@ class YTDLPWrapper: ObservableObject {
         let thumbnail = json["thumbnail"] as? String
         let duration = formatDuration(json["duration"] as? Double ?? 0)
         let uploader = json["uploader"] as? String ?? json["channel"] as? String ?? "Unknown"
+        let liveStatus = json["live_status"] as? String
+        let isLive = json["is_live"] as? Bool == true || liveStatus == "is_live" || liveStatus == "is_upcoming"
+        let language = (json["language"] as? String).flatMap { $0.isEmpty ? nil : $0 }
 
         var formats: [VideoFormat] = []
 
@@ -558,6 +635,8 @@ class YTDLPWrapper: ObservableObject {
                 let ext = format["ext"] as? String ?? ""
 
                 let height = format["height"] as? Int
+                let width = format["width"] as? Int
+                let shortSide = min(width ?? .max, height ?? .max)
                 let resolution: String
                 if let h = height, h > 0 {
                     resolution = "\(h)p"
@@ -596,7 +675,9 @@ class YTDLPWrapper: ObservableObject {
                     filesizeBytes: filesizeNum,
                     note: formatNote,
                     isAudioOnly: isAudioOnly,
-                    isVideoOnly: isVideoOnly
+                    isVideoOnly: isVideoOnly,
+                    shortSide: shortSide == .max ? 0 : shortSide,
+                    vcodec: vcodec
                 )
                 formats.append(videoFormat)
             }
@@ -611,11 +692,12 @@ class YTDLPWrapper: ObservableObject {
             return r1 > r2
         }
 
-        return VideoInfo(id: id, title: title, thumbnail: thumbnail, duration: duration, uploader: uploader, url: url, formats: formats)
+        return VideoInfo(id: id, title: title, thumbnail: thumbnail, duration: duration, uploader: uploader, url: url,
+                         formats: formats, isLive: isLive, language: language)
     }
 
     private func formatDuration(_ seconds: Double) -> String {
-        if seconds == 0 { return "--:--" }
+        if seconds <= 0 { return "" }
         let hours = Int(seconds) / 3600
         let minutes = (Int(seconds) % 3600) / 60
         let secs = Int(seconds) % 60
@@ -663,11 +745,16 @@ class YTDLPWrapper: ObservableObject {
         let generation = downloadGeneration
 
         // Stream output. Handlers run on a Foundation I/O queue; hop to the main actor.
-        pipe.fileHandleForReading.readabilityHandler = { handle in
+        let runGeneration = downloadGeneration
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             if data.isEmpty { return }
             if let output = String(data: data, encoding: .utf8) {
-                Task { @MainActor in progressHandler(output) }
+                // Output that arrives after a Cancel mustn't bring "downloading" back.
+                Task { @MainActor in
+                    guard let self, runGeneration == self.downloadGeneration else { return }
+                    progressHandler(output)
+                }
             }
         }
         // The handler drains stderr as it arrives, so keep a copy: it's what
@@ -703,6 +790,8 @@ class YTDLPWrapper: ObservableObject {
 
             runPipe.fileHandleForReading.readabilityHandler = nil
             runErrorPipe.fileHandleForReading.readabilityHandler = nil
+            // The last lines can still be in the pipe ("does not pass filter", the saved path).
+            let rest = String(data: runPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
 
             let success = runTask.terminationStatus == 0
             let errorOutput: String?
@@ -716,93 +805,236 @@ class YTDLPWrapper: ObservableObject {
 
             Task { @MainActor in
                 guard let self, generation == self.downloadGeneration else { return }
+                if !rest.isEmpty { progressHandler(rest) }
                 self.downloadTask = nil
-                self.tempPrefixes = []
-                completion(success, errorOutput)
+                let error = self.stalled ? DownloadFailure.stalled : errorOutput
+                self.stalled = false
+                // After a success the job decides what's temporary (its own file may be).
+                if !success { self.removeTempFiles() }
+                completion(success, error)
             }
         }
     }
 
-    /// yt-dlp format selector for the user's preferred quality. Applies to the
-    /// "best" download path only — explicit per-format picks are respected as-is.
-    private var qualityFormatSelector: String {
-        switch settings.downloadQuality {
-        case .best:
-            return "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[vcodec^=av01]+bestaudio/bestvideo[vcodec^=avc]+bestaudio/bestvideo+bestaudio/best"
-        case .hd1080, .hd720:
-            let cap = settings.downloadQuality == .hd1080 ? 1080 : 720
-            return "bestvideo[height<=\(cap)][vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[height<=\(cap)][vcodec^=av01]+bestaudio/bestvideo[height<=\(cap)]+bestaudio/best[height<=\(cap)]/best"
-        case .audioOnly:
-            return "bestaudio[ext=m4a]/bestaudio/best"
+    /// yt-dlp's format choice for the user's preferred quality. The highest
+    /// resolution wins, sized by the short side so phone videos aren't cut down.
+    /// A format the Mac plays as is (H.264, HEVC) is taken when it reaches the
+    /// quality asked for; otherwise the sharper format is fetched and converted
+    /// afterwards (Instagram's full-size reels only exist as VP9). AV1 is skipped
+    /// on Macs that can't decode it, since it can't be converted there either.
+    /// `height` is a size picked in the notch (4K…); without one, Settings decide.
+    private func videoFormatArgs(height: Int?) -> [String] {
+        let setting: Int? = switch settings.downloadQuality {
+        case .hd1080: 1080
+        case .hd720: 720
+        default: nil
         }
+        let cap = height ?? setting
+        let enough = cap ?? 1080
+        let codecs = VideoConverter.canPlayAV1 ? "avc|h26[45]|hvc|hev|av01" : "avc|h26[45]|hvc|hev"
+        let plays = "[vcodec~='^(\(codecs))'][height>=?\(enough)][width>=?\(enough)]"
+        let av1 = VideoConverter.canPlayAV1 ? "" : "[vcodec!^=?av01]"
+        let sound = "[format_id!=audio]"    // TikTok's "audio" is the post's song, not its sound
+        return [
+            "-f", "bv*\(plays)+ba\(sound)/bv*\(av1)+ba\(sound)/b\(av1)/b",
+            "-S", "\(cap.map { "res:\($0)" } ?? "res"),vcodec:h265,acodec:aac",
+            "--merge-output-format", "mp4",
+        ]
     }
-    private var qualityMergeFormat: String { settings.downloadQuality == .audioOnly ? "m4a" : "mp4" }
 
-    func downloadBest(url: String, outputPath: String) {
+    /// Where the finished file goes, and a private folder for the parts while it
+    /// downloads: a cancelled or failed download leaves nothing in the user's folder.
+    /// `label` names the size ("720p", "4K Original") so a second save at
+    /// another size is a new file, not yt-dlp's "already downloaded" old one.
+    private func outputArgs(_ outputPath: String, label: String? = nil) -> [String] {
+        let work = NSTemporaryDirectory() + "mindextract-\(UUID().uuidString)"
+        try? FileManager.default.createDirectory(atPath: work, withIntermediateDirectories: true)
+        tempPrefixes = [work]
+        let suffix = label.map { " " + $0.replacingOccurrences(of: "%", with: "%%") } ?? ""
+        return ["-P", outputPath, "-P", "temp:" + work, "-o", "%(title).120B [%(id)s]\(suffix).%(ext)s"]
+    }
+
+    /// The address to hand yt-dlp. A plain vimeo.com video page now wants a
+    /// login; the same video's player page doesn't.
+    nonisolated static func fetchableURL(_ url: String) -> String {
+        guard let comps = URLComponents(string: url), let host = comps.host?.lowercased(),
+              host == "vimeo.com" || host == "www.vimeo.com",
+              let id = comps.path.split(separator: "/").first, id.allSatisfy(\.isNumber) else { return url }
+        // An unlisted video's link carries its key as the second part: vimeo.com/123/abcdef12
+        let parts = comps.path.split(separator: "/")
+        if parts.count > 1, parts[1].allSatisfy(\.isHexDigit) {
+            return "https://player.vimeo.com/video/\(id)?h=\(parts[1])"
+        }
+        return "https://player.vimeo.com/video/\(id)"
+    }
+
+    /// Live streams have nothing to save until they end; yt-dlp would record forever.
+    private let notLive = ["--match-filters", "live_status!=?is_live & live_status!=?is_upcoming"]
+
+    private func removeTempFiles() {
+        let fm = FileManager.default
+        for prefix in tempPrefixes {
+            let dir = (prefix as NSString).deletingLastPathComponent
+            let name = (prefix as NSString).lastPathComponent
+            for item in (try? fm.contentsOfDirectory(atPath: dir)) ?? [] where item.hasPrefix(name) {
+                try? fm.removeItem(atPath: (dir as NSString).appendingPathComponent(item))
+            }
+        }
+        tempPrefixes = []
+    }
+
+    /// The sizes `formats` come in, highest first. AV1 counts only on Macs that
+    /// can decode it; a size only in VP9 (or AV1) is marked as converted.
+    static func qualities(in formats: [VideoFormat]) -> [VideoQuality] {
+        var playsAsIs: [Int: Bool] = [:]
+        var largest: [Int: Int] = [:]
+        var largestPlaying: [Int: Int] = [:]
+        for f in formats where !f.isAudioOnly && f.shortSide > 0 && f.vcodec != "none" {
+            let codec = f.vcodec.lowercased()
+            if codec.hasPrefix("av01") && !VideoConverter.canPlayAV1 { continue }
+            guard let size = VideoQuality.size(for: f.shortSide) else { continue }
+            let plays = ["avc", "h264", "h265", "hvc", "hev"].contains { codec.hasPrefix($0) }
+                || (codec.hasPrefix("av01") && VideoConverter.canPlayAV1)
+            playsAsIs[size] = (playsAsIs[size] ?? false) || plays
+            largest[size] = max(largest[size] ?? 0, f.shortSide)
+            if plays { largestPlaying[size] = max(largestPlaying[size] ?? 0, f.shortSide) }
+        }
+        // A size that plays as is asks for its largest playable format, so a
+        // slightly bigger VP9 in the same size isn't fetched and converted.
+        return playsAsIs.map { VideoQuality(height: $0.key, converts: !$0.value,
+                                            fetchHeight: largestPlaying[$0.key] ?? largest[$0.key] ?? $0.key,
+                                            originalHeight: largest[$0.key] ?? $0.key) }
+            .sorted { $0.height > $1.height }
+    }
+
+    /// `keepOriginal`: the site's own file at that size, never converted, in an
+    /// .mkv (which holds any codec, so Finder hands it to VLC or IINA instead of
+    /// QuickTime showing a black picture).
+    func downloadBest(url: String, outputPath: String, height: Int? = nil, label: String? = nil, keepOriginal: Bool = false) {
         state = .downloading(progress: 0, speed: "Starting…")
         startDownloadStallDetection()
-        outputLog = "Starting download (best quality)...\n"
+        outputLog = "Starting download (\(height.map { "\($0)p" } ?? "best quality")\(keepOriginal ? ", original" : ""))...\n"
 
-        let outputTemplate = "\(outputPath)/%(title).80s [%(id)s] %(height)sp.%(ext)s"
-
-        // Quality-aware selector (H.264 preferred for QuickTime/macOS), honoring
-        // the user's "best/1080p/720p/audio only" preference.
-        var args = [
-            "-f", qualityFormatSelector,
-            "-o", outputTemplate,
-            "--newline", "--progress", "--no-playlist", "--restrict-filenames",
-            "--merge-output-format", qualityMergeFormat
-        ]
+        let formatArgs = keepOriginal
+            ? ["-f", "bv*+ba[format_id!=audio]/b", "-S", height.map { "res:\($0)" } ?? "res", "--merge-output-format", "mkv"]
+            : videoFormatArgs(height: height)
+        var args = formatArgs + outputArgs(outputPath, label: label) + notLive + ["--newline", "--progress", "--no-playlist"]
         args.append(contentsOf: youtubeWorkaroundArgs)
         if settings.downloadSubtitles {
-            args.append(contentsOf: ["--write-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage + ".*"])
+            // Inside the video, where QuickTime shows them. Only the language
+            // itself: "en.*" also asks for every machine translation into it,
+            // which YouTube answers with "Too Many Requests". A subtitle that
+            // still fails doesn't stop the video (--ignore-errors).
+            args.append(contentsOf: ["--embed-subs", "--write-auto-subs", "--sub-langs", settings.subtitleLanguage, "--ignore-errors"])
         }
         let savedPathFile = Self.makeSavedPathFile()
-        tempPrefixes = [savedPathFile]
+        pendingSavedPathFile = savedPathFile
         args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
-        args.append(url)
+        args.append(Self.fetchableURL(url))
 
         runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
             guard let self = self else { return }
             self.cancelTimeoutTimer()
-            if success {
-                self.state = .completed
-                self.outputLog += "\nDownload completed!\n"
-                self.lastDownloadedFilePath = Self.savedPath(from: savedPathFile) ?? self.findLatestDownloadedFile(in: outputPath)
-                if let info = self.videoInfo {
-                    let historyItem = HistoryItem(
-                        url: url,
-                        title: info.title,
-                        thumbnail: info.thumbnail,
-                        platform: Platform.detect(from: url),
-                        isAudioOnly: self.settings.downloadQuality == .audioOnly,
-                        filePath: self.lastDownloadedFilePath
-                    )
-                    self.historyManager.addToHistory(historyItem)
+            // The file is what counts: with --ignore-errors a failed subtitle ends
+            // the run with an error even though the video was saved.
+            guard let saved = Self.savedPath(from: savedPathFile) else {
+                if success && self.outputLog.contains("does not pass filter") {
+                    self.setDownloadError(DownloadFailure.live)
+                } else if success {
+                    self.removeTempFiles()
+                    self.finishDownload(url: url, path: nil)    // reported as "file wasn't found"
+                } else {
+                    self.setDownloadError(errorOutput ?? "Unknown error")
                 }
-            } else {
-                self.setDownloadError(errorOutput ?? "Unknown error")
+                return
+            }
+            self.removeTempFiles()
+            if keepOriginal {
+                self.finishDownload(url: url, path: saved)
+                return
+            }
+            // A video in a codec this Mac can't play (VP9, or AV1 before M3) is
+            // re-encoded to H.264 first. Cancel stops ffmpeg and removes the new
+            // file, but never one an earlier download saved.
+            self.tempPrefixes = [self.reusedExisting ? saved + ".converting" : saved]
+            let generation = self.downloadGeneration
+            Task { @MainActor in
+                let playable = await VideoConverter.makePlayable(saved, started: { process in
+                    guard generation == self.downloadGeneration else { process.terminate(); return }
+                    self.downloadTask = process
+                    self.state = .downloading(progress: 0, speed: Self.convertingPhase)
+                }, cancelled: { generation != self.downloadGeneration }, progress: { p in
+                    // A late update after the job finished mustn't bring "downloading" back.
+                    guard generation == self.downloadGeneration, case .downloading = self.state else { return }
+                    self.state = .downloading(progress: p, speed: Self.convertingPhase)
+                })
+                guard generation == self.downloadGeneration else { return }
+                self.downloadTask = nil
+                self.tempPrefixes = []
+                if playable != saved { self.outputLog += "Converted so it plays on this Mac.\n" }
+                self.finishDownload(url: url, path: playable)
             }
         }
     }
 
+    /// The `speed` text while a saved video is converted, for the notch's phase line.
+    static let convertingPhase = "Converting…"
+
+    private func finishDownload(url: String, path: String?, audioOnly: Bool = false) {
+        state = .completed
+        outputLog += "\nDownload completed!\n"
+        lastDownloadedFilePath = path
+        if let info = videoInfo {
+            let historyItem = HistoryItem(
+                url: url,
+                title: info.title,
+                thumbnail: info.thumbnail,
+                platform: Platform.detect(from: url),
+                isAudioOnly: audioOnly,
+                filePath: path
+            )
+            historyManager.addToHistory(historyItem)
+        }
+    }
+
+    /// Reads yt-dlp's output line by line: download progress, and the steps
+    /// after it (merging, extracting audio), which show no progress of their own.
     private func parseProgress(_ output: String) {
         outputLog += output
-
-        if output.contains("%") {
-            let pattern = #"(\d+\.?\d*)%.*?at\s+(\S+)"#
-            if let regex = try? NSRegularExpression(pattern: pattern),
-               let match = regex.firstMatch(in: output, range: NSRange(output.startIndex..., in: output)) {
-
-                if let percentRange = Range(match.range(at: 1), in: output),
-                   let speedRange = Range(match.range(at: 2), in: output) {
-                    let percent = Double(output[percentRange]) ?? 0
-                    let speed = String(output[speedRange])
-                    state = .downloading(progress: percent / 100, speed: speed)
-                    // Update last progress time for stall detection
-                    lastProgressTime = Date()
-                }
+        for line in output.split(whereSeparator: \.isNewline) {
+            if line.contains("has already been downloaded") { reusedExisting = true }
+            // "[info] abc: Downloading 1 format(s): 137+140"
+            if let r = line.range(of: "Downloading 1 format(s): ") {
+                streamCount = max(1, line[r.upperBound...].split(separator: "+").count)
             }
+            // A subtitle's Destination line isn't a stream, and its progress isn't ours.
+            if line.hasPrefix("[download] Destination:") {
+                let ext = (String(line) as NSString).pathExtension.lowercased()
+                inSubtitle = ["vtt", "srt", "ttml", "dfxp", "sbv", "json", "json3", "srv1", "srv2", "srv3", "ass", "ssa", "lrc"].contains(ext)
+                if !inSubtitle { streamIndex += 1 }
+            }
+            if inSubtitle { continue }
+            if ["[Merger]", "[ExtractAudio]", "[EmbedSubtitle]", "[Fixup", "[VideoRemuxer]", "[VideoConvertor]", "[MoveFiles]"]
+                .contains(where: { line.hasPrefix($0) }) {
+                lastProgressTime = nil      // working, just without a percentage
+                continue
+            }
+            guard line.contains("%"),
+                  let match = line.firstMatch(of: #/(\d+\.?\d*)%.*?at\s+(\S+)/#),
+                  let percent = Double(match.1) else { continue }
+            // The video stream is most of the bytes; the audio after it the rest.
+            let index = min(max(streamIndex, 1), streamCount)
+            let progress: Double
+            if streamCount > 1 {
+                let videoShare = 0.85
+                progress = index == 1 ? percent / 100 * videoShare
+                    : videoShare + (1 - videoShare) * (Double(index - 2) + percent / 100) / Double(streamCount - 1)
+            } else {
+                progress = percent / 100
+            }
+            state = .downloading(progress: min(progress, 1), speed: String(match.2))
+            lastProgressTime = Date()
+            sawProgress = true
         }
     }
 
@@ -822,17 +1054,11 @@ class YTDLPWrapper: ObservableObject {
 
     func cancelDownload() {
         downloadGeneration += 1
+        if let file = pendingSavedPathFile { try? FileManager.default.removeItem(atPath: file) }
+        pendingSavedPathFile = nil
         if let task = downloadTask, task.isRunning { task.terminate() }
         downloadTask = nil
-        let fm = FileManager.default
-        for prefix in tempPrefixes {
-            let dir = (prefix as NSString).deletingLastPathComponent
-            let name = (prefix as NSString).lastPathComponent
-            for item in (try? fm.contentsOfDirectory(atPath: dir)) ?? [] where item.hasPrefix(name) {
-                try? fm.removeItem(atPath: (dir as NSString).appendingPathComponent(item))
-            }
-        }
-        tempPrefixes = []
+        removeTempFiles()
         cancelTimeoutTimer()
         state = .idle
         outputLog += "\nDownload cancelled.\n"
@@ -857,48 +1083,40 @@ class YTDLPWrapper: ObservableObject {
 
     // MARK: - Audio only
 
+    /// yt-dlp's audio choice. TikTok lists the post's background song as an
+    /// audio format ("audio"); the video's own sound is the video file's track.
+    /// AAC first, so saving needs no re-encode.
+    private static let audioFormat = "ba[ext=m4a][format_id!=audio]/ba[format_id!=audio]/b"
+
     func downloadAudio(url: String, outputPath: String) {
         state = .downloading(progress: 0, speed: "Starting audio extraction…")
         startDownloadStallDetection()
         outputLog = "Starting audio download (M4A)...\n"
 
-        // Use truncated title + video ID for filename
-        let outputTemplate = "\(outputPath)/%(title).80s [%(id)s].%(ext)s"
-
         var args = [
-            "-f", "bestaudio",
+            "-f", Self.audioFormat,
             "-x",  // Extract audio
             "--audio-format", "m4a",
             "--audio-quality", "0",  // Best quality
-            "-o", outputTemplate,
-            "--newline", "--progress", "--no-playlist", "--restrict-filenames"
-        ]
+        // Its own name: on sites without a separate audio stream yt-dlp fetches the
+        // video and deletes it after taking the sound, which must never be a video
+        // the user saved earlier under the same name.
+        ] + outputArgs(outputPath, label: "Audio") + notLive + ["--newline", "--progress", "--no-playlist"]
         args.append(contentsOf: youtubeWorkaroundArgs)
         let savedPathFile = Self.makeSavedPathFile()
-        tempPrefixes = [savedPathFile]
+        pendingSavedPathFile = savedPathFile
         args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
-        args.append(url)
+        args.append(Self.fetchableURL(url))
 
         runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
             guard let self = self else { return }
             self.cancelTimeoutTimer()
-            if success {
-                self.state = .completed
-                self.outputLog += "\nAudio download completed!\n"
-                self.lastDownloadedFilePath = Self.savedPath(from: savedPathFile) ?? self.findLatestDownloadedFile(in: outputPath)
-                // Record audio downloads in History too (this was missing — only
-                // video downloads were saved, so audio files vanished from History).
-                if let info = self.videoInfo {
-                    let historyItem = HistoryItem(
-                        url: url,
-                        title: info.title,
-                        thumbnail: info.thumbnail,
-                        platform: Platform.detect(from: url),
-                        isAudioOnly: true,
-                        filePath: self.lastDownloadedFilePath
-                    )
-                    self.historyManager.addToHistory(historyItem)
-                }
+            let saved = Self.savedPath(from: savedPathFile)
+            if success, saved == nil, self.outputLog.contains("does not pass filter") {
+                self.setDownloadError(DownloadFailure.live)
+            } else if success {
+                self.removeTempFiles()
+                self.finishDownload(url: url, path: saved, audioOnly: true)
             } else {
                 self.setDownloadError(errorOutput ?? "Unknown error")
             }
@@ -907,55 +1125,57 @@ class YTDLPWrapper: ObservableObject {
 
     // MARK: - Download Audio for Transcription (to temp folder)
 
-    func downloadAudioForTranscription(url: String, completion: @escaping (String?, String?) -> Void) {
+    /// Fetches a link's audio to the temp folder as the site serves it (m4a,
+    /// webm…): the transcriber reads any of them, so there's no slow conversion
+    /// to a huge WAV first. Calls back with the file, an error, and the spoken
+    /// language when the site says.
+    func downloadAudioForTranscription(url: String, completion: @escaping (_ path: String?, _ error: String?, _ language: String?) -> Void) {
         state = .downloading(progress: 0, speed: "Downloading audio for transcription…")
         startDownloadStallDetection()
         outputLog = "Downloading audio for transcription...\n"
 
-        // Create temp directory for audio
         let tempDir = NSTemporaryDirectory()
         let tempFileName = UUID().uuidString
         let outputTemplate = "\(tempDir)\(tempFileName).%(ext)s"
+        let languageFile = "\(tempDir)\(tempFileName)-language.txt"
         tempPrefixes = [tempDir + tempFileName]
 
         var args = [
-            "-f", "bestaudio",
-            "-x",  // Extract audio
-            "--audio-format", "wav",
-            "--audio-quality", "0",
+            "-f", Self.audioFormat,
+            // The original language first (not a dub), normal AAC quality (not
+            // the 48 kbps loudness-squashed variant), then the smallest file: for
+            // a video without a separate audio stream that's still the sound.
+            "-S", "lang,abr~128,+size",
             "-o", outputTemplate,
-            "--newline", "--progress", "--no-playlist"
-        ]
+            "--print-to-file", "before_dl:%(language)s", languageFile,
+            "--newline", "--progress", "--no-playlist",
+        ] + notLive
         args.append(contentsOf: youtubeWorkaroundArgs)
-        args.append(url)
+        args.append(Self.fetchableURL(url))
 
         runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
             guard let self = self else { return }
             self.cancelTimeoutTimer()
-            if success {
-                // Find the downloaded audio file
-                let expectedPath = "\(tempDir)\(tempFileName).wav"
-                if FileManager.default.fileExists(atPath: expectedPath) {
-                    self.state = .idle
-                    self.outputLog += "\nAudio downloaded for transcription.\n"
-                    completion(expectedPath, nil)
-                } else {
-                    // Try to find any file with the temp name
-                    let contents = try? FileManager.default.contentsOfDirectory(atPath: tempDir)
-                    if let file = contents?.first(where: { $0.hasPrefix(tempFileName) }) {
-                        let fullPath = tempDir + file
-                        self.state = .idle
-                        self.outputLog += "\nAudio downloaded for transcription.\n"
-                        completion(fullPath, nil)
-                    } else {
-                        self.state = .error("Could not find downloaded audio file")
-                        completion(nil, "Could not find downloaded audio file")
-                    }
-                }
-            } else {
+            let language = (try? String(contentsOfFile: languageFile, encoding: .utf8))?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            try? FileManager.default.removeItem(atPath: languageFile)
+            let spoken = language.flatMap { $0.isEmpty || $0 == "NA" ? nil : $0 }
+            self.tempPrefixes = []      // the audio stays for the transcriber, which removes it
+            guard success else {
                 let msg = errorOutput ?? "Unknown error"
                 self.setDownloadError(msg)
-                completion(nil, classifyDownloadError(msg).message)
+                completion(nil, classifyDownloadError(msg).message, nil)
+                return
+            }
+            let contents = (try? FileManager.default.contentsOfDirectory(atPath: tempDir)) ?? []
+            if let file = contents.first(where: { $0.hasPrefix(tempFileName) && !$0.hasSuffix(".part") }) {
+                self.state = .idle
+                self.outputLog += "\nAudio downloaded for transcription.\n"
+                completion(tempDir + file, nil, spoken)
+            } else {
+                let msg = self.outputLog.contains("does not pass filter") ? DownloadFailure.live : "Could not find downloaded audio file"
+                self.setDownloadError(msg)
+                completion(nil, classifyDownloadError(msg).message, nil)
             }
         }
     }
@@ -976,41 +1196,6 @@ class YTDLPWrapper: ObservableObject {
         let path = text.split(separator: "\n").last.map(String.init)?.trimmingCharacters(in: .whitespaces)
         guard let path, FileManager.default.fileExists(atPath: path) else { return nil }
         return path
-    }
-
-    private func findLatestDownloadedFile(in directory: String) -> String? {
-        let fileManager = FileManager.default
-        let directoryURL = URL(fileURLWithPath: directory)
-
-        guard let contents = try? fileManager.contentsOfDirectory(
-            at: directoryURL,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: .skipsHiddenFiles
-        ) else {
-            return nil
-        }
-
-        // Video/audio extensions
-        let mediaExtensions = ["mp4", "mkv", "webm", "avi", "mov", "mp3", "m4a", "wav", "flac", "ogg"]
-
-        // Find the most recently modified media file
-        var latestFile: URL?
-        var latestDate: Date?
-
-        for url in contents {
-            let ext = url.pathExtension.lowercased()
-            guard mediaExtensions.contains(ext) else { continue }
-
-            if let attributes = try? fileManager.attributesOfItem(atPath: url.path),
-               let modDate = attributes[.modificationDate] as? Date {
-                if latestDate == nil || modDate > latestDate! {
-                    latestDate = modDate
-                    latestFile = url
-                }
-            }
-        }
-
-        return latestFile?.path
     }
 }
 
