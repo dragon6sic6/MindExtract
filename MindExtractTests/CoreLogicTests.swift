@@ -328,54 +328,55 @@ final class CoreLogicTests: XCTestCase {
     // MARK: The page open in the browser
 
     func testPageScannerFindsTheStreamAPlayerAndFrames() {
-        let base = URL(string: "https://events.example.com/webinar/one")!
+        let base = URL(string: "https://events.talksite.com/webinar/one")!
         let html = """
         <html><head><title>Webinar &amp; more &#8211; Q&amp;A</title>
         <meta property="og:image" content="/poster.jpg">
         <meta content="What's new in Swift" property="og:title">
         <meta content="Example Events" property="og:site_name"></head><body>
-        <video muted autoplay loop src="https://cdn.example.com/media/intro.mp4"></video>
+        <video muted autoplay loop src="https://cdn.talksite.com/media/intro.mp4"></video>
         <script>var c = {"hls_manifest_url":"https:\\/\\/d1.cloudfront.net\\/abc\\/hls\\/hls.m3u8"};</script>
         <iframe src="/recordings/5600ead7ba50?x=1"></iframe>
         <iframe src="https://www.youtube.com/embed/Du481sOHopU?rel=0"></iframe>
         <iframe src="https://www.youtube.com/embed/videoseries?list=PL123"></iframe>
-        <a href="https://cdn.example.com/hero-loop/bg.m3u8">x</a>
+        <a href="https://cdn.talksite.com/hero-loop/bg.m3u8">x</a>
         </body></html>
         """
         let found = PageScanner.Found(html, base: base)
         XCTAssertEqual(found.streams, ["https://d1.cloudfront.net/abc/hls/hls.m3u8"])   // not the background loop
         XCTAssertTrue(found.files.isEmpty)                                                // a muted autoplay loop is decoration
         XCTAssertEqual(found.players, ["https://www.youtube.com/watch?v=Du481sOHopU"])  // not "watch?v=videoseries"
-        XCTAssertEqual(found.frames.map(\.absoluteString), ["https://events.example.com/recordings/5600ead7ba50?x=1"])
-        XCTAssertEqual(found.best?.url, "https://d1.cloudfront.net/abc/hls/hls.m3u8")
-        XCTAssertEqual(found.best?.kind, .stream)
+        XCTAssertEqual(found.frames.map(\.absoluteString), ["https://events.talksite.com/recordings/5600ead7ba50?x=1"])
+        // An embedded player you can see beats a stream only mentioned in a script.
+        XCTAssertEqual(found.best?.url, "https://www.youtube.com/watch?v=Du481sOHopU")
+        XCTAssertEqual(found.best?.kind, .player)
         XCTAssertEqual(found.title, "Webinar & more \u{2013} Q&A")
         XCTAssertEqual(found.meta["og:title"], "What's new in Swift")                    // not cut at the apostrophe
         XCTAssertEqual(found.meta["og:site_name"], "Example Events")
     }
 
     func testPageScannerReadsProtocolRelativeAndRelativeVideoLinks() {
-        let base = URL(string: "https://www.example.com/talks/one")!
-        let html = #"<video controls><source src="/media/talk.mp4" type="video/mp4"></video><script>p("//cdn.example.net/x/master.m3u8")</script>"#
+        let base = URL(string: "https://www.talksite.com/talks/one")!
+        let html = #"<video controls><source src="/media/talk.mp4" type="video/mp4"></video><script>p("//cdn.talksite.net/x/master.m3u8")</script>"#
         let found = PageScanner.Found(html, base: base)
-        XCTAssertEqual(found.streams, ["https://cdn.example.net/x/master.m3u8"])
-        XCTAssertEqual(found.files, ["https://www.example.com/media/talk.mp4"])
+        XCTAssertEqual(found.streams, ["https://cdn.talksite.net/x/master.m3u8"])
+        XCTAssertEqual(found.files, ["https://www.talksite.com/media/talk.mp4"])
     }
 
     func testABrokenPageIsReadQuickly() {
         // Before, 15 KB of this took 51 seconds.
         let html = String(repeating: "<meta name='a' ", count: 20_000)
         let start = Date()
-        _ = PageScanner.Found(html, base: URL(string: "https://example.com/")!)
+        _ = PageScanner.Found(html, base: URL(string: "https://talksite.com/")!)
         XCTAssertLessThan(Date().timeIntervalSince(start), 2)
     }
 
     func testPagesNeverFetchedOnTheirOwn() {
         XCTAssertTrue(PageScanner.isScannable("https://virtualevents.bylovable.dev/lovable/talk?bmid=eec354361bcc&t=1"))
         XCTAssertFalse(PageScanner.isScannable("https://accounts.google.com/signin"))
-        XCTAssertFalse(PageScanner.isScannable("https://example.com/reset-password"))
-        XCTAssertFalse(PageScanner.isScannable("https://example.com/magic?token=abc"))
-        XCTAssertFalse(PageScanner.isScannable("https://example.com/invite/eyJhbGciOiJIUzI1NiJ9.e30.x"))
+        XCTAssertFalse(PageScanner.isScannable("https://talksite.com/reset-password"))
+        XCTAssertFalse(PageScanner.isScannable("https://talksite.com/magic?token=abc"))
+        XCTAssertFalse(PageScanner.isScannable("https://talksite.com/invite/eyJhbGciOiJIUzI1NiJ9.e30.x"))
         XCTAssertFalse(PageScanner.isScannable("https://zoom.us/j/123?pwd=abc"))
         XCTAssertFalse(PageScanner.isScannable("http://localhost:3000/video"))
         XCTAssertFalse(PageScanner.isScannable("http://192.168.1.10/cam"))
@@ -389,12 +390,12 @@ final class CoreLogicTests: XCTestCase {
     }
 
     func testAPageVideoIsFetchedAsItsStreamAndNamedSafely() {
-        let page = "https://events.example.com/webinar/two?member=123"
+        let page = "https://events.talksite.com/webinar/two?member=123"
         PageVideos.shared.add(PageVideo(pageURL: page, mediaURL: "https://d1.cloudfront.net/x/hls.m3u8",
-                                        referer: "https://events.example.com/", title: "Talk: 100% live"))
+                                        referer: "https://events.talksite.com/", title: "Talk: 100% live"))
         XCTAssertEqual(YTDLPWrapper.fetchableURL(page), "https://d1.cloudfront.net/x/hls.m3u8")
         // Only the origin goes along, not the page's member id.
-        XCTAssertEqual(YTDLPWrapper.target(page), ["--referer", "https://events.example.com/", "https://d1.cloudfront.net/x/hls.m3u8"])
+        XCTAssertEqual(YTDLPWrapper.target(page), ["--referer", "https://events.talksite.com/", "https://d1.cloudfront.net/x/hls.m3u8"])
         XCTAssertEqual(YTDLPWrapper.target("https://youtu.be/Du481sOHopU"), ["https://youtu.be/Du481sOHopU"])
         XCTAssertEqual(YTDLPWrapper.fileName("Talk: 100% live / part 1"), "Talk 100%% live part 1")
         XCTAssertEqual(YTDLPWrapper.fileName("~/${TMPDIR}Evil $HOME"), "{TMPDIR}Evil HOME")      // nothing yt-dlp would expand
@@ -409,5 +410,51 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertNil(YTDLPWrapper.ffmpegLine("  Duration: N/A, start: 0").duration)
         XCTAssertEqual(YTDLPWrapper.ffmpegLine("size=    9728KiB time=00:10:30.03 bitrate= 126.5kbits/s speed=46.3x").time ?? 0, 630.03, accuracy: 0.01)
         XCTAssertNil(YTDLPWrapper.ffmpegLine("size=N/A time=N/A bitrate=N/A").time)
+    }
+
+    @MainActor func testTabLinksAndTitles() {
+        XCTAssertTrue(NotchModel.isSingleVideoLink("https://www.youtube.com/watch?v=Du481sOHopU"))
+        XCTAssertTrue(NotchModel.isSingleVideoLink("https://youtu.be/Du481sOHopU"))
+        XCTAssertTrue(NotchModel.isSingleVideoLink("https://www.youtube.com/shorts/abcDEF12345"))
+        XCTAssertTrue(NotchModel.isSingleVideoLink("https://vimeo.com/76979871"))
+        XCTAssertFalse(NotchModel.isSingleVideoLink("https://www.youtube.com/"))
+        XCTAssertFalse(NotchModel.isSingleVideoLink("https://www.youtube.com/results?search_query=swift"))
+        XCTAssertFalse(NotchModel.isSingleVideoLink("https://vimeo.com/channels/staffpicks"))
+        XCTAssertEqual(NotchModel.tabTitle("(3) Swift Talk - YouTube"), "Swift Talk")
+        XCTAssertEqual(NotchModel.withoutFragment("https://a.com/p?x=1#part"), "https://a.com/p?x=1")
+        XCTAssertFalse(PageScanner.isScannable("https://www.google.com/search?q=video"))
+        XCTAssertFalse(PageScanner.isScannable("https://github.com/apple/swift"))
+    }
+
+    func testThePagesOwnVideoWinsOverAdsAndPreviews() {
+        let base = URL(string: "https://talks.talksite.com/t/1")!
+        let declared = PageScanner.Found(#"<meta property="og:video" content="https://cdn.talksite.com/talk/index.m3u8"><script>ad("https://imasdk.talksite.net/ads/master.m3u8")</script>"#, base: base)
+        XCTAssertEqual(declared.best?.url, "https://cdn.talksite.com/talk/index.m3u8")
+        let visible = PageScanner.Found(#"<video controls src="/talk.mp4"></video><script>pre("https://ads.talksite.net/preroll/master.m3u8")</script>"#, base: base)
+        XCTAssertEqual(visible.best?.url, "https://talks.talksite.com/talk.mp4")
+        let keynote = PageScanner.Found(#"<video muted autoplay controls src="/keynote.mp4"></video>"#, base: base)
+        XCTAssertEqual(keynote.best?.url, "https://talks.talksite.com/keynote.mp4")       // controls: not decoration
+        let robot = PageScanner.Found(#"<video muted playsinline preload src="/robot.mp4"></video>"#, base: base)
+        XCTAssertNil(robot.best)                                                         // muted, no controls: decoration
+        XCTAssertNil(PageScanner.Found.player(URL(string: "https://myloom.com/share/abc")!))
+        XCTAssertEqual(PageScanner.Found.decode("Caf&eacute; &copy; &#0;x"), "Café © x")
+    }
+
+    func testOrdinaryTitlesInLinksAreNotMistakenForKeys() {
+        XCTAssertTrue(PageScanner.isScannable("https://ocw.mit.edu/courses/18-06-linear-algebra/resources/lecture-1-the-geometry-of-linear-equations/"))
+        XCTAssertTrue(PageScanner.isScannable("https://media.ccc.de/v/37c3-12142-hacking_neuromorphic_computers"))
+        XCTAssertTrue(PageScanner.isScannable("https://news.talksite.com/what-we-learned-from-the-2024-election-results"))
+        XCTAssertTrue(PageScanner.isScannable("https://blog.talksite.com/confirmation-bias"))
+        XCTAssertTrue(PageScanner.isScannable("https://conf.talksite.com/agenda?session=12"))
+        XCTAssertFalse(PageScanner.isScannable("https://talksite.com/s/a8F3kQ9zP2mX7vB4nL6tR1yW"))
+        XCTAssertFalse(PageScanner.isScannable("https://talksite.com/sign-in?next=/"))
+        XCTAssertEqual(YTDLPWrapper.fileName("\u{202E}gnp.exe"), "gnp.exe")
+    }
+
+    func testCodeSampleAddressesAreNotVideos() {
+        let found = PageScanner.Found(#"<pre>curl https://public.example.com/path/to/file.mp4</pre>"#, base: URL(string: "https://mux.com/")!)
+        XCTAssertNil(found.best)
+        let both = PageScanner.Found(#"<script>a("https://cdn.talksite.com/x/dash/dash.mpd");b("https://cdn.talksite.com/x/hls/hls.m3u8")</script>"#, base: URL(string: "https://talksite.com/")!)
+        XCTAssertEqual(both.best?.url, "https://cdn.talksite.com/x/hls/hls.m3u8")
     }
 }

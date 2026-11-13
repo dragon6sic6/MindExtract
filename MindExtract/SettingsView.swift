@@ -196,8 +196,8 @@ struct SettingsView: View {
         }
 
         SettingsSection("Your browser",
-                        footer: "Opening the notch over Safari, Chrome, Arc, Edge, Brave or Vivaldi offers the video on the page in front. MindExtract reads only the page's address and title. A video site is looked up right away; any other page only when you click Find the video on this page. Private windows are skipped, except in Safari, which doesn't tell apps which windows are private.") {
-            SettingsRow("Suggest the video on the open page") {
+                        footer: "Open the notch over Safari, Chrome, Arc, Edge, Brave or Vivaldi to see the video on the page you're on. MindExtract reads only the page's address and title. YouTube and other video sites are checked right away; other pages are fetched, without your sign-in, only when you click Find Video. Mail, sign-in and payment pages are never fetched. Private windows are skipped in every browser except Safari. Firefox isn't supported.") {
+            SettingsRow("Suggest the video on the page you're on") {
                 Toggle("", isOn: Binding(get: { settings.suggestFromBrowser }, set: { on in
                     settings.suggestFromBrowser = on
                     if on { NotchModel.resetBrowserQuestions() }
@@ -207,9 +207,12 @@ struct SettingsView: View {
                 let denied = NotchModel.deniedBrowsers
                 SettingsRow("Allowed in macOS",
                             detail: denied.isEmpty
-                                ? "macOS asks once per browser."
+                                ? "MindExtract asks the first time you open the notch over a browser."
                                 : LocalizedStringKey("Not allowed in \(denied.formatted(.list(type: .and))).")) {
-                    SmallButton("Open System Settings…") { NotchModel.openAutomationSettings() }
+                    HStack(spacing: 8) {
+                        SmallButton("Ask Again") { NotchModel.resetBrowserQuestions() }
+                        if !denied.isEmpty { SmallButton("Open System Settings…") { NotchModel.openAutomationSettings() } }
+                    }
                 }
             }
         }

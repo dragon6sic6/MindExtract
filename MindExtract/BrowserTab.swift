@@ -197,21 +197,29 @@ enum PageScanner {
         if privateHosts.contains(where: { host.hasPrefix($0) }) { return false }
         let apps = ["docs.google.com", "drive.google.com", "calendar.google.com", "mail.google.com", "outlook.live.com",
                     "outlook.office.com", "outlook.office365.com", "sharepoint.com", "web.whatsapp.com", "app.slack.com",
-                    "teams.microsoft.com", "web.telegram.org", "messenger.com", "claude.ai", "chatgpt.com", "notion.so"]
+                    "teams.microsoft.com", "web.telegram.org", "messenger.com", "claude.ai", "chatgpt.com", "notion.so",
+                    // Search results and code: no video to find, so no offer either.
+                    "bing.com", "duckduckgo.com", "github.com", "stackoverflow.com"]
         if apps.contains(where: { host == $0 || host.hasSuffix("." + $0) }) { return false }
-        let words = ["login", "signin", "sign-in", "logout", "oauth", "password", "reset", "verify", "confirm", "activate",
-                     "invite", "approve", "rsvp", "optout", "opt-out", "unsubscribe", "checkout", "payment", "billing",
-                     "invoice", "account", "settings", "magic", "callback"]
-        let segments = comps.path.lowercased().split(separator: "/")
-        if segments.contains(where: { seg in words.contains { seg.contains($0) } }) { return false }
-        // A segment that looks like a key: a JWT, or a long run of letters and digits.
+        if host.range(of: #"(^|\.)google\.[a-z.]+$"#, options: .regularExpression) != nil, comps.path == "/search" { return false }
+        // Whole words of the path ("reset-password"), not parts of others ("accountability").
+        let words: Set<String> = ["login", "signin", "logout", "signout", "oauth", "password", "reset", "verify", "confirm",
+                                  "activate", "invite", "approve", "rsvp", "optout", "unsubscribe", "checkout", "payment",
+                                  "billing", "invoice", "account", "settings", "magic", "callback"]
+        for segment in comps.path.lowercased().split(separator: "/") {
+            let tokens = segment.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+            if tokens.contains(where: words.contains) { return false }
+            if ["sign-in", "sign_in", "log-in", "opt-out", "sign-out"].contains(where: segment.contains) { return false }
+        }
+        // A segment that looks like a key: a JWT, or a long unbroken run of letters
+        // and digits (a slug with dashes, "lecture-1-the-geometry-of…", is a title).
         if comps.path.split(separator: "/").contains(where: { seg in
-            seg.hasPrefix("eyJ") || (seg.count >= 32 && seg.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+            seg.hasPrefix("eyJ") || (seg.count >= 24 && seg.allSatisfy { $0.isLetter || $0.isNumber }
                                      && seg.contains(where: \.isNumber) && seg.contains(where: \.isLetter))
         }) { return false }
         let keys: Set<String> = ["token", "access_token", "id_token", "code", "key", "apikey", "api_key", "sig", "signature",
-                                 "otp", "auth", "password", "pwd", "session", "ticket", "secret", "jwt", "state", "nonce",
-                                 "x-amz-signature", "x-goog-signature", "mkt_tok", "_hsenc", "mc_eid"]
+                                 "otp", "auth", "password", "pwd", "sessionid", "session_id", "session_token", "ticket", "secret",
+                                 "jwt", "state", "nonce", "x-amz-signature", "x-goog-signature", "mkt_tok", "_hsenc", "mc_eid"]
         if let items = comps.queryItems, items.contains(where: { keys.contains($0.name.lowercased()) }) { return false }
         return true
     }
@@ -232,12 +240,62 @@ enum PageScanner {
         }
         if let best = page.best { return video(best, in: base, inner: nil) }
         // The player often sits in a frame of its own (a webinar's recording page).
-        for frame in page.frames.prefix(3) {
+        // Not past 15 seconds in all: a slow site isn't waited on frame after frame.
+        let started = Date()
+        for frame in page.frames.prefix(3) where Date().timeIntervalSince(started) < 15 {
             guard let (inner, frameURL) = await fetch(frame) else { continue }
             let found = Found(inner, base: frameURL)
             if let best = found.best { return video(best, in: frameURL, inner: found) }
         }
         return nil
+    }
+
+    /// The name points at the internet, not this Mac or the local network
+    /// ("127.0.0.1.nip.io", "fritz.box" pass the name check but not this).
+    static func resolvesPublic(_ url: URL) async -> Bool {
+        guard let host = url.host else { return false }
+        return await withCheckedContinuation { done in
+            DispatchQueue.global(qos: .userInitiated).async {
+                var hints = addrinfo(ai_flags: 0, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM, ai_protocol: 0,
+                                     ai_addrlen: 0, ai_canonname: nil, ai_addr: nil, ai_next: nil)
+                var list: UnsafeMutablePointer<addrinfo>?
+                guard getaddrinfo(host, nil, &hints, &list) == 0, let first = list else { done.resume(returning: false); return }
+                defer { freeaddrinfo(first) }
+                var node: UnsafeMutablePointer<addrinfo>? = first
+                var any = false
+                while let n = node {
+                    any = true
+                    if let addr = n.pointee.ai_addr, isPrivate(addr) { done.resume(returning: false); return }
+                    node = n.pointee.ai_next
+                }
+                done.resume(returning: any)
+            }
+        }
+    }
+
+    private static func isPrivate(_ addr: UnsafeMutablePointer<sockaddr>) -> Bool {
+        func v4(_ a: UInt32) -> Bool {      // host byte order
+            let b0 = a >> 24, b1 = (a >> 16) & 0xff
+            return b0 == 0 || b0 == 10 || b0 == 127 || (b0 == 169 && b1 == 254) || (b0 == 172 && (16...31).contains(b1))
+                || (b0 == 192 && b1 == 168) || (b0 == 100 && (64...127).contains(b1)) || b0 >= 224
+        }
+        switch Int32(addr.pointee.sa_family) {
+        case AF_INET:
+            return addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { v4(UInt32(bigEndian: $0.pointee.sin_addr.s_addr)) }
+        case AF_INET6:
+            return addr.withMemoryRebound(to: sockaddr_in6.self, capacity: 1) { p in
+                let b = withUnsafeBytes(of: p.pointee.sin6_addr) { Array($0) }
+                if b[0..<15].allSatisfy({ $0 == 0 }) { return true }                       // :: and ::1
+                if b[0] & 0xfe == 0xfc { return true }                                      // fc00::/7
+                if b[0] == 0xfe && b[1] & 0xc0 == 0x80 { return true }                      // fe80::/10
+                if b[0..<10].allSatisfy({ $0 == 0 }) && b[10] == 0xff && b[11] == 0xff {    // ::ffff:a.b.c.d
+                    return v4(UInt32(b[12]) << 24 | UInt32(b[13]) << 16 | UInt32(b[14]) << 8 | UInt32(b[15]))
+                }
+                return false
+            }
+        default:
+            return true
+        }
     }
 
     static func origin(_ url: URL) -> String? {
@@ -249,7 +307,8 @@ enum PageScanner {
     private final class RedirectCheck: NSObject, URLSessionTaskDelegate, Sendable {
         func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                         newRequest request: URLRequest) async -> URLRequest? {
-            guard let url = request.url, PageScanner.isPublic(url) else { return nil }
+            guard let url = request.url, PageScanner.isScannable(url.absoluteString),
+                  await PageScanner.resolvesPublic(url) else { return nil }
             if task.originalRequest?.url?.scheme?.lowercased() == "https", url.scheme?.lowercased() != "https" { return nil }
             return request
         }
@@ -257,7 +316,7 @@ enum PageScanner {
 
     /// The page's HTML (at most 2 MB, within 10 s), and where it ended up after redirects.
     private static func fetch(_ url: URL) async -> (String, URL)? {
-        guard isPublic(url) else { return nil }
+        guard isPublic(url), await resolvesPublic(url) else { return nil }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 6)
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
                          forHTTPHeaderField: "User-Agent")
@@ -290,25 +349,32 @@ enum PageScanner {
     /// What one page's HTML points at. Every pattern here runs in time that grows
     /// with the page, never faster: a broken or hostile page can't stall it.
     struct Found {
-        var streams: [String] = []      // HLS (.m3u8)
-        var files: [String] = []        // .mp4, .m4v, .mov
+        var streams: [String] = []      // HLS (.m3u8), DASH (.mpd)
+        var files: [String] = []        // .mp4, .m4v, .mov, .webm
         var players: [String] = []      // YouTube, Vimeo, Wistia, Loom embeds, as links yt-dlp knows
         var frames: [URL] = []          // the page's own frames, which may hold the player
         var meta: [String: String] = [:]
         var title: String?
+        /// Every find with how sure we are it's the page's video: what the page
+        /// declares (og:video) first, then a player you see (<video controls>, an
+        /// embed), then links in its scripts (where ads and previews live too).
+        private var ranked: [(url: String, kind: PageVideo.Kind, tier: Int, order: Int)] = []
 
-        /// A stream first (the one a player plays), then a known player, then a file.
         var best: (url: String, kind: PageVideo.Kind)? {
-            if let s = streams.first { return (s, .stream) }
-            if let p = players.first { return (p, .player) }
-            if let f = files.first { return (f, .file) }
-            return nil
+            func kindRank(_ k: PageVideo.Kind) -> Int { k == .stream ? 0 : k == .player ? 1 : 2 }
+            func master(_ s: String) -> Int { ["master", "manifest", "playlist"].contains { s.lowercased().contains($0) } ? 0 : 1 }
+            // HLS before DASH: yt-dlp and ffmpeg open more of it (an encrypted track too).
+            func dash(_ s: String) -> Int { URL(string: s)?.pathExtension.lowercased() == "mpd" ? 1 : 0 }
+            return ranked.min { a, b in
+                (a.tier, kindRank(a.kind), dash(a.url), master(a.url), a.order) < (b.tier, kindRank(b.kind), dash(b.url), master(b.url), b.order)
+            }.map { ($0.url, $0.kind) }
         }
 
         init(_ html: String, base: URL) {
-            var preferred: [String] = []        // what the page says its video is (og:video)
-            var decorative = Set<String>()      // muted looping backgrounds
-            var media: [String] = []
+            var found: [(String, Int)] = []      // a link and its tier
+            var decorative = Set<String>()
+            var seenFrames = Set<String>()
+            var seenPlayers = Set<String>()
 
             var inDecorativeVideo = false
             for (name, attrs) in Self.tags(in: html) {
@@ -318,67 +384,79 @@ enum PageScanner {
                           meta[key] == nil else { continue }
                     meta[key] = Self.decode(value)
                     if ["og:video", "og:video:url", "og:video:secure_url", "twitter:player:stream"].contains(key) {
-                        preferred.append(Self.decode(value))
+                        found.append((Self.decode(value), 0))
                     }
                 case "video":
-                    // A muted video that plays and loops by itself is decoration, not the talk.
-                    inDecorativeVideo = attrs["muted"] != nil && (attrs["loop"] != nil || attrs["autoplay"] != nil)
+                    // A muted video without controls plays by itself: decoration, not the talk.
+                    inDecorativeVideo = attrs["controls"] == nil && attrs["muted"] != nil
                     if let src = attrs["src"].map(Self.decode) {
-                        if inDecorativeVideo { decorative.insert(src) } else { media.append(src) }
+                        if inDecorativeVideo { decorative.insert(src) } else { found.append((src, 1)) }
                     }
                 case "/video":
                     inDecorativeVideo = false
                 case "source":
                     if let src = attrs["src"].map(Self.decode) {
-                        if inDecorativeVideo { decorative.insert(src) } else { media.append(src) }
+                        if inDecorativeVideo { decorative.insert(src) } else { found.append((src, 1)) }
                     }
                 case "iframe":
                     guard let src = attrs["src"].map(Self.decode),
                           let url = URL(string: src, relativeTo: base)?.absoluteURL, PageScanner.isPublic(url) else { continue }
                     if let player = Self.player(url) {
-                        if !players.contains(player) { players.append(player) }
-                    } else if Self.sameSite(url.host?.lowercased() ?? "", base.host?.lowercased() ?? ""),
-                              PageScanner.isScannable(url.absoluteString), !frames.contains(url) {
+                        // The embed's own address: it's turned into the player link below.
+                        if seenPlayers.count < 20, seenPlayers.insert(player).inserted { found.append((url.absoluteString, 1)) }
+                    } else if seenFrames.count < 10, Self.sameSite(url.host?.lowercased() ?? "", base.host?.lowercased() ?? ""),
+                              PageScanner.isScannable(url.absoluteString), seenFrames.insert(url.absoluteString).inserted {
                         frames.append(url)
                     }
                 default:
                     break
                 }
             }
-            if let t = Self.firstGroup(#"<title[^<>]{0,200}+>([^<]{0,500}+)<"#, in: html) {
+            // The page's title, not an icon's <title> inside an <svg> in the body.
+            let head = html.range(of: "</head>", options: .caseInsensitive).map { String(html[..<$0.lowerBound]) } ?? html
+            if let t = Self.firstGroup(#"<title[^<>]{0,200}+>([^<]{0,500}+)<"#, in: head) {
                 let clean = Self.decode(t).trimmingCharacters(in: .whitespacesAndNewlines)
                 title = clean.isEmpty ? nil : clean
             }
 
-            // Links anywhere else: in scripts, often written "https:\/\/…" or with "&".
+            // Links anywhere else: in scripts, often written "https:\/\/…" or with "\u0026".
             let text = html.replacingOccurrences(of: "\\/", with: "/")
                 .replacingOccurrences(of: "\\u0026", with: "&").replacingOccurrences(of: "\\u002F", with: "/")
                 .replacingOccurrences(of: "&quot;", with: "\"").replacingOccurrences(of: "&amp;", with: "&")
-            media += Self.all(#"(?:https?:)?//[^\s"'<>\\()\[\]{}|^`]++"#, in: text)
+            for link in Self.all(#"(?:https?:)?//[^\s"'<>\\()\[\]{}|^`]++"#, in: text) { found.append((link, 2)) }
 
             var seen = Set<String>()
-            for candidate in preferred + media {
+            for (order, (candidate, tier)) in found.enumerated() {
+                guard ranked.count < 200 else { break }
                 let trimmed = candidate.trimmingCharacters(in: CharacterSet(charactersIn: ".,;:"))
                 guard !decorative.contains(candidate), let url = URL(string: trimmed, relativeTo: base)?.absoluteURL,
-                      PageScanner.isPublic(url), seen.insert(url.absoluteString).inserted else { continue }
+                      PageScanner.isPublic(url), !Self.isPlaceholder(url) else { continue }
+                var key = URLComponents(url: url, resolvingAgainstBaseURL: false)
+                key?.fragment = nil
+                guard seen.insert(key?.string ?? url.absoluteString).inserted else { continue }
                 let link = url.absoluteString
                 let ext = url.pathExtension.lowercased()
-                let isStream = ext == "m3u8" || link.lowercased().contains("format=m3u8")
-                if (isStream || ["mp4", "m4v", "mov"].contains(ext)), Self.isDecorative(url) { continue }
+                let isStream = ["m3u8", "mpd"].contains(ext) || link.lowercased().contains("format=m3u8")
+                let isFile = ["mp4", "m4v", "mov", "webm"].contains(ext)
+                if (isStream || isFile), Self.isDecorative(url) { continue }
                 if isStream {
                     streams.append(link)
-                } else if ["mp4", "m4v", "mov"].contains(ext) {
+                    ranked.append((link, .stream, tier, order))
+                } else if isFile {
                     files.append(link)
-                } else if let player = Self.player(url), !players.contains(player) {
-                    players.append(player)
+                    ranked.append((link, .file, tier, order))
+                } else if let player = Self.player(url) {
+                    if !players.contains(player), players.count < 20 { players.append(player) }
+                    ranked.append((player, .player, tier, order))
                 }
             }
-            // A master playlist (every size) before one size of it.
-            let ranked = streams.enumerated().sorted { a, b in
-                func score(_ s: String) -> Int { ["master", "manifest", "playlist"].contains { s.lowercased().contains($0) } ? 0 : 1 }
-                return (score(a.element), a.offset) < (score(b.element), b.offset)
-            }
-            streams = ranked.map(\.element)
+        }
+
+        /// A made-up address from a code sample ("example.com/path/to/file.mp4").
+        static func isPlaceholder(_ url: URL) -> Bool {
+            guard let host = url.host?.lowercased() else { return true }
+            return ["example.com", "example.org", "example.net", "example.edu", "test", "invalid"]
+                .contains { host == $0 || host.hasSuffix("." + $0) }
         }
 
         /// Background loops, teasers and thumbnails, judged by the file's own name.
@@ -393,7 +471,8 @@ enum PageScanner {
         static func player(_ url: URL) -> String? {
             guard let host = url.host?.lowercased() else { return nil }
             let parts = url.path.split(separator: "/").map(String.init)
-            if host.hasSuffix("youtube.com") || host.hasSuffix("youtube-nocookie.com") {
+            func under(_ domain: String) -> Bool { host == domain || host.hasSuffix("." + domain) }
+            if under("youtube.com") || under("youtube-nocookie.com") {
                 guard parts.count >= 2, parts[0] == "embed",
                       parts[1].range(of: #"^[A-Za-z0-9_-]{11}$"#, options: .regularExpression) != nil,
                       !["videoseries", "live_stream"].contains(parts[1]) else { return nil }
@@ -402,10 +481,10 @@ enum PageScanner {
             if host == "player.vimeo.com", parts.count >= 2, parts[0] == "video", parts[1].allSatisfy(\.isNumber) {
                 return url.absoluteString
             }
-            if host.hasSuffix("wistia.net") || host.hasSuffix("wistia.com"), parts.contains("iframe") || parts.contains("medias") {
+            if under("wistia.net") || under("wistia.com"), parts.contains("iframe") || parts.contains("medias") {
                 return url.absoluteString
             }
-            if host.hasSuffix("loom.com"), parts.first == "embed" || parts.first == "share" { return url.absoluteString }
+            if under("loom.com"), parts.first == "embed" || parts.first == "share" { return url.absoluteString }
             return nil
         }
 
@@ -429,7 +508,11 @@ enum PageScanner {
             let named: [String: String] = ["amp": "&", "quot": "\"", "apos": "'", "lt": "<", "gt": ">", "nbsp": " ",
                                            "ndash": "\u{2013}", "mdash": "\u{2014}", "hellip": "\u{2026}", "rsquo": "\u{2019}",
                                            "lsquo": "\u{2018}", "rdquo": "\u{201D}", "ldquo": "\u{201C}", "aring": "å",
-                                           "auml": "ä", "ouml": "ö", "Aring": "Å", "Auml": "Ä", "Ouml": "Ö", "eacute": "é"]
+                                           "auml": "ä", "ouml": "ö", "Aring": "Å", "Auml": "Ä", "Ouml": "Ö", "eacute": "é",
+                                           "egrave": "è", "aacute": "á", "iacute": "í", "oacute": "ó", "uacute": "ú",
+                                           "uuml": "ü", "Uuml": "Ü", "ntilde": "ñ", "ccedil": "ç", "oslash": "ø",
+                                           "aelig": "æ", "szlig": "ß", "copy": "©", "reg": "®", "trade": "™",
+                                           "euro": "€", "pound": "£", "middot": "·", "bull": "•", "laquo": "«", "raquo": "»"]
             var out = ""
             var last = s.startIndex
             for m in re.matches(in: s, range: NSRange(s.startIndex..., in: s)) {
@@ -437,10 +520,11 @@ enum PageScanner {
                 out += s[last..<whole.lowerBound]
                 let name = String(s[body])
                 var replacement: String?
+                // A numbered one that's a control character (&#0;) is left out.
                 if name.hasPrefix("#x") || name.hasPrefix("#X") {
-                    replacement = UInt32(name.dropFirst(2), radix: 16).flatMap(Unicode.Scalar.init).map { String(Character($0)) }
+                    replacement = UInt32(name.dropFirst(2), radix: 16).flatMap(Unicode.Scalar.init).map { $0.value < 0x20 ? "" : String(Character($0)) }
                 } else if name.hasPrefix("#") {
-                    replacement = UInt32(name.dropFirst()).flatMap(Unicode.Scalar.init).map { String(Character($0)) }
+                    replacement = UInt32(name.dropFirst()).flatMap(Unicode.Scalar.init).map { $0.value < 0x20 ? "" : String(Character($0)) }
                 } else {
                     replacement = named[name]
                 }

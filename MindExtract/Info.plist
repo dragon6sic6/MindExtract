@@ -27,7 +27,7 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>MindExtract reads the address and title of the page open in your browser, so it can offer to save or transcribe its video. Nothing else is read.</string>
+	<string>MindExtract reads the address and title of the page open in your browser, so it can offer to save or transcribe its video. Nothing else is read or changed.</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>LSMinimumSystemVersion</key>

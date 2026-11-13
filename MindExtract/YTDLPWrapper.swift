@@ -29,7 +29,7 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
     func has(_ needles: String...) -> Bool { needles.contains { s.contains($0) } }
 
     if raw == DownloadFailure.noVideoOnPage {
-        return DownloadErrorInfo(message: String(localized: "MindExtract couldn't find a video on this page. If the video plays somewhere else, open that page and try again."), permanent: true)
+        return DownloadErrorInfo(message: String(localized: "MindExtract couldn't find a video on this page. If the video has its own page, open it and open the notch again."), permanent: true)
     }
     if raw == DownloadFailure.stalled {
         return DownloadErrorInfo(message: String(localized: "The download stopped moving. Check your connection and try again."))
@@ -345,11 +345,12 @@ class YTDLPWrapper: ObservableObject {
         fetchQuickPreview(for: url, generation: generation)
         startFetchTimeout()
         let toolArgs = youtubeWorkaroundArgs     // now, while quietLookup applies
-        probe(url, ytdlp: ytdlp, generation: generation, toolArgs: toolArgs, scanned: false)
+        probe(url, ytdlp: ytdlp, generation: generation, toolArgs: toolArgs, quiet: quiet, scanned: false)
     }
 
     /// The lookup itself. `scanned`: the page was already searched for its video.
-    private func probe(_ url: String, ytdlp: String, generation: Int, toolArgs: [String], scanned: Bool) {
+    /// `quiet`: a lookup nobody asked for; it never goes searching the page itself.
+    private func probe(_ url: String, ytdlp: String, generation: Int, toolArgs: [String], quiet: Bool, scanned: Bool) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
@@ -390,7 +391,7 @@ class YTDLPWrapper: ObservableObject {
                         // A site yt-dlp doesn't know (a webinar platform, a company
                         // page): look for the video on the page itself, as a browser
                         // extension would, and fetch that.
-                        if !scanned, errorString.contains("Unsupported URL"),
+                        if !scanned, !quiet, errorString.contains("Unsupported URL"),
                            PageVideos.shared.video(for: url) == nil, PageScanner.isScannable(url) {
                             self.startFetchTimeout()
                             Task { @MainActor in
@@ -404,7 +405,7 @@ class YTDLPWrapper: ObservableObject {
                                 }
                                 PageVideos.shared.add(found)
                                 self.outputLog += "Found the video on the page: \(found.mediaURL)\n"
-                                self.probe(url, ytdlp: ytdlp, generation: generation, toolArgs: toolArgs, scanned: true)
+                                self.probe(url, ytdlp: ytdlp, generation: generation, toolArgs: toolArgs, quiet: quiet, scanned: true)
                             }
                             return
                         }
@@ -912,6 +913,12 @@ class YTDLPWrapper: ObservableObject {
     nonisolated static func fileName(_ title: String) -> String {
         var bad = CharacterSet(charactersIn: "/:\\$\u{7F}").union(.newlines)
         bad.insert(charactersIn: Unicode.Scalar(0)...Unicode.Scalar(0x1F))
+        // Characters that change how a name reads in Finder ("‮gnp.exe"). The
+        // joiners emoji and Persian words need (U+200C, U+200D) stay.
+        for scalar in [0x200B, 0x200E, 0x200F, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E,
+                       0x2066, 0x2067, 0x2068, 0x2069, 0xFEFF] {
+            if let u = Unicode.Scalar(scalar) { bad.insert(u) }
+        }
         let clean = title.components(separatedBy: bad).joined(separator: " ")
             .split(separator: " ", omittingEmptySubsequences: true).joined(separator: " ")
         var short = ""
