@@ -7,26 +7,24 @@
     <link>https://dragon6sic6.github.io/MindExtract/appcast.xml</link>
 
     <item>
-      <title>Version 3.0.2</title>
-      <pubDate>Wed, 11 Nov 2026 22:31:17 +0000</pubDate>
-      <sparkle:version>47</sparkle:version>
-      <sparkle:shortVersionString>3.0.2</sparkle:shortVersionString>
+      <title>Version 3.1.0</title>
+      <pubDate>Fri, 13 Nov 2026 09:15:54 +0000</pubDate>
+      <sparkle:version>48</sparkle:version>
+      <sparkle:shortVersionString>3.1.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<h2>MindExtract 3.0.2</h2>
+<h2>MindExtract 3.1</h2>
 <ul>
-  <li><strong>Saved videos open in QuickTime,</strong> even 4K and full size Instagram reels. MindExtract converts them on your Mac when needed.</li>
-  <li><strong>Pick the size right on the Save button,</strong> up to 8K, or keep the original file, or just the audio.</li>
-  <li><strong>TikTok transcripts use what people say,</strong> not the background song.</li>
-  <li><strong>Long videos and podcasts save and transcribe reliably,</strong> and your Mac stays awake while they do.</li>
-  <li><strong>Subtitles are built into the video,</strong> and cancelled saves leave nothing behind.</li>
-  <li>Clearer messages for live streams, private posts and sites that need you to sign in.</li>
+  <li><strong>Save the video from the page you're on.</strong> Open the notch over Safari, Chrome, Arc, Edge, Brave or Vivaldi, and a YouTube or Vimeo video is ready to save or transcribe. No copying needed.</li>
+  <li><strong>Find Video on other pages,</strong> like webinars and conference talks. MindExtract looks for the video only when you click, and reads nothing but the page's address and title.</li>
+  <li><strong>Webinar recordings save in full,</strong> even when their sound is encrypted.</li>
+  <li>Pasting a link to a page MindExtract doesn't know now finds the video on it.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dragon6sic6/MindExtract/releases/download/v3.0.2/MindExtract-3.0.2-Universal.dmg"
-        sparkle:edSignature="9K7cdxavUzXJKHsYLuYDx0MC56T6ooe3dVm9F/3nRs4hguDdL+197NU3R/BNgYqQxIZcmb5fXBpgbyWZ7A9GCA=="
-        length="116616434"
+        url="https://github.com/dragon6sic6/MindExtract/releases/download/v3.1.0/MindExtract-3.1.0-Universal.dmg"
+        sparkle:edSignature="3gnoByXuEvvLNPaGGdHNL25SrGaJNPqu/Q6pl2cqlrUGjFSF/Q7b6STS9oK4ZYkPlyDwNnt+ZERaVtbp39fHBw=="
+        length="116942543"
         type="application/octet-stream"
       />
     </item>
