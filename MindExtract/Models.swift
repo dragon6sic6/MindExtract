@@ -240,6 +240,8 @@ class AppSettings: ObservableObject {
     // Signing in: a browser's cookies, or an exported cookies file
     @AppStorage("cookieBrowser") var cookieBrowser: CookieBrowser = .none
     @AppStorage("cookiesFilePath") var cookiesFilePath: String = ""
+    /// Offer the video on the page open in your browser when the notch opens.
+    @AppStorage("suggestFromBrowser") var suggestFromBrowser: Bool = true
 
     // Transcription
     @AppStorage("defaultTranscriptionLanguage") var defaultTranscriptionLanguage: String = "auto"

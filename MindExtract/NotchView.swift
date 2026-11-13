@@ -203,6 +203,9 @@ struct NotchSurface: View {
         .animation(NotchStyle.snappy, value: wingWidth)
         .animation(NotchStyle.snappy, value: model.stage.screen)
         .animation(NotchStyle.snappy, value: model.dragKind)
+        .animation(NotchStyle.snappy, value: model.browserPage)
+        .animation(NotchStyle.snappy, value: model.browserToAsk)
+        .animation(NotchStyle.snappy, value: model.browserAnswer)
         .onChange(of: model.popCount) { _, _ in
             guard !NotchStyle.reduceMotion else { return }
             withAnimation(.spring(response: 0.22, dampingFraction: 0.5)) { popped = true }
@@ -432,7 +435,16 @@ struct OpenNotch: View {
     @ViewBuilder private var content: some View {
         switch model.stage {
         case .idle:
-            if model.clipboardLink != nil { CopiedLinkCard() }
+            if model.browserToAsk != nil {
+                BrowserAskCard()
+            } else if let answer = model.browserAnswer {
+                BrowserAnswerCard(answer: answer)
+            } else if model.showsBrowserVideo {
+                BrowserVideoCard()
+            } else if model.showsCopiedLink {
+                CopiedLinkCard()
+            }
+            if model.showsPageOffer { PageOfferRow() }
             LinkField()
             RecentList()
         case .loadingInfo:
@@ -490,6 +502,171 @@ struct CopiedLinkCard: View {
             }
         }
         .padding(12)
+        .background(RoundedRectangle(cornerRadius: NotchStyle.radiusLarge, style: .continuous).fill(Color.white.opacity(0.06)))
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+}
+
+/// The video on the page open in your browser, ready in one click.
+struct BrowserVideoCard: View {
+    @EnvironmentObject var model: NotchModel
+
+    var body: some View {
+        if let page = model.browserPage {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    thumbnail(page.thumbnail)
+                        .frame(width: 64, height: 36)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text("Page in \(page.browser)")
+                            Text(verbatim: BrowserPageHost.of(page.link))
+                                .foregroundStyle(NotchStyle.tertiary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .font(NotchStyle.caption)
+                        .foregroundStyle(NotchStyle.secondary)
+                        Text(verbatim: page.title.isEmpty ? String(localized: "Video on this page") : page.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                HStack(spacing: 8) {
+                    SaveButton(height: NotchStyle.mainHeight) { model.saveBrowserVideo() }
+                    Button { model.transcribeBrowserVideo() } label: {
+                        Label("Transcribe", systemImage: "text.quote")
+                    }
+                    .buttonStyle(NotchButtonStyle(kind: .primary, expand: true, height: NotchStyle.mainHeight))
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: NotchStyle.radiusLarge, style: .continuous).fill(Color.white.opacity(0.06)))
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    @ViewBuilder private func thumbnail(_ url: URL?) -> some View {
+        ZStack {
+            NotchStyle.field
+            Image(systemName: "play.rectangle")
+                .font(.system(size: 14))
+                .foregroundStyle(NotchStyle.tertiary)
+            if let url {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image { image.resizable().aspectRatio(contentMode: .fill) }
+                }
+            }
+        }
+    }
+}
+
+enum BrowserPageHost {
+    static func of(_ link: String) -> String {
+        guard let host = URL(string: link)?.host else { return "" }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+}
+
+/// Any other page in the browser: nothing is fetched from it until this is clicked.
+struct PageOfferRow: View {
+    @EnvironmentObject var model: NotchModel
+
+    var body: some View {
+        if let page = model.browserPage {
+            Button { model.findPageVideo() } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 11, weight: .semibold))
+                        .accessibilityHidden(true)
+                    Text("Find the video on this page")
+                    Text(verbatim: BrowserPageHost.of(page.link))
+                        .foregroundStyle(NotchStyle.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 0)
+                }
+                .font(NotchStyle.caption)
+                .foregroundStyle(NotchStyle.secondary)
+                .padding(.horizontal, 12)
+                .frame(height: 32)
+                .contentShape(Rectangle())
+                .background(RoundedRectangle(cornerRadius: NotchStyle.radius, style: .continuous).fill(Color.white.opacity(0.06)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Find the video on the page in \(page.browser), \(BrowserPageHost.of(page.link))"))
+            .transition(.opacity)
+        }
+    }
+}
+
+/// Asked once per browser (on a click, not a hover), before macOS asks its own question.
+struct BrowserAskCard: View {
+    @EnvironmentObject var model: NotchModel
+
+    var body: some View {
+        if let browser = model.browserToAsk {
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Videos from the page you're on")
+                        .font(NotchStyle.caption)
+                        .foregroundStyle(NotchStyle.secondary)
+                    Text("When you open the notch over \(browser.name), MindExtract can offer the video on that page. It only reads the page's address and title. macOS asks next, and calls this controlling \(browser.name).")
+                        .font(.system(size: 12))
+                        .foregroundStyle(NotchStyle.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                HStack(spacing: 8) {
+                    Button { model.declineBrowser() } label: { Text("No Thanks") }
+                        .buttonStyle(NotchButtonStyle(kind: .secondary, expand: true, height: NotchStyle.mainHeight))
+                    Button { model.allowBrowser() } label: { Text("Continue") }
+                        .buttonStyle(NotchButtonStyle(kind: .primary, expand: true, height: NotchStyle.mainHeight))
+                        .accessibilityHint(Text("macOS asks next"))
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: NotchStyle.radiusLarge, style: .continuous).fill(Color.white.opacity(0.06)))
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+}
+
+/// While macOS asks, and what to do if the answer was no.
+struct BrowserAnswerCard: View {
+    @EnvironmentObject var model: NotchModel
+    let answer: NotchModel.BrowserAnswer
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            switch answer {
+            case .waiting(let browser):
+                HStack(spacing: 8) {
+                    ProgressRing(progress: nil).frame(width: 14, height: 14)
+                    Text("Waiting for your answer to macOS about \(browser)…")
+                        .font(.system(size: 12))
+                        .foregroundStyle(NotchStyle.secondary)
+                }
+            case .denied(let browser):
+                Text("\(browser) isn't allowed, so MindExtract can't see its page. You can change that in System Settings.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(NotchStyle.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button { model.dismissBrowserAnswer() } label: { Text("Not Now") }
+                        .buttonStyle(NotchButtonStyle(kind: .secondary, expand: true, height: NotchStyle.mainHeight))
+                    Button { model.openAutomationSettingsFromNotch() } label: { Text("Open System Settings…") }
+                        .buttonStyle(NotchButtonStyle(kind: .primary, expand: true, height: NotchStyle.mainHeight))
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: NotchStyle.radiusLarge, style: .continuous).fill(Color.white.opacity(0.06)))
         .transition(.opacity.combined(with: .move(edge: .top)))
     }

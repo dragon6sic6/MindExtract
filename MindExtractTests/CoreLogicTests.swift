@@ -324,4 +324,90 @@ final class CoreLogicTests: XCTestCase {
         XCTAssertEqual(VideoQuality.size(for: 1072), 1080)
         XCTAssertNil(VideoQuality.size(for: 240))
     }
+
+    // MARK: The page open in the browser
+
+    func testPageScannerFindsTheStreamAPlayerAndFrames() {
+        let base = URL(string: "https://events.example.com/webinar/one")!
+        let html = """
+        <html><head><title>Webinar &amp; more &#8211; Q&amp;A</title>
+        <meta property="og:image" content="/poster.jpg">
+        <meta content="What's new in Swift" property="og:title">
+        <meta content="Example Events" property="og:site_name"></head><body>
+        <video muted autoplay loop src="https://cdn.example.com/media/intro.mp4"></video>
+        <script>var c = {"hls_manifest_url":"https:\\/\\/d1.cloudfront.net\\/abc\\/hls\\/hls.m3u8"};</script>
+        <iframe src="/recordings/5600ead7ba50?x=1"></iframe>
+        <iframe src="https://www.youtube.com/embed/Du481sOHopU?rel=0"></iframe>
+        <iframe src="https://www.youtube.com/embed/videoseries?list=PL123"></iframe>
+        <a href="https://cdn.example.com/hero-loop/bg.m3u8">x</a>
+        </body></html>
+        """
+        let found = PageScanner.Found(html, base: base)
+        XCTAssertEqual(found.streams, ["https://d1.cloudfront.net/abc/hls/hls.m3u8"])   // not the background loop
+        XCTAssertTrue(found.files.isEmpty)                                                // a muted autoplay loop is decoration
+        XCTAssertEqual(found.players, ["https://www.youtube.com/watch?v=Du481sOHopU"])  // not "watch?v=videoseries"
+        XCTAssertEqual(found.frames.map(\.absoluteString), ["https://events.example.com/recordings/5600ead7ba50?x=1"])
+        XCTAssertEqual(found.best?.url, "https://d1.cloudfront.net/abc/hls/hls.m3u8")
+        XCTAssertEqual(found.best?.kind, .stream)
+        XCTAssertEqual(found.title, "Webinar & more \u{2013} Q&A")
+        XCTAssertEqual(found.meta["og:title"], "What's new in Swift")                    // not cut at the apostrophe
+        XCTAssertEqual(found.meta["og:site_name"], "Example Events")
+    }
+
+    func testPageScannerReadsProtocolRelativeAndRelativeVideoLinks() {
+        let base = URL(string: "https://www.example.com/talks/one")!
+        let html = #"<video controls><source src="/media/talk.mp4" type="video/mp4"></video><script>p("//cdn.example.net/x/master.m3u8")</script>"#
+        let found = PageScanner.Found(html, base: base)
+        XCTAssertEqual(found.streams, ["https://cdn.example.net/x/master.m3u8"])
+        XCTAssertEqual(found.files, ["https://www.example.com/media/talk.mp4"])
+    }
+
+    func testABrokenPageIsReadQuickly() {
+        // Before, 15 KB of this took 51 seconds.
+        let html = String(repeating: "<meta name='a' ", count: 20_000)
+        let start = Date()
+        _ = PageScanner.Found(html, base: URL(string: "https://example.com/")!)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 2)
+    }
+
+    func testPagesNeverFetchedOnTheirOwn() {
+        XCTAssertTrue(PageScanner.isScannable("https://virtualevents.bylovable.dev/lovable/talk?bmid=eec354361bcc&t=1"))
+        XCTAssertFalse(PageScanner.isScannable("https://accounts.google.com/signin"))
+        XCTAssertFalse(PageScanner.isScannable("https://example.com/reset-password"))
+        XCTAssertFalse(PageScanner.isScannable("https://example.com/magic?token=abc"))
+        XCTAssertFalse(PageScanner.isScannable("https://example.com/invite/eyJhbGciOiJIUzI1NiJ9.e30.x"))
+        XCTAssertFalse(PageScanner.isScannable("https://zoom.us/j/123?pwd=abc"))
+        XCTAssertFalse(PageScanner.isScannable("http://localhost:3000/video"))
+        XCTAssertFalse(PageScanner.isScannable("http://192.168.1.10/cam"))
+        XCTAssertFalse(PageScanner.isScannable("http://0x7f.1/"))
+        XCTAssertFalse(PageScanner.isScannable("http://intranet/videos"))
+        XCTAssertFalse(PageScanner.isScannable("http://nas.home.arpa/"))
+        XCTAssertFalse(PageScanner.isScannable("https://mail.google.com/mail/u/0/"))
+        XCTAssertFalse(PageScanner.isScannable("file:///Users/me/a.html"))
+        XCTAssertFalse(PageScanner.Found.sameSite("evil.co.uk", "bbc.co.uk"))
+        XCTAssertTrue(PageScanner.Found.sameSite("www.bbc.co.uk", "bbc.co.uk"))
+    }
+
+    func testAPageVideoIsFetchedAsItsStreamAndNamedSafely() {
+        let page = "https://events.example.com/webinar/two?member=123"
+        PageVideos.shared.add(PageVideo(pageURL: page, mediaURL: "https://d1.cloudfront.net/x/hls.m3u8",
+                                        referer: "https://events.example.com/", title: "Talk: 100% live"))
+        XCTAssertEqual(YTDLPWrapper.fetchableURL(page), "https://d1.cloudfront.net/x/hls.m3u8")
+        // Only the origin goes along, not the page's member id.
+        XCTAssertEqual(YTDLPWrapper.target(page), ["--referer", "https://events.example.com/", "https://d1.cloudfront.net/x/hls.m3u8"])
+        XCTAssertEqual(YTDLPWrapper.target("https://youtu.be/Du481sOHopU"), ["https://youtu.be/Du481sOHopU"])
+        XCTAssertEqual(YTDLPWrapper.fileName("Talk: 100% live / part 1"), "Talk 100%% live part 1")
+        XCTAssertEqual(YTDLPWrapper.fileName("~/${TMPDIR}Evil $HOME"), "{TMPDIR}Evil HOME")      // nothing yt-dlp would expand
+        XCTAssertEqual(YTDLPWrapper.fileName("👩‍👩‍👧‍👦 family"), "👩‍👩‍👧‍👦 family")                        // emoji stay whole
+        XCTAssertLessThanOrEqual(YTDLPWrapper.fileName(String(repeating: "東", count: 200)).utf8.count, 180)
+        XCTAssertEqual(YTDLPWrapper.shortMark("a").count, 6)
+        XCTAssertNotEqual(YTDLPWrapper.shortMark("https://a/1.m3u8"), YTDLPWrapper.shortMark("https://a/2.m3u8"))
+    }
+
+    func testFFmpegLinesGiveLengthAndClock() {
+        XCTAssertEqual(YTDLPWrapper.ffmpegLine("  Duration: 00:37:16.58, start: -0.02").duration ?? 0, 2236.58, accuracy: 0.01)
+        XCTAssertNil(YTDLPWrapper.ffmpegLine("  Duration: N/A, start: 0").duration)
+        XCTAssertEqual(YTDLPWrapper.ffmpegLine("size=    9728KiB time=00:10:30.03 bitrate= 126.5kbits/s speed=46.3x").time ?? 0, 630.03, accuracy: 0.01)
+        XCTAssertNil(YTDLPWrapper.ffmpegLine("size=N/A time=N/A bitrate=N/A").time)
+    }
 }

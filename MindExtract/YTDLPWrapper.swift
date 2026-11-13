@@ -18,6 +18,7 @@ struct DownloadErrorInfo {
 enum DownloadFailure {
     static let stalled = "MindExtract: the download stalled"
     static let live = "MindExtract: live stream"
+    static let noVideoOnPage = "MindExtract: no video on the page"
 }
 
 /// Maps raw yt-dlp stderr to a short, human, actionable message so users never
@@ -27,6 +28,9 @@ func classifyDownloadError(_ raw: String) -> DownloadErrorInfo {
     let s = raw.lowercased()
     func has(_ needles: String...) -> Bool { needles.contains { s.contains($0) } }
 
+    if raw == DownloadFailure.noVideoOnPage {
+        return DownloadErrorInfo(message: String(localized: "MindExtract couldn't find a video on this page. If the video plays somewhere else, open that page and try again."), permanent: true)
+    }
     if raw == DownloadFailure.stalled {
         return DownloadErrorInfo(message: String(localized: "The download stopped moving. Check your connection and try again."))
     }
@@ -327,6 +331,7 @@ class YTDLPWrapper: ObservableObject {
             return
         }
 
+        PageVideos.shared.dropIfStale(url)      // a signed stream link may have expired: search the page again
         loadGeneration += 1
         let generation = loadGeneration
         fetchTask?.terminate()
@@ -340,7 +345,11 @@ class YTDLPWrapper: ObservableObject {
         fetchQuickPreview(for: url, generation: generation)
         startFetchTimeout()
         let toolArgs = youtubeWorkaroundArgs     // now, while quietLookup applies
+        probe(url, ytdlp: ytdlp, generation: generation, toolArgs: toolArgs, scanned: false)
+    }
 
+    /// The lookup itself. `scanned`: the page was already searched for its video.
+    private func probe(_ url: String, ytdlp: String, generation: Int, toolArgs: [String], scanned: Bool) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
@@ -348,7 +357,7 @@ class YTDLPWrapper: ObservableObject {
             self.fetchTask = task
             task.executableURL = URL(fileURLWithPath: ytdlp)
             // Fast probe: list entries flat (no per-video metadata) to detect playlists.
-            task.arguments = ["-J", "--flat-playlist", "--no-warnings"] + toolArgs + [Self.fetchableURL(url)]
+            task.arguments = ["-J", "--flat-playlist", "--no-warnings"] + toolArgs + Self.target(url)
 
             var env = ProcessInfo.processInfo.environment
             env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
@@ -378,6 +387,27 @@ class YTDLPWrapper: ObservableObject {
 
                     if task.terminationStatus != 0 {
                         let errorString = String(data: errorData, encoding: .utf8) ?? "Unknown error"
+                        // A site yt-dlp doesn't know (a webinar platform, a company
+                        // page): look for the video on the page itself, as a browser
+                        // extension would, and fetch that.
+                        if !scanned, errorString.contains("Unsupported URL"),
+                           PageVideos.shared.video(for: url) == nil, PageScanner.isScannable(url) {
+                            self.startFetchTimeout()
+                            Task { @MainActor in
+                                let found = await PageScanner.scan(url)
+                                // Not after a cancel, a newer link, or the timeout's message.
+                                guard generation == self.loadGeneration, case .fetchingFormats = self.state else { return }
+                                guard let found else {
+                                    self.cancelTimeoutTimer()
+                                    self.setDownloadError(DownloadFailure.noVideoOnPage)
+                                    return
+                                }
+                                PageVideos.shared.add(found)
+                                self.outputLog += "Found the video on the page: \(found.mediaURL)\n"
+                                self.probe(url, ytdlp: ytdlp, generation: generation, toolArgs: toolArgs, scanned: true)
+                            }
+                            return
+                        }
                         self.setDownloadError(errorString)
                         return
                     }
@@ -484,7 +514,7 @@ class YTDLPWrapper: ObservableObject {
             let task = Process()
             self.fetchTask = task
             task.executableURL = URL(fileURLWithPath: ytdlp)
-            task.arguments = ["-J", "--no-warnings", "--no-playlist"] + youtubeWorkaroundArgs + [Self.fetchableURL(url)]
+            task.arguments = ["-J", "--no-warnings", "--no-playlist"] + youtubeWorkaroundArgs + Self.target(url)
 
             var env = ProcessInfo.processInfo.environment
             env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
@@ -568,6 +598,9 @@ class YTDLPWrapper: ObservableObject {
         stalled = false
         streamCount = 1
         streamIndex = 0
+        ffmpegDuration = nil
+        ffmpegTime = nil
+        ffmpegPending = ""
         inSubtitle = false
         reusedExisting = false
         cancelTimeoutTimer()
@@ -692,6 +725,11 @@ class YTDLPWrapper: ObservableObject {
             return r1 > r2
         }
 
+        // A stream found on a page knows nothing about itself ("hls"): the page does.
+        if let page = PageVideos.shared.video(for: url), page.pageNamesIt {
+            return VideoInfo(id: id, title: page.title ?? title, thumbnail: page.thumbnail ?? thumbnail, duration: duration,
+                             uploader: page.site ?? uploader, url: url, formats: formats, isLive: isLive, language: language)
+        }
         return VideoInfo(id: id, title: title, thumbnail: thumbnail, duration: duration, uploader: uploader, url: url,
                          formats: formats, isLive: isLive, language: language)
     }
@@ -765,7 +803,14 @@ class YTDLPWrapper: ObservableObject {
             if data.isEmpty { return }
             errorBuffer.append(data)
             if let output = String(data: data, encoding: .utf8) {
-                Task { @MainActor in self?.outputLog += output }
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.outputLog += output
+                    // A stream yt-dlp hands to ffmpeg (an encrypted HLS track) reports
+                    // its progress here, as ffmpeg's "time=": it counts as progress too.
+                    guard runGeneration == self.downloadGeneration else { return }
+                    self.readFFmpeg(output)
+                }
             }
         }
 
@@ -846,17 +891,50 @@ class YTDLPWrapper: ObservableObject {
     /// downloads: a cancelled or failed download leaves nothing in the user's folder.
     /// `label` names the size ("720p", "4K Original") so a second save at
     /// another size is a new file, not yt-dlp's "already downloaded" old one.
-    private func outputArgs(_ outputPath: String, label: String? = nil) -> [String] {
+    private func outputArgs(_ outputPath: String, url: String, label: String? = nil) -> [String] {
         let work = NSTemporaryDirectory() + "mindextract-\(UUID().uuidString)"
         try? FileManager.default.createDirectory(atPath: work, withIntermediateDirectories: true)
         tempPrefixes = [work]
         let suffix = label.map { " " + $0.replacingOccurrences(of: "%", with: "%%") } ?? ""
+        // A stream found on a page is named after the page, not itself ("hls [hls]"),
+        // with a short mark of the stream so two pages with one title stay two files.
+        if let page = PageVideos.shared.video(for: url), page.pageNamesIt,
+           let title = page.title.map(Self.fileName), !title.isEmpty {
+            return ["-P", outputPath, "-P", "temp:" + work, "-o", "\(title) [\(Self.shortMark(page.mediaURL))]\(suffix).%(ext)s"]
+        }
         return ["-P", outputPath, "-P", "temp:" + work, "-o", "%(title).120B [%(id)s]\(suffix).%(ext)s"]
+    }
+
+    /// A page title as a file name, written for yt-dlp's -o (where % is special).
+    /// yt-dlp expands $VARIABLES and a leading ~ in -o, so those go too: a page
+    /// can't steer the file out of the save folder. At most 180 bytes, since a
+    /// file name may be 255 and the size and extension follow.
+    nonisolated static func fileName(_ title: String) -> String {
+        var bad = CharacterSet(charactersIn: "/:\\$\u{7F}").union(.newlines)
+        bad.insert(charactersIn: Unicode.Scalar(0)...Unicode.Scalar(0x1F))
+        let clean = title.components(separatedBy: bad).joined(separator: " ")
+            .split(separator: " ", omittingEmptySubsequences: true).joined(separator: " ")
+        var short = ""
+        for ch in clean {
+            if short.utf8.count + String(ch).utf8.count > 180 { break }
+            short.append(ch)
+        }
+        short = short.trimmingCharacters(in: CharacterSet(charactersIn: " .~"))
+        return short.replacingOccurrences(of: "%", with: "%%")
+    }
+
+    /// Six letters that stay the same for one stream (FNV-1a), for its file name.
+    nonisolated static func shortMark(_ s: String) -> String {
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in s.utf8 { hash = (hash ^ UInt64(byte)) &* 0x100000001b3 }
+        return String(String(hash, radix: 36).suffix(6))
     }
 
     /// The address to hand yt-dlp. A plain vimeo.com video page now wants a
     /// login; the same video's player page doesn't.
     nonisolated static func fetchableURL(_ url: String) -> String {
+        // A page whose video was found on it: the stream or player it plays.
+        if let page = PageVideos.shared.video(for: url) { return page.mediaURL }
         guard let comps = URLComponents(string: url), let host = comps.host?.lowercased(),
               host == "vimeo.com" || host == "www.vimeo.com",
               let id = comps.path.split(separator: "/").first, id.allSatisfy(\.isNumber) else { return url }
@@ -866,6 +944,15 @@ class YTDLPWrapper: ObservableObject {
             return "https://player.vimeo.com/video/\(id)?h=\(parts[1])"
         }
         return "https://player.vimeo.com/video/\(id)"
+    }
+
+    /// The link to hand yt-dlp, last on its command line. A video found on a
+    /// page is fetched as that page would fetch it (some streams check that).
+    nonisolated static func target(_ url: String) -> [String] {
+        guard let page = PageVideos.shared.video(for: url) else { return [fetchableURL(url)] }
+        // Only the origin, as a browser sends it to another site: the page's own
+        // address (a webinar's member id) stays with the page.
+        return (page.referer.map { ["--referer", $0] } ?? []) + [page.mediaURL]
     }
 
     /// Live streams have nothing to save until they end; yt-dlp would record forever.
@@ -918,7 +1005,7 @@ class YTDLPWrapper: ObservableObject {
         let formatArgs = keepOriginal
             ? ["-f", "bv*+ba[format_id!=audio]/b", "-S", height.map { "res:\($0)" } ?? "res", "--merge-output-format", "mkv"]
             : videoFormatArgs(height: height)
-        var args = formatArgs + outputArgs(outputPath, label: label) + notLive + ["--newline", "--progress", "--no-playlist"]
+        var args = formatArgs + outputArgs(outputPath, url: url, label: label) + notLive + ["--newline", "--progress", "--no-playlist"]
         args.append(contentsOf: youtubeWorkaroundArgs)
         if settings.downloadSubtitles {
             // Inside the video, where QuickTime shows them. Only the language
@@ -930,7 +1017,7 @@ class YTDLPWrapper: ObservableObject {
         let savedPathFile = Self.makeSavedPathFile()
         pendingSavedPathFile = savedPathFile
         args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
-        args.append(Self.fetchableURL(url))
+        args += Self.target(url)
 
         runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
             guard let self = self else { return }
@@ -997,6 +1084,49 @@ class YTDLPWrapper: ObservableObject {
         }
     }
 
+    // MARK: ffmpeg's progress
+
+    /// The length ffmpeg reported for the stream it's fetching, for its percentage.
+    private var ffmpegDuration: Double?
+    /// How far it got, so only moving forward counts as progress.
+    private var ffmpegTime: Double?
+    /// A line ffmpeg hasn't finished writing yet (it ends its lines with \r).
+    private var ffmpegPending = ""
+
+    /// One line of ffmpeg's log: the stream's length ("Duration: 00:37:16.58")
+    /// or how far it got ("size=… time=00:10:30.03 …").
+    nonisolated static func ffmpegLine(_ line: Substring) -> (duration: Double?, time: Double?) {
+        func seconds(_ t: Substring) -> Double? {
+            let parts = t.split(separator: ":").compactMap { Double($0) }
+            guard parts.count == 3 else { return nil }
+            return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        }
+        let duration = line.firstMatch(of: #/Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/#).flatMap { seconds($0.1) }.flatMap { $0 > 0 ? $0 : nil }
+        let time = line.firstMatch(of: #/time=\s*(\d+:\d+:\d+(?:\.\d+)?)/#).flatMap { seconds($0.1) }
+        return (duration, time)
+    }
+
+    /// ffmpeg's log as it arrives, whole lines only. Its clock moving forward
+    /// keeps the stall check quiet; with the length known it's a percentage too.
+    private func readFFmpeg(_ chunk: String) {
+        ffmpegPending += chunk
+        guard let end = ffmpegPending.lastIndex(where: { $0 == "\r" || $0 == "\n" }) else {
+            if ffmpegPending.count > 4096 { ffmpegPending = "" }
+            return
+        }
+        let complete = ffmpegPending[..<end]
+        ffmpegPending = String(ffmpegPending[ffmpegPending.index(after: end)...])
+        for line in complete.split(whereSeparator: { $0 == "\r" || $0 == "\n" }) {
+            let (duration, time) = Self.ffmpegLine(line)
+            if let duration { ffmpegDuration = duration }
+            guard let time, time > (ffmpegTime ?? -1), case .downloading = state else { continue }
+            ffmpegTime = time
+            lastProgressTime = Date()
+            sawProgress = true
+            if let length = ffmpegDuration { setStreamProgress(min(100, time / length * 100), speed: "") }
+        }
+    }
+
     /// Reads yt-dlp's output line by line: download progress, and the steps
     /// after it (merging, extracting audio), which show no progress of their own.
     private func parseProgress(_ output: String) {
@@ -1011,7 +1141,11 @@ class YTDLPWrapper: ObservableObject {
             if line.hasPrefix("[download] Destination:") {
                 let ext = (String(line) as NSString).pathExtension.lowercased()
                 inSubtitle = ["vtt", "srt", "ttml", "dfxp", "sbv", "json", "json3", "srv1", "srv2", "srv3", "ass", "ssa", "lrc"].contains(ext)
-                if !inSubtitle { streamIndex += 1 }
+                if !inSubtitle {
+                    streamIndex += 1
+                    ffmpegTime = nil        // a new stream: ffmpeg's clock starts over
+                    ffmpegDuration = nil
+                }
             }
             if inSubtitle { continue }
             if ["[Merger]", "[ExtractAudio]", "[EmbedSubtitle]", "[Fixup", "[VideoRemuxer]", "[VideoConvertor]", "[MoveFiles]"]
@@ -1022,6 +1156,13 @@ class YTDLPWrapper: ObservableObject {
             guard line.contains("%"),
                   let match = line.firstMatch(of: #/(\d+\.?\d*)%.*?at\s+(\S+)/#),
                   let percent = Double(match.1) else { continue }
+            setStreamProgress(percent, speed: String(match.2))
+        }
+    }
+
+    /// One stream's percentage as the whole download's progress.
+    private func setStreamProgress(_ percent: Double, speed: String) {
+        do {
             // The video stream is most of the bytes; the audio after it the rest.
             let index = min(max(streamIndex, 1), streamCount)
             let progress: Double
@@ -1032,7 +1173,7 @@ class YTDLPWrapper: ObservableObject {
             } else {
                 progress = percent / 100
             }
-            state = .downloading(progress: min(progress, 1), speed: String(match.2))
+            state = .downloading(progress: min(progress, 1), speed: speed)
             lastProgressTime = Date()
             sawProgress = true
         }
@@ -1101,12 +1242,12 @@ class YTDLPWrapper: ObservableObject {
         // Its own name: on sites without a separate audio stream yt-dlp fetches the
         // video and deletes it after taking the sound, which must never be a video
         // the user saved earlier under the same name.
-        ] + outputArgs(outputPath, label: "Audio") + notLive + ["--newline", "--progress", "--no-playlist"]
+        ] + outputArgs(outputPath, url: url, label: "Audio") + notLive + ["--newline", "--progress", "--no-playlist"]
         args.append(contentsOf: youtubeWorkaroundArgs)
         let savedPathFile = Self.makeSavedPathFile()
         pendingSavedPathFile = savedPathFile
         args.append(contentsOf: ["--print-to-file", "after_move:filepath", savedPathFile])
-        args.append(Self.fetchableURL(url))
+        args += Self.target(url)
 
         runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
             guard let self = self else { return }
@@ -1151,7 +1292,7 @@ class YTDLPWrapper: ObservableObject {
             "--newline", "--progress", "--no-playlist",
         ] + notLive
         args.append(contentsOf: youtubeWorkaroundArgs)
-        args.append(Self.fetchableURL(url))
+        args += Self.target(url)
 
         runYTDLP(arguments: args, progressHandler: { [weak self] in self?.parseProgress($0) }) { [weak self] success, errorOutput in
             guard let self = self else { return }

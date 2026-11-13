@@ -11,6 +11,7 @@
 		FA000001FA00000000000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = FA000002FA00000000000001 /* FluidAudio */; };
 		B1000E29 /* ParakeetEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E2A /* ParakeetEngine.swift */; };
 		B1000E3B /* AudioConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000E3C /* AudioConverter.swift */; };
+		B1000F01 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000F02 /* BrowserTab.swift */; };
 		N000000B /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N000000C /* OnboardingView.swift */; };
 		N0000009 /* AppServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = N000000A /* AppServices.swift */; };
 		N0000007 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = N0000008 /* SettingsWindow.swift */; };
@@ -57,6 +58,7 @@
 		B1000016 /* MindExtract.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MindExtract.entitlements; sourceTree = "<group>"; };
 		B1000E2A /* ParakeetEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetEngine.swift; sourceTree = "<group>"; };
 		B1000E3C /* AudioConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioConverter.swift; sourceTree = "<group>"; };
+		B1000F02 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
 		N000000C /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		N000000A /* AppServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppServices.swift; sourceTree = "<group>"; };
 		N0000008 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
@@ -125,6 +127,7 @@
 				B1000011 /* MindExtractApp.swift */,
 				B1000E2A /* ParakeetEngine.swift */,
 				B1000E3C /* AudioConverter.swift */,
+				B1000F02 /* BrowserTab.swift */,
 				N000000C /* OnboardingView.swift */,
 				N000000A /* AppServices.swift */,
 				N0000008 /* SettingsWindow.swift */,
@@ -267,6 +270,7 @@
 				B1000001 /* MindExtractApp.swift in Sources */,
 				B1000E29 /* ParakeetEngine.swift in Sources */,
 				B1000E3B /* AudioConverter.swift in Sources */,
+				B1000F01 /* BrowserTab.swift in Sources */,
 				N000000B /* OnboardingView.swift in Sources */,
 				N0000009 /* AppServices.swift in Sources */,
 				N0000007 /* SettingsWindow.swift in Sources */,

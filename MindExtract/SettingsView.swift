@@ -195,6 +195,25 @@ struct SettingsView: View {
             }
         }
 
+        SettingsSection("Your browser",
+                        footer: "Opening the notch over Safari, Chrome, Arc, Edge, Brave or Vivaldi offers the video on the page in front. MindExtract reads only the page's address and title. A video site is looked up right away; any other page only when you click Find the video on this page. Private windows are skipped, except in Safari, which doesn't tell apps which windows are private.") {
+            SettingsRow("Suggest the video on the open page") {
+                Toggle("", isOn: Binding(get: { settings.suggestFromBrowser }, set: { on in
+                    settings.suggestFromBrowser = on
+                    if on { NotchModel.resetBrowserQuestions() }
+                })).toggleStyle(MonoToggleStyle())
+            }
+            if settings.suggestFromBrowser {
+                let denied = NotchModel.deniedBrowsers
+                SettingsRow("Allowed in macOS",
+                            detail: denied.isEmpty
+                                ? "macOS asks once per browser."
+                                : LocalizedStringKey("Not allowed in \(denied.formatted(.list(type: .and))).")) {
+                    SmallButton("Open System Settings…") { NotchModel.openAutomationSettings() }
+                }
+            }
+        }
+
         SettingsSection("Signing in",
                         footer: "Most videos download without signing in. If a site blocks one, for example an age-restricted or members-only video, borrow the sign-in from a browser where you're logged in.") {
             SettingsRow("Use the sign-in from",

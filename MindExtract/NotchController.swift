@@ -180,7 +180,8 @@ final class NotchController {
         openedByDrag = reason == .drag
         let wantsKeyboard = reason == .click || reason == .keyboard || reason == .reopen
         if !model.isOpen {
-            model.refreshClipboard()
+            model.refreshClipboard(opening: true)
+            model.refreshBrowserTab()       // now, while the browser is still in front
             panel?.ignoresMouseEvents = false
             withAnimation(NotchStyle.openAnimation) { model.isOpen = true }
             // A result counts as seen once the notch has really been open a moment.
@@ -337,7 +338,8 @@ final class NotchController {
         // A click somewhere else closes it. (The global monitor only sees other
         // apps' clicks; our own windows report through the local one.)
         if type == .leftMouseDown || type == .rightMouseDown {
-            if !inside && !ownWindow { close() }
+            // Not while macOS asks about the browser: its dialog is outside the notch.
+            if !inside && !ownWindow && !model.isAskingBrowser { close() }
             return
         }
         if type == .leftMouseDragged, model.dragKind == nil, let kind = draggedKind() { model.dragKind = kind }
@@ -348,7 +350,8 @@ final class NotchController {
 
         let typing = model.isEditing && !model.input.isEmpty
         let onboarding = model.onboarding != nil && model.onboarding != .summon   // the introduction stays open
-        if (stickyOpen && !mouseWasInside) || inside || typing || model.isMenuOpen || model.dragKind != nil || onboarding {
+        if (stickyOpen && !mouseWasInside) || inside || typing || model.isMenuOpen || model.dragKind != nil || onboarding
+            || model.isAskingBrowser {
             closeWork?.cancel(); closeWork = nil
         } else if closeWork == nil {
             let delay = openedByDrag ? 0.5 : 0.35
@@ -357,6 +360,7 @@ final class NotchController {
                 self.closeWork = nil
                 let typing = self.model.isEditing && !self.model.input.isEmpty
                 if !self.openRect.contains(NSEvent.mouseLocation), !typing, !self.model.isMenuOpen, self.model.dragKind == nil,
+                   !self.model.isAskingBrowser,
                    (self.model.onboarding == nil || self.model.onboarding == .summon) {
                     self.close()
                 }

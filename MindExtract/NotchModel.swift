@@ -139,6 +139,48 @@ final class NotchModel: ObservableObject {
         return saveChoice
     }
     @Published private(set) var clipboardLink: String?
+    /// The page open in your browser when the notch opened. On a video site it's
+    /// a video, already looked up (sizes and all). Any other page is only an offer:
+    /// nothing is fetched from it until you click Find Video.
+    struct BrowserPage: Equatable {
+        let link: String
+        let title: String
+        let browser: String
+        var thumbnail: URL?
+        var isVideo: Bool
+    }
+    @Published private(set) var browserPage: BrowserPage?
+    /// A browser we may ask for its page, once you say yes (macOS asks too).
+    @Published private(set) var browserToAsk: BrowserTab.Browser?
+    /// macOS's question is open, or it was answered no.
+    enum BrowserAnswer: Equatable { case waiting(String), denied(String) }
+    @Published private(set) var browserAnswer: BrowserAnswer?
+    var isAskingBrowser: Bool { if case .waiting = browserAnswer { return true } else { return false } }
+    /// The copied link was copied since the notch last opened: it's what you want now.
+    private var clipboardIsFresh = false
+    /// The clipboard as the notch last opened (or the app started): a link copied
+    /// before that isn't fresh, even on the first opening after launch.
+    private var clipboardAtLastOpen = NSPasteboard.general.changeCount
+    /// The open page on a video site, while its quiet lookup says whether it's one video.
+    private var pendingTab: BrowserTab.Tab?
+    /// Video-site pages that aren't one video (a home page, a channel), and when we learned it.
+    private var notOneVideo: [String: Date] = [:]
+    /// Bumped by every look at the browser, so a slow answer about an older page is dropped.
+    private var tabCheck = 0
+    /// The browser is being asked right now (each opening doesn't start another).
+    private var readingTab = false
+    /// The page the item on show came from, when it came from the browser. Until
+    /// you save or transcribe it, the notch follows you to another tab.
+    private var browserItemLink: String?
+
+    /// Idle, or showing what the browser offered and nothing started on it yet.
+    private var followsBrowser: Bool {
+        switch stage {
+        case .idle: return true
+        case .loadingInfo(_, nil), .ready, .failed: return browserItemLink != nil
+        default: return false
+        }
+    }
     /// The transcript path that's on the clipboard right now (for "Copied").
     @Published private(set) var copiedPath: String?
     @Published private(set) var autoCopiedPath: String?
@@ -190,7 +232,8 @@ final class NotchModel: ObservableObject {
 
     // MARK: Input
 
-    func refreshClipboard() {
+    /// `opening`: the notch is opening now, so a link copied earlier is no longer fresh.
+    func refreshClipboard(opening: Bool = false) {
         let pb = NSPasteboard.general
         if pb.changeCount != lastPasteboardCount {
             lastPasteboardCount = pb.changeCount
@@ -198,18 +241,217 @@ final class NotchModel: ObservableObject {
             // A link on its own, or in a short bit of text (a chat message, a share sheet's text).
             let link = text.count <= 500 ? Self.link(in: text).map(Self.cleanLink) : nil
             clipboardLink = link.flatMap { isRecent(link: $0) ? nil : $0 }
+            if !opening { clipboardIsFresh = clipboardLink != nil }
             if case .idle = stage { language = AppSettings.shared.defaultTranscriptionLanguage }
+        }
+        if opening {
+            clipboardIsFresh = clipboardLink != nil && pb.changeCount != clipboardAtLastOpen
+            clipboardAtLastOpen = pb.changeCount
         }
         prefetchCopiedLink()
     }
 
-    /// Looks up the copied link in the background while its card shows, so
-    /// Save lists the same sizes as for a pasted link, and starts sooner.
+    // MARK: The page open in your browser
+
+    /// The one suggestion card the idle notch shows: a link you just copied wins,
+    /// then the video on the page you're looking at, then an older copied link.
+    /// Typing a link of your own puts the page's card away.
+    var showsBrowserVideo: Bool {
+        browserPage?.isVideo == true && !(clipboardIsFresh && clipboardLink != nil) && input.isEmpty
+    }
+    /// Any other page: a one-line offer that fetches it only when clicked.
+    var showsPageOffer: Bool { browserPage?.isVideo == false && input.isEmpty }
+    /// Held back while the open page is being checked, so the card doesn't swap under the pointer.
+    var showsCopiedLink: Bool { clipboardLink != nil && !showsBrowserVideo && pendingTab == nil }
+
+    /// Called as the notch opens, while the browser is still the app in front.
+    func refreshBrowserTab() {
+        if case .denied = browserAnswer { browserAnswer = nil }
+        guard AppSettings.shared.suggestFromBrowser, followsBrowser, onboarding == nil,
+              !(clipboardIsFresh && clipboardLink != nil), let browser = BrowserTab.frontmost() else {
+            appLog("Browser: skipped (setting \(AppSettings.shared.suggestFromBrowser), idle \(stage == .idle ? 1 : 0), onboarding \(onboarding != nil), fresh copy \(clipboardIsFresh && clipboardLink != nil), front \(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "-"))")
+            tabCheck += 1
+            forgetTab()
+            return
+        }
+        guard !readingTab else { return }       // the look already under way answers for this opening
+        tabCheck += 1
+        let check = tabCheck
+        Task { @MainActor in
+            let permission = await BrowserTab.permission(for: browser, ask: false)
+            appLog("Browser: \(browser.bundleID) permission \(permission), asked before \(UserDefaults.standard.bool(forKey: Self.askedKey(browser)))")
+            switch permission {
+            case .allowed:
+                Self.setDenied(browser, false)
+                await checkTab(of: browser, check: check)
+            case .notAsked:
+                guard check == tabCheck else { return }
+                forgetTab()
+                // Shown at most three times per browser: unanswered after that counts as no.
+                let shownKey = "askShown." + browser.bundleID
+                let shown = UserDefaults.standard.integer(forKey: shownKey)
+                if onboarding == nil, shown < 3, !UserDefaults.standard.bool(forKey: Self.askedKey(browser)) {
+                    UserDefaults.standard.set(shown + 1, forKey: shownKey)
+                    browserToAsk = browser
+                }
+            case .denied:
+                Self.setDenied(browser, true)
+                guard check == tabCheck else { return }
+                forgetTab()
+            case .unavailable:
+                guard check == tabCheck else { return }
+                forgetTab()
+            }
+        }
+    }
+
+    /// Continue: macOS asks its own question (the notch stays open meanwhile), then we look.
+    func allowBrowser() {
+        guard let browser = browserToAsk else { return }
+        UserDefaults.standard.set(true, forKey: Self.askedKey(browser))
+        browserToAsk = nil
+        browserAnswer = .waiting(browser.name)
+        tabCheck += 1
+        let check = tabCheck
+        Task { @MainActor in
+            let answer = await BrowserTab.permission(for: browser, ask: true)
+            browserAnswer = nil
+            switch answer {
+            case .allowed:
+                Self.setDenied(browser, false)
+                await checkTab(of: browser, check: check)
+            case .denied:
+                Self.setDenied(browser, true)
+                browserAnswer = .denied(browser.name)
+            default:
+                break
+            }
+        }
+    }
+
+    /// No thanks: the suggestions are turned off, as Settings then shows.
+    func declineBrowser() {
+        browserToAsk = nil
+        AppSettings.shared.suggestFromBrowser = false
+    }
+
+    func dismissBrowserAnswer() { browserAnswer = nil }
+
+    /// Privacy & Security, Automation, where a browser can be allowed after all.
+    static func openAutomationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func openAutomationSettingsFromNotch() {
+        browserAnswer = nil
+        Self.openAutomationSettings()
+    }
+
+    static func askedKey(_ browser: BrowserTab.Browser) -> String { "askedBrowser." + browser.bundleID }
+
+    /// Browsers macOS said no for, as last seen (Settings lists them).
+    static var deniedBrowsers: [String] {
+        Array(Set(BrowserTab.known.filter { UserDefaults.standard.bool(forKey: "deniedBrowser." + $0.key) }.map(\.value))).sorted()
+    }
+
+    private static func setDenied(_ browser: BrowserTab.Browser, _ denied: Bool) {
+        UserDefaults.standard.set(denied, forKey: "deniedBrowser." + browser.bundleID)
+    }
+
+    /// Settings turned the suggestions back on: every browser may be asked again.
+    static func resetBrowserQuestions() {
+        for id in BrowserTab.known.keys {
+            UserDefaults.standard.removeObject(forKey: "askedBrowser." + id)
+            UserDefaults.standard.removeObject(forKey: "askShown." + id)
+        }
+    }
+
+    private func checkTab(of browser: BrowserTab.Browser, check: Int) async {
+        readingTab = true
+        let found = await BrowserTab.currentTab(of: browser)
+        readingTab = false
+        guard check == tabCheck, followsBrowser else { return }
+        guard let found else { forgetTab(); return }          // a private window, a new tab, no window
+        let link = Self.fullLink(found.url)
+        if stage != .idle {
+            // Still the page whose video is on show: it stays. Another tab: start over there.
+            guard link != browserItemLink else { return }
+            clear()
+        }
+        if browserPage?.link == link || pendingTab?.url == link { return }     // already showing or checking
+        let skip = notOneVideo[link].map { Date().timeIntervalSince($0) < 600 } ?? false
+        // Sign-in, payment and mail pages, links with a key in them, this Mac: never touched.
+        // (A page saved before is still offered: you're looking at it now.)
+        guard !skip, PageScanner.isScannable(link) else { forgetTab(); return }
+        let tab = BrowserTab.Tab(url: link, title: found.title, browser: browser)
+        if Self.isVideoSite(link) {
+            browserPage = nil
+            // Looked up already (it's the copied link too): no need to ask again.
+            if prefetchedLink == link, downloader.loadGeneration == awaitedLoad,
+               let info = downloader.videoInfo, info.url == link {
+                showTabVideo(tab, info: info)
+                return
+            }
+            // A video site's home or search page isn't one video: the quiet lookup says.
+            pendingTab = tab
+            prefetchCopiedLink()
+        } else {
+            // Any other page is only offered; it's fetched when you click.
+            pendingTab = nil
+            browserPage = BrowserPage(link: link, title: found.title, browser: browser.name, isVideo: false)
+            prefetchCopiedLink()
+        }
+    }
+
+    private func showTabVideo(_ tab: BrowserTab.Tab, info: VideoInfo?) {
+        pendingTab = nil
+        let title = info.map(\.title).flatMap { $0.isEmpty ? nil : $0 } ?? tab.title
+        browserPage = BrowserPage(link: tab.url, title: title, browser: tab.browser.name,
+                                  thumbnail: info?.thumbnail.flatMap(URL.init(string:)), isVideo: true)
+        if isOpen {
+            AccessibilityNotification.Announcement(String(localized: "Video found on the page in \(tab.browser.name)")).post()
+        }
+    }
+
+    private func forgetTab() {
+        let had = browserPage != nil || pendingTab != nil
+        browserPage = nil
+        pendingTab = nil
+        browserToAsk = nil
+        if had { prefetchCopiedLink() }
+    }
+
+    func saveBrowserVideo() {
+        guard let page = browserPage else { return }
+        browserPage = nil
+        load(page.link, then: .download)
+    }
+
+    func transcribeBrowserVideo() {
+        guard let page = browserPage else { return }
+        browserPage = nil
+        load(page.link, then: .transcribe)
+    }
+
+    /// Find Video on any other page: yt-dlp first (it knows thousands of sites),
+    /// then the page itself is searched for its player.
+    func findPageVideo() {
+        guard let page = browserPage else { return }
+        browserPage = nil
+        load(page.link, then: nil)
+        browserItemLink = page.link
+    }
+
+    /// Looks up the copied link (or the open page's video) in the background
+    /// while its card shows, so Save lists the same sizes as for a pasted link.
     private func prefetchCopiedLink() {
         // Only video sites: any other copied address (a password reset, a sign-in
         // link) is never fetched without being asked.
         guard case .idle = stage else { return }
-        guard let copied = clipboardLink, Self.isVideoSite(copied) else {
+        let tab = pendingTab?.url ?? (showsBrowserVideo ? browserPage?.link : nil)
+        guard let copied = tab ?? clipboardLink.flatMap({ Self.isVideoSite($0) ? $0 : nil }) else {
             // Another kind of link now: the previous one's sizes don't belong to it.
             if prefetchedLink != nil {
                 prefetchedLink = nil
@@ -246,6 +488,11 @@ final class NotchModel: ObservableObject {
 
     func submit() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Return in the empty field does what the card's main button does.
+        if text.isEmpty, case .idle = stage {
+            if showsBrowserVideo { transcribeBrowserVideo() } else if showsCopiedLink { transcribeCopiedLink() }
+            return
+        }
         guard !text.isEmpty, !isBusy else { return }
         let path = (text as NSString).expandingTildeInPath
         if FileManager.default.fileExists(atPath: path) {
@@ -272,6 +519,11 @@ final class NotchModel: ObservableObject {
             if saveChoice.isSize { saveChoice = .standard }   // a size belongs to one link
         }
         if let copied = clipboardLink, Self.fullLink(copied) == url { clipboardLink = nil }
+        // Another link now: the open page's card doesn't come back after this job.
+        tabCheck += 1
+        browserItemLink = nil
+        browserPage = nil
+        pendingTab = nil
         stage = .loadingInfo(url: url, then: next)
         if ahead {
             if downloader.videoInfo != nil { downloaderChanged(downloader.state, downloader.videoInfo) }
@@ -303,6 +555,7 @@ final class NotchModel: ObservableObject {
         qualities = []
         if saveChoice.isSize { saveChoice = .standard }
         awaitingModel = false
+        browserItemLink = nil
         language = AppSettings.shared.defaultTranscriptionLanguage
         stage = .idle
         prefetchCopiedLink()        // the copied link's card shows again, with its sizes
@@ -509,8 +762,28 @@ final class NotchModel: ObservableObject {
         switch stage {
         case .idle:
             // The copied link's lookup: only its sizes matter, never its errors.
-            if let info, prefetchedLink != nil, downloader.loadGeneration == awaitedLoad, !info.formats.isEmpty {
+            // Only this link's info: the previous link's can still be in flight.
+            if let info, let link = prefetchedLink, info.url == link, downloader.loadGeneration == awaitedLoad, !info.formats.isEmpty {
                 qualities = YTDLPWrapper.qualities(in: info.formats)
+            }
+            // The open page on a video site: one video shows its card, anything else
+            // (a home page, a search, a channel) quietly doesn't.
+            if let tab = pendingTab, prefetchedLink == tab.url, downloader.loadGeneration == awaitedLoad {
+                if let info, info.url == tab.url {
+                    showTabVideo(tab, info: info)
+                } else if downloader.state != .fetchingFormats {
+                    if downloader.lastErrorNeedsAuth {
+                        // A post that needs your sign-in (Instagram, X): the quiet lookup
+                        // has none, but Save uses the browser's, so offer it anyway.
+                        showTabVideo(tab, info: nil)
+                    } else {
+                        pendingTab = nil
+                        // Surely not one video (a home page, a channel): skipped for a while.
+                        // A lookup that just failed may work next time.
+                        if !downloader.scannedVideos.isEmpty { notOneVideo[tab.url] = Date() }
+                        prefetchCopiedLink()        // the copied link's sizes, if there is one
+                    }
+                }
             }
         case .loadingInfo(let url, let next):
             if let info {
