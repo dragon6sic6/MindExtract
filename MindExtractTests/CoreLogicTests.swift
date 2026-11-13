@@ -457,4 +457,13 @@ final class CoreLogicTests: XCTestCase {
         let both = PageScanner.Found(#"<script>a("https://cdn.talksite.com/x/dash/dash.mpd");b("https://cdn.talksite.com/x/hls/hls.m3u8")</script>"#, base: URL(string: "https://talksite.com/")!)
         XCTAssertEqual(both.best?.url, "https://cdn.talksite.com/x/hls/hls.m3u8")
     }
+
+    @MainActor func testAVideoInAPlaylistIsOfferedAsThatOneVideo() {
+        XCTAssertEqual(NotchModel.oneVideoLink("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&start_radio=1"),
+                       "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        XCTAssertEqual(NotchModel.oneVideoLink("https://www.youtube.com/watch?v=abc&t=42"), "https://www.youtube.com/watch?v=abc&t=42")
+        XCTAssertFalse(NotchModel.isSingleVideoLink("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123"))
+        XCTAssertTrue(PageScanner.isScannable("https://videos.talksite.com/video/5f8d0d55b54764421b7156c9"))
+        XCTAssertTrue(PageScanner.isScannable("https://www.ted.com/talks/the_magic_of_truth"))
+    }
 }

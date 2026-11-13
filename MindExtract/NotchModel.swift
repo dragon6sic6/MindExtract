@@ -101,8 +101,12 @@ final class NotchModel: ObservableObject {
             keepAwake(isBusy)
             // Saving or transcribing has started: the notch no longer follows the browser.
             if case .working = stage { browserItemLink = nil }
+            stageSeen = isOpen
         }
     }
+    /// What's on show has been seen in an opening, so a later opening may replace it
+    /// (a failure that arrived while the notch was closed shows first).
+    private var stageSeen = false
     @Published var language: String = AppSettings.shared.defaultTranscriptionLanguage
     /// What Save saves: the Settings quality, a size picked for this link, or just the sound.
     /// `original`: the site's own file at that size, not converted (VP9 or AV1:
@@ -264,6 +268,8 @@ final class NotchModel: ObservableObject {
     // MARK: The page open in your browser
 
     private var freshCopy: Bool { clipboardIsFresh && clipboardLink != nil }
+    /// This opening may replace what Find showed (it was on screen in an earlier one).
+    private var replaceable = false
 
     /// The one suggestion the idle notch shows. A link you just copied wins, then
     /// the page you're on, then an older copied link. Typing a link of your own
@@ -278,6 +284,8 @@ final class NotchModel: ObservableObject {
 
     /// Called as the notch opens, while the browser is still the app in front.
     func refreshBrowserTab() {
+        replaceable = stageSeen        // seen in an earlier opening, so this one may replace it
+        stageSeen = true
         // An answer card shown once goes; one that arrived while closed shows this time.
         switch browserAnswer {
         case .denied, .allSet:
@@ -355,6 +363,7 @@ final class NotchModel: ObservableObject {
             case .allowed:
                 Self.setDenied(browser, false)
                 tabCheck += 1           // whatever opened meanwhile, this answer is the one to act on
+                browserChecked = true
                 await checkTab(of: browser, check: tabCheck)
                 if stage == .idle, browserPage == nil, pendingTab == nil { showAnswer(.allSet(browser.name)) }
             case .denied:
@@ -435,11 +444,24 @@ final class NotchModel: ObservableObject {
     /// The message a Find that found nothing ends with (its card says "No video found").
     static var noVideoMessage: String { classifyDownloadError(DownloadFailure.noVideoOnPage).message }
 
+    /// A YouTube video watched in a playlist or Mix, as the one video you're on
+    /// ("watch?v=X&list=RD…" would fetch the whole list).
+    static func oneVideoLink(_ link: String) -> String {
+        guard var comps = URLComponents(string: link), let host = comps.host?.lowercased(),
+              host.hasSuffix("youtube.com") || host == "youtu.be", let items = comps.percentEncodedQueryItems,
+              items.contains(where: { $0.name == "v" }) || host == "youtu.be" else { return link }
+        let kept = items.filter { !["list", "index", "start_radio", "pp", "rv"].contains($0.name) }
+        guard kept.count != items.count else { return link }
+        comps.percentEncodedQueryItems = kept.isEmpty ? nil : kept
+        return comps.string ?? link
+    }
+
     /// Links that are one video by their look, so their card shows at once.
     static func isSingleVideoLink(_ link: String) -> Bool {
         guard let comps = URLComponents(string: link), let host = comps.host?.lowercased() else { return false }
         let path = comps.path
         if host.hasSuffix("youtube.com") {
+            if comps.queryItems?.contains(where: { $0.name == "list" }) == true { return false }
             if path == "/watch", comps.queryItems?.contains(where: { $0.name == "v" && !($0.value ?? "").isEmpty }) == true { return true }
             return path.hasPrefix("/shorts/") && path.count > 8
         }
@@ -462,20 +484,23 @@ final class NotchModel: ObservableObject {
         let found = await BrowserTab.currentTab(of: browser)
         readingTab = false
         appLog("Browser: tab \(found == nil ? "none" : "read")")
-        guard check == tabCheck, followsBrowser else { return }
+        guard check == tabCheck else { return }
         browserChecked = true
+        guard followsBrowser else { forgetTab(); return }       // a job or your own link is on show
         guard let found else {
             if stage == .idle { forgetTab() }       // a private window, a new tab, no window
             return
         }
-        let link = Self.fullLink(found.url)
+        let link = Self.oneVideoLink(Self.fullLink(found.url))
         let recentlyNotOne = notOneVideo[link].map { Date().timeIntervalSince($0) < 600 } ?? false
         // Sign-in, payment and mail pages, links with a key in them, this Mac: never touched.
         // (A page saved before is still offered: you're looking at it now.)
         let usable = !recentlyNotOne && !Self.pageHasNoVideo(link) && PageScanner.isScannable(link)
         if stage != .idle {
-            // What Find showed stays while you're on its page (a #section too); a Find
-            // that found nothing goes. On another page you can use, start over there.
+            // What Find showed stays until it has been seen, and while you're on its page
+            // (a #section too); then a Find that found nothing goes, and on another page
+            // you can use, the notch starts over there.
+            guard replaceable else { return }
             if let shown = browserItemLink, Self.withoutFragment(link) == Self.withoutFragment(shown) {
                 guard case .failed = stage else { return }
                 clear()
@@ -490,6 +515,7 @@ final class NotchModel: ObservableObject {
         guard Self.isVideoSite(link) else {
             // Any other page is only offered; it's fetched when you click.
             pendingTab = nil
+            if case .allSet = browserAnswer { browserAnswer = nil }
             browserPage = BrowserPage(link: link, title: tab.title, browser: browser.name, isVideo: false)
             prefetchCopiedLink()
             return
@@ -520,6 +546,7 @@ final class NotchModel: ObservableObject {
 
     private func showTabVideo(_ tab: BrowserTab.Tab, info: VideoInfo?) {
         pendingTab = nil
+        if case .allSet = browserAnswer { browserAnswer = nil }
         let title = info.map(\.title).flatMap { $0.isEmpty ? nil : $0 } ?? tab.title
         browserPage = BrowserPage(link: tab.url, title: title, browser: tab.browser.name,
                                   thumbnail: info?.thumbnail.flatMap(URL.init(string:)), isVideo: true)
@@ -539,6 +566,7 @@ final class NotchModel: ObservableObject {
     /// Something else now (a dropped file, the sample): the page's suggestion goes.
     private func leaveBrowser() {
         tabCheck += 1
+        browserChecked = true
         browserItemLink = nil
         browserPage = nil
         pendingTab = nil
@@ -643,6 +671,7 @@ final class NotchModel: ObservableObject {
         if let copied = clipboardLink, Self.fullLink(copied) == url { clipboardLink = nil }
         // Another link now: the open page's card doesn't come back after this job.
         tabCheck += 1
+        browserChecked = true
         browserItemLink = nil
         browserPage = nil
         pendingTab = nil
@@ -696,6 +725,7 @@ final class NotchModel: ObservableObject {
 
     func download() {
         guard case .ready(let item) = stage, let url = item.url else { return }
+        browserItemLink = nil       // asked for now: it stays, whatever the browser shows next
         if item.isLive { fail(item, work: .download, classifyDownloadError(DownloadFailure.live).message, problem: .permanent); return }
         if let reason = Self.saveFolderProblem() { fail(item, work: .download, reason, problem: .needsFolder); return }
         jobPasteboardCount = NSPasteboard.general.changeCount
@@ -719,6 +749,7 @@ final class NotchModel: ObservableObject {
     }
 
     func transcribe() {
+        browserItemLink = nil       // asked for now: it stays, whatever the browser shows next
         let item: Item
         switch stage {
         case .ready(let i): item = i
@@ -885,6 +916,13 @@ final class NotchModel: ObservableObject {
         switch stage {
         case .idle:
             // The copied link's lookup: only its sizes matter, never its errors.
+            // The page's card, shown before its lookup came back, turned out to be a list.
+            if let page = browserPage, page.isVideo, prefetchedLink == page.link, downloader.loadGeneration == awaitedLoad,
+               info == nil, downloader.state != .fetchingFormats, !downloader.scannedVideos.isEmpty {
+                notOneVideo[page.link] = Date()
+                browserPage = nil
+                prefetchCopiedLink()
+            }
             // The page's card, shown before its lookup came back: now with picture and title.
             if let info, var page = browserPage, page.isVideo, info.url == page.link, prefetchedLink == page.link {
                 if page.thumbnail == nil, let thumb = info.thumbnail.flatMap(URL.init(string:)) { page.thumbnail = thumb }

@@ -205,7 +205,7 @@ enum PageScanner {
         // Whole words of the path ("reset-password"), not parts of others ("accountability").
         let words: Set<String> = ["login", "signin", "logout", "signout", "oauth", "password", "reset", "verify", "confirm",
                                   "activate", "invite", "approve", "rsvp", "optout", "unsubscribe", "checkout", "payment",
-                                  "billing", "invoice", "account", "settings", "magic", "callback"]
+                                  "billing", "invoice", "account", "settings", "callback"]
         for segment in comps.path.lowercased().split(separator: "/") {
             let tokens = segment.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
             if tokens.contains(where: words.contains) { return false }
@@ -214,8 +214,10 @@ enum PageScanner {
         // A segment that looks like a key: a JWT, or a long unbroken run of letters
         // and digits (a slug with dashes, "lecture-1-the-geometry-of…", is a title).
         if comps.path.split(separator: "/").contains(where: { seg in
-            seg.hasPrefix("eyJ") || (seg.count >= 24 && seg.allSatisfy { $0.isLetter || $0.isNumber }
-                                     && seg.contains(where: \.isNumber) && seg.contains(where: \.isLetter))
+            // (A 24-letter lowercase id like a video's "5f8d0d55b54764421b7156c9" is fine.)
+            seg.hasPrefix("eyJ") || (seg.allSatisfy { $0.isLetter || $0.isNumber } && seg.contains(where: \.isNumber)
+                && ((seg.count >= 32 && seg.contains(where: \.isLetter))
+                    || (seg.count >= 20 && seg.contains(where: \.isUppercase) && seg.contains(where: \.isLowercase))))
         }) { return false }
         let keys: Set<String> = ["token", "access_token", "id_token", "code", "key", "apikey", "api_key", "sig", "signature",
                                  "otp", "auth", "password", "pwd", "sessionid", "session_id", "session_token", "ticket", "secret",
@@ -226,6 +228,7 @@ enum PageScanner {
 
     /// The page's video, or nil when it has none (or none we can reach).
     static func scan(_ pageURL: String) async -> PageVideo? {
+        let started = Date()
         guard isScannable(pageURL), let start = URL(string: pageURL), let (html, base) = await fetch(start) else { return nil }
         let page = Found(html, base: base)
         let site = page.meta["og:site_name"] ?? base.host.map { $0.hasPrefix("www.") ? String($0.dropFirst(4)) : $0 }
@@ -241,7 +244,6 @@ enum PageScanner {
         if let best = page.best { return video(best, in: base, inner: nil) }
         // The player often sits in a frame of its own (a webinar's recording page).
         // Not past 15 seconds in all: a slow site isn't waited on frame after frame.
-        let started = Date()
         for frame in page.frames.prefix(3) where Date().timeIntervalSince(started) < 15 {
             guard let (inner, frameURL) = await fetch(frame) else { continue }
             let found = Found(inner, base: frameURL)
@@ -288,6 +290,11 @@ enum PageScanner {
                 if b[0..<15].allSatisfy({ $0 == 0 }) { return true }                       // :: and ::1
                 if b[0] & 0xfe == 0xfc { return true }                                      // fc00::/7
                 if b[0] == 0xfe && b[1] & 0xc0 == 0x80 { return true }                      // fe80::/10
+                if b[0] == 0xff { return true }                                             // multicast
+                func v4At(_ i: Int) -> UInt32 { UInt32(b[i]) << 24 | UInt32(b[i + 1]) << 16 | UInt32(b[i + 2]) << 8 | UInt32(b[i + 3]) }
+                if b[0..<12].allSatisfy({ $0 == 0 }) { return v4(v4At(12)) }                // ::a.b.c.d
+                if b[0] == 0x00 && b[1] == 0x64 && b[2] == 0xff && b[3] == 0x9b { return v4(v4At(12)) }   // 64:ff9b:: (NAT64)
+                if b[0] == 0x20 && b[1] == 0x02 { return v4(v4At(2)) }                      // 2002::/16 (6to4)
                 if b[0..<10].allSatisfy({ $0 == 0 }) && b[10] == 0xff && b[11] == 0xff {    // ::ffff:a.b.c.d
                     return v4(UInt32(b[12]) << 24 | UInt32(b[13]) << 16 | UInt32(b[14]) << 8 | UInt32(b[15]))
                 }
