@@ -25,6 +25,11 @@ Download and transcribe video from anywhere, right from the notch.
     YouTube and over a thousand other sites.
     Choose Transcribe, or Save Video.
 
+  Or just open it over your browser
+    The video on the page you're on is ready
+    to save or transcribe. On other pages,
+    click Find Video.
+
   Paste the text anywhere
     The finished transcript is copied for you.
     Press Command V in Claude, ChatGPT or any app.
@@ -48,7 +53,10 @@ Download and transcribe video from anywhere, right from the notch.
   uploaded. Only the video itself is fetched
   from the site. A copied link from a video
   site is looked up as the notch opens, so
-  its sizes are ready.
+  its sizes are ready. Over a browser, only
+  the page's address and title are read;
+  other pages are fetched only when you click
+  Find Video.
 
 
 ──────────────────────────────────────────────

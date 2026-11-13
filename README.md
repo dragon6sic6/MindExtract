@@ -19,6 +19,7 @@ Paste a link, or drag a file onto the notch, and MindExtract saves the video or 
 
 - **Lives in the notch.** Hover over the notch, click it, or press ⌃⌥Space (you can change it) from any app. No Dock icon, no windows.
 - **Link in, text out.** YouTube and over a thousand other sites, through [yt-dlp](https://github.com/yt-dlp/yt-dlp). A link you've copied is already waiting in the notch: one click transcribes it.
+- **The video on the page you're on.** Open the notch over Safari, Chrome, Arc, Edge, Brave or Vivaldi and a YouTube or Vimeo video is ready to save or transcribe. On other pages, Find Video looks for it when you click. Only the page's address and title are read.
 - **Any video or audio file.** Drag it onto the notch.
 - **Ready for AI chats.** The finished transcript is on your clipboard. Copy it with or without timestamps; when several people speak, each turn says who.
 - **About 40 languages, recognized automatically** for the 25 European ones.

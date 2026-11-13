@@ -2,6 +2,20 @@
 
 All notable changes to MindExtract. Versions follow [semantic versioning](https://semver.org). Downloads are on the [Releases](https://github.com/dragon6sic6/MindExtract/releases) page.
 
+## 3.1.0 (2026-11-13)
+
+### Added
+- The video on the page you're on. Opening the notch over Safari, Chrome, Arc, Edge, Brave or Vivaldi shows YouTube and Vimeo videos (and other video sites) with Save and Transcribe, after asking once per browser. A video watched in a playlist or Mix is offered as that one video.
+- Find Video on any other page. Nothing is fetched until you click; then yt-dlp is tried first, and the page and its frames are searched for the stream or embedded player. Pages where nothing was found aren't offered again for 30 days.
+- Pasting a link yt-dlp doesn't support searches the page for its video the same way.
+- Settings: a switch for browser suggestions, which browsers macOS said no for, and Ask Again.
+
+### Privacy
+- Only the page's address and title are read. Private windows are skipped, except in Safari, which doesn't say which windows are private. Sign-in, payment and mail pages, links carrying keys, and anything on this Mac or the local network are never fetched.
+
+### Fixed
+- Downloads whose sound is an encrypted HLS track stopped with "check your connection".
+
 ## 3.0.2 (2026-11-11)
 
 ### Added
